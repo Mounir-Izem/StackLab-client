@@ -155,7 +155,7 @@ CREATE TABLE IF NOT EXISTS items (
   family_key             TEXT    NOT NULL,              -- Slug série+métal. Ex: maple-leaf-silver
   metal                  TEXT    NOT NULL
                          CHECK (metal IN ('gold', 'silver')),
-  mint                   TEXT,                          -- Optionnel. Ex: Royal Canadian Mint
+  mint_name              TEXT,                          -- Optionnel. Ex: Royal Canadian Mint
   shape                  TEXT    NOT NULL
                          CHECK (shape IN ('coin', 'bar', 'token', 'bust', 'custom')),
   shape_description      TEXT,                          -- Champ libre si shape = custom
@@ -172,25 +172,31 @@ CREATE TABLE IF NOT EXISTS items (
 
   -- Attributs collection
   year                   INTEGER,                       -- Optionnel. Ex: 2022
-  strike_finish          TEXT                           -- BU | proof | reverse_proof | antique | matte | specimen | privy
-                         CHECK (strike_finish IN ('BU', 'proof', 'reverse_proof', 'antique', 'matte', 'specimen', 'privy') OR strike_finish IS NULL),
-  grade                  TEXT,                          -- [RESERVED] Ex: MS70, PF70
+  strike_finish          TEXT
+                         CHECK (strike_finish IN ('BU', 'proof', 'reverse_proof', 'antique', 'matte', 'specimen', 'burnished', 'proof_like', 'unknown') OR strike_finish IS NULL),
+  condition              TEXT
+                         CHECK (condition IN ('uncirculated', 'circulated', 'damaged', 'unknown') OR condition IS NULL),
+  grading_company        TEXT,                          -- [RESERVED] Ex: NGC, PCGS
+  grade_value            TEXT,                          -- [RESERVED] Ex: MS70, PF70
   notes                  TEXT,                          -- Texte libre
 
   -- Financier actifs
   quantity               INTEGER NOT NULL DEFAULT 1    -- Min: 1. Jamais null. (Règle 1 DATA_MODEL)
                          CHECK (quantity >= 1),
   purchase_price         REAL,                          -- Prix total payé. Null si inconnu.
-  purchase_price_unit    TEXT,                          -- Devise. Ex: USD, EUR, GBP
-  purchase_exchange_rate REAL,                          -- Taux de change au moment de l'achat
+  purchase_currency      TEXT,                          -- Devise au moment de l'achat. Ex: USD, EUR, GBP
+  purchase_exchange_rate REAL,                          -- Taux de change au moment de l'achat vs devise d'affichage
   purchase_date          TEXT,                          -- ISO 8601 date. Ex: 2022-03-15
 
   -- Financier Wishlist
   observed_price         REAL,                          -- Prix constaté sur le marché (Wishlist uniquement)
+  observed_currency      TEXT,                          -- Devise du prix constaté
+  observed_price_date    TEXT,                          -- ISO 8601 date du prix constaté
 
   -- Cycle de vie sold
   sold_date              TEXT,                          -- ISO 8601 date
   sold_price             REAL,                          -- Prix de vente total du lot
+  sold_currency          TEXT,                          -- Devise de vente
 
   -- Média
   photo_url              TEXT,                          -- Chemin local ou URL distante
@@ -205,6 +211,7 @@ CREATE TABLE IF NOT EXISTS items (
 ```
 
 **Règles critiques :**
+- `strike_finish` et `condition` sont des valeurs uniques par item — junction tables non requises
 - `status: sold` → jamais de suppression physique (Règle 10 DATA_MODEL)
 - `quantity >= 1` : enforced par SQL CHECK — jamais 0 ou null
 - `weight_oz > 0` : enforced par SQL CHECK — jamais null
@@ -217,6 +224,46 @@ CREATE TABLE IF NOT EXISTS items (
 - Un champ optionnel absent = NULL — ne jamais stocker une string vide ""
 - `purchase_price = NULL` → P&L non calculé, non affiché (Règle 4 DATA_MODEL)
 - `observed_price` est NULL sur les items actifs — seulement renseigné sur Wishlist
+
+---
+
+### Table item_features
+
+Junction table — valeurs multiples par item (privy, colorized, gilded, etc.).
+
+```sql
+CREATE TABLE IF NOT EXISTS item_features (
+  item_id TEXT NOT NULL
+          REFERENCES items(id) ON DELETE RESTRICT,
+  feature TEXT NOT NULL
+          CHECK (feature IN ('privy', 'colorized', 'gilded', 'high_relief', 'ultra_high_relief', 'hologram', 'enamel', 'ruthenium', 'plated', 'insert', 'numbered_certificate')),
+  PRIMARY KEY (item_id, feature)
+);
+```
+
+**Règles :**
+- Clé primaire composite `(item_id, feature)` — un item ne peut pas avoir la même feature deux fois
+- `ON DELETE RESTRICT` : supprimer l'item d'abord, la table se vide via l'app
+
+---
+
+### Table item_packaging
+
+Junction table — valeurs multiples par item (sealed, capsule, mint_box, etc.).
+
+```sql
+CREATE TABLE IF NOT EXISTS item_packaging (
+  item_id  TEXT NOT NULL
+           REFERENCES items(id) ON DELETE RESTRICT,
+  packaging TEXT NOT NULL
+           CHECK (packaging IN ('sealed', 'capsule', 'mint_box', 'with_certificate', 'raw')),
+  PRIMARY KEY (item_id, packaging)
+);
+```
+
+**Règles :**
+- Clé primaire composite `(item_id, packaging)` — un item ne peut pas avoir le même packaging deux fois
+- `ON DELETE RESTRICT` : supprimer l'item d'abord, la table se vide via l'app
 
 ---
 
@@ -257,6 +304,8 @@ CREATE TABLE IF NOT EXISTS settings (
                         CHECK (weight_unit IN ('oz', 'g', 'kg')),
   cloud_sync           INTEGER NOT NULL DEFAULT 0
                         CHECK (cloud_sync IN (0, 1)),
+  auto_backup_enabled  INTEGER NOT NULL DEFAULT 0  -- Choix Level 1 backup (onboarding étape 0). 0 = manuel uniquement, 1 = iCloud/Google Drive activé
+                        CHECK (auto_backup_enabled IN (0, 1)),
   backup_reminder      INTEGER NOT NULL DEFAULT 1
                         CHECK (backup_reminder IN (0, 1)),
   hide_values          INTEGER NOT NULL DEFAULT 0
@@ -273,11 +322,11 @@ CREATE TABLE IF NOT EXISTS settings (
 
 -- Initialisation à la création de la base — une seule fois
 INSERT INTO settings (
-  id, currency, weight_unit, cloud_sync, backup_reminder,
+  id, currency, weight_unit, cloud_sync, auto_backup_enabled, backup_reminder,
   hide_values, subscription_status, subscription_expiry,
   onboarding_completed, onboarding_step, updated_at
 ) VALUES (
-  1, 'USD', 'oz', 0, 1,
+  1, 'USD', 'oz', 0, 0, 1,
   0, 'free', NULL,
   0, 0, datetime('now')
 );
@@ -398,6 +447,15 @@ CREATE INDEX IF NOT EXISTS idx_decks_lab_id
 -- L'index est implicite via UNIQUE mais déclaré explicitement pour la lisibilité
 CREATE UNIQUE INDEX IF NOT EXISTS idx_snapshots_date
   ON stack_snapshots(date);
+```
+
+-- Lookup features d'un item
+CREATE INDEX IF NOT EXISTS idx_item_features_item_id
+  ON item_features(item_id);
+
+-- Lookup packaging d'un item
+CREATE INDEX IF NOT EXISTS idx_item_packaging_item_id
+  ON item_packaging(item_id);
 ```
 
 ### Index additionnels — À ajouter si besoin
@@ -540,15 +598,6 @@ Voir DATA_MODEL.md section "Calculs financiers" pour les formules exactes.
 Un item dans un Deck a toujours lab_id renseigné (même lab que le Deck parent).
 Cette cohérence est maintenue par l'app lors des opérations de déplacement.
 Le schéma ne peut pas l'enforcer — c'est une responsabilité applicative.
-```
-
-### R-08 — cover_photo_url sur Labs et Decks
-
-```
-Ce champ n'était pas dans DATA_MODEL.md à l'origine.
-Ajouté suite à la validation des wireframes (PRODUCT_DECISIONS.md section 11.3 et 11.4).
-DATA_MODEL.md doit être mis à jour pour inclure cover_photo_url sur Lab et Deck.
-→ Mise à jour planifiée avec les autres corrections post-docs manquants.
 ```
 
 ### R-09 — Chiffrement pré-lancement public

@@ -19,7 +19,7 @@ Item {
   name                    STRING        Nom de série saisi librement par l'utilisateur
   family_key              STRING        Slug généré depuis name + metal. Format: {slug-série}-{metal}. Ex: maple-leaf-silver
   metal                   ENUM          gold | silver
-  mint                    STRING?       Optionnel. Saisi librement. Ex: Royal Canadian Mint, Perth Mint
+  mint_name               STRING?       Optionnel. Saisi librement. Ex: Royal Canadian Mint, Perth Mint
   shape                   ENUM          coin | bar | token | bust | custom
   shape_description       STRING?       Champ libre si shape = custom
 
@@ -31,24 +31,31 @@ Item {
 
   // Attributs collection
   year                    INTEGER?      Optionnel
-  strike_finish           ENUM?         BU | proof | reverse_proof | antique | matte | specimen | privy
-  grade                   STRING?       [RESERVED] Ex: MS70, PF70
+  strike_finish           ENUM?         BU | proof | reverse_proof | antique | matte | specimen | burnished | proof_like | unknown
+  condition               ENUM?         uncirculated | circulated | damaged | unknown
+  features                ENUM[]        Valeurs multiples → table item_features. privy | colorized | gilded | high_relief | ultra_high_relief | hologram | enamel | ruthenium | plated | insert | numbered_certificate
+  packaging               ENUM[]        Valeurs multiples → table item_packaging. sealed | capsule | mint_box | with_certificate | raw
+  grading_company         STRING?       [RESERVED] Ex: NGC, PCGS
+  grade_value             STRING?       [RESERVED] Ex: MS70, PF70
   notes                   TEXT?
 
   // Financier — items actifs
   quantity                INTEGER       Min: 1. Jamais null.
   purchase_price          DECIMAL?      Prix total payé (optionnel)
-  purchase_price_unit     STRING?       Devise au moment de l'achat. Ex: USD, EUR, GBP
+  purchase_currency       ENUM?         Devise au moment de l'achat. USD | EUR | GBP | CAD | AUD
   purchase_exchange_rate  DECIMAL?      Taux de change au moment de l'achat vs devise d'affichage
   purchase_date           DATE?
 
   // Financier — items Wishlist uniquement
   observed_price          DECIMAL?      Prix constaté sur le marché (premium inclus). Fortement incité via icône nuage si absent.
+  observed_currency       ENUM?         Devise du prix constaté. USD | EUR | GBP | CAD | AUD
+  observed_price_date     DATE?         Date du prix constaté
 
   // Cycle de vie
   status                  ENUM          active | sold | wishlist
   sold_date               DATE?         Renseigné si status = sold
   sold_price              DECIMAL?      Prix de vente du lot (total ou par unité selon saisie utilisateur)
+  sold_currency           ENUM?         Devise de vente. USD | EUR | GBP | CAD | AUD
 
   // Média
   photo_url               STRING?       Chemin local ou URL si cloud sync activé
@@ -235,6 +242,7 @@ Settings {
   currency              ENUM      USD | EUR | GBP | CAD | AUD  (défaut: USD)
   weight_unit           ENUM      oz | g | kg                   (défaut: oz)
   cloud_sync            BOOLEAN   false par défaut
+  auto_backup_enabled   BOOLEAN   false par défaut — choix Level 1 backup fait à l'onboarding étape 0
   backup_reminder       BOOLEAN   true par défaut
   hide_values           BOOLEAN   false par défaut
   subscription_status   ENUM      free | monthly | annual       (défaut: free)
@@ -390,7 +398,7 @@ current_value = weight_oz × quantity × purity × spot_price[metal][devise_affi
 ### Unrealized P&L d'un item
 ```
 // Seulement si purchase_price non null
-// Si purchase_price_unit ≠ devise d'affichage : convertir via purchase_exchange_rate
+// Si purchase_currency ≠ devise d'affichage : convertir via purchase_exchange_rate
 purchase_price_converted = purchase_price × purchase_exchange_rate  // si devise différente
 unrealized_pnl           = current_value - purchase_price_converted
 unrealized_pnl_pct       = (unrealized_pnl / purchase_price_converted) × 100
