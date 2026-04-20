@@ -335,19 +335,32 @@ Comportement :
 
 ```
 Quand : l'écriture du fichier JSON échoue en cours d'export
-Impact : potentiellement élevé — fausse sécurité si l'utilisateur croit avoir un backup valide
+Impact : potentiellement élevé — fausse sécurité si l'utilisateur
+         croit avoir un backup valide
 
 Comportement :
 → Toujours écrire dans un fichier temporaire (export.tmp.json)
 → Valider la taille (> 0 bytes) et la structure JSON du fichier temporaire
 → Uniquement si valide → renommer en export.json (opération atomique)
 → Si la validation échoue → supprimer le fichier temporaire
-→ Afficher : "Export failed. Your data is safe, but no backup was created. Try again."
+→ Afficher : "Export failed. Your data is safe, but no backup was
+  created. Try again."
 → Ne jamais confirmer un export qui n'a pas été validé
+
+Vérification post-export (obligatoire) :
+→ Après chaque export réussi, l'app relit immédiatement le fichier
+→ Le valide intégralement avec Zod
+→ Compte les entités : labs, decks, items
+→ Affiche dans le modal de confirmation :
+  "✓ Backup verified — 47 items, 3 labs, 2 decks"
+  jamais juste "Export successful"
+→ Si la relecture échoue → supprimer l'export et afficher EH-16
 
 Règle absolue :
 → Un fichier export partiel ou corrompu est pire qu'aucun fichier
-→ L'utilisateur ne doit jamais croire avoir un backup alors qu'il est invalide
+→ L'utilisateur ne doit jamais croire avoir un backup
+  alors qu'il est invalide
+→ La vérification post-export est non négociable
 ```
 
 ---

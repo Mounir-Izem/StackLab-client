@@ -240,7 +240,7 @@ Settings {
   subscription_status   ENUM      free | monthly | annual       (défaut: free)
   subscription_expiry   DATE?     null si free
   onboarding_completed  BOOLEAN   false par défaut
-  onboarding_step       INTEGER   0 par défaut (0 = Welcome, 1 = Labs, 2 = First Item, 3 = Backup)
+  onboarding_step       INTEGER   0 par défaut (0 = Privacy & Backup choice, 1 = Labs, 2 = First Item, 3 = Export completed)
 }
 ```
 

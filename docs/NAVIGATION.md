@@ -316,6 +316,33 @@ Contenu :
   → Vert si backupé aujourd'hui
 - **Export JSON** (bouton)
   → Déclenche EH-16 si l'écriture échoue
+  → Flow complet :
+    1. Écriture dans export.tmp.json
+    2. Validation taille + structure JSON
+    3. Validation Zod complète
+    4. Si valide → renommage en export.json
+    5. Relecture du fichier exporté
+    6. Comptage des entités (labs, decks, items)
+    7. Modal de confirmation :
+       "✓ Backup verified — 47 items, 3 labs, 2 decks
+        File saved to [iCloud Drive / Google Drive / Downloads]"
+    8. Si échec à n'importe quelle étape → EH-16
+- **Restore Purchases** (bouton)
+  → Visible par tous les users (free et premium)
+  → Obligatoire iOS (politique Apple)
+  → Déclenche la vérification RevenueCat
+  → Flow :
+    1. Spinner "Restoring purchases..."
+    2. RevenueCat vérifie Apple ID / Google Account
+    3. Chaque IAP validé → écrit dans owned_iap
+    4. Succès → "X purchases restored." ou
+       "Your purchases are up to date." si rien à restaurer
+    5. Échec réseau → EH-01 (offline)
+    6. Aucun achat trouvé → 
+       "No purchases found for this account.
+        Contact support if you think this is an error."
+  → Délai maximum affiché : 5 secondes
+  → Jamais bloquer l'UI pendant la restauration
 - Backup reminder (toggle)
 - **Transfer to new device** → guide iOS→Android (voir ci-dessous)
 - Beta — "Join Premium Waitlist" (lien whitelist)

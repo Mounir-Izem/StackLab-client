@@ -325,6 +325,11 @@ milestone_gold_5     → "true"
 milestone_gold_10    → "true"
 milestone_gold_20    → "true"
 milestone_gold_50    → "true"
+active_skin_item_global  → iap_id du skin actif sur tous les items
+active_skin_deck_global  → iap_id du skin actif sur tous les decks
+active_skin_lab_global   → iap_id du skin actif sur tous les labs
+active_sound_pack        → iap_id du pack de sons actif
+active_cinematic         → iap_id de la cinématique de création active
 ```
 
 ---
