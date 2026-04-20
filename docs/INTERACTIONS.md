@@ -672,6 +672,45 @@ Simule le geste naturel de retourner une pièce dans la main.
 
 ---
 
+### 20. Cinématique de création — Post-MVP
+
+**Quand :** post-MVP. Remplace l'animation d'entrée simple (interaction 3) une fois les skins implémentés.
+**Déclencheur :** bouton "Create" sur l'écran 3 du flow création.
+**Référence visuelle :** `assets/references/item-creation-cinematic.html`
+
+```
+Acte 1 — Charge (0–600ms)
+→ Logo StackLab apparaît au centre
+→ Symboles cryptiques flottent (.9999, XAU/XAG, 1.000oz)
+→ Anneaux d'énergie se forment
+→ Logo pulse et s'accumule
+→ Couleur selon le métal : violet+gold pour gold / violet+blue pour silver
+
+Acte 2 — Explosion (600–1000ms)
+→ Logo explose vers l'extérieur (scale 1 → 4 → 0)
+→ 12 rayons de lumière
+→ 4 anneaux explosent en cascade
+→ Flash blanc
+→ Particules gold (#FFD700) ou silver (#C0D8FF) selon le métal
+
+Acte 3 — Révélation (1000ms+)
+→ Titre drop depuis le haut ("Maple Leaf · Gold")
+→ Card flip 3D — rotation Y 0° → 90° → 0°
+→ Spring landing avec rebond
+→ Sweep de lumière sur la card
+→ Particules finales
+```
+
+**Durée totale :** ~3 secondes.
+**Libs requises :** Reanimated 3 (withSpring, withTiming, withSequence), expo-sensors (gyroscope).
+**Assets requis :** particles gold/silver (privés), sons selon le pack actif.
+
+**Adaptation par métal :**
+```
+Gold   → particules #FFD700 + #FFA500, flash chaud
+Silver → particules #C0D8FF + #90B8FF, flash froid
+```
+
 ## Récapitulatif — MVP vs Post-MVP
 
 ### MVP Phase 2 — Implémenter maintenant
