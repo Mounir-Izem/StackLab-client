@@ -1,9 +1,11 @@
 import * as SQLite from 'expo-sqlite';
+import { generateUUID } from '../utils/uuid';
 
-export const CURRENT_SCHEMA_VERSION = 1;
+export const CURRENT_SCHEMA_VERSION = 2;
 
 const MIGRATIONS: Record<number, (db: SQLite.SQLiteDatabase) => Promise<void>> = {
     1: migrateV0toV1,
+    2: migrateV1toV2,
 };
 
 export async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
@@ -58,12 +60,13 @@ async function applyMigrations(
 async function migrateV0toV1(db: SQLite.SQLiteDatabase): Promise<void> {
     await db.execAsync(`
     CREATE TABLE IF NOT EXISTS schema_info (
+      id         INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
       version    INTEGER NOT NULL,
       applied_at TEXT    NOT NULL
     );
 
-    INSERT INTO schema_info (version, applied_at)
-    VALUES (0, datetime('now'));
+    INSERT INTO schema_info (id, version, applied_at)
+    VALUES (1, 0, datetime('now'));
   `);
 
     await db.execAsync(`
@@ -246,4 +249,60 @@ async function migrateV0toV1(db: SQLite.SQLiteDatabase): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_item_packaging_item_id
       ON item_packaging(item_id);
   `);
+}
+
+async function migrateV1toV2(db: SQLite.SQLiteDatabase): Promise<void> {
+    // Recreate labs table: replace 'premium' type with 'trash', add is_system column
+    await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS labs_v2 (
+            id               TEXT    NOT NULL PRIMARY KEY,
+            user_id          TEXT,
+            name             TEXT    NOT NULL,
+            cover_photo_url  TEXT,
+            type             TEXT    NOT NULL
+                             CHECK (type IN ('standard', 'wishlist', 'trash')),
+            is_system        INTEGER NOT NULL DEFAULT 0
+                             CHECK (is_system IN (0, 1)),
+            position         INTEGER NOT NULL DEFAULT 0,
+            created_at       TEXT    NOT NULL,
+            updated_at       TEXT    NOT NULL
+        );
+    `);
+
+    // Copy existing labs — 'premium' becomes 'standard', all marked as non-system
+    await db.execAsync(`
+        INSERT INTO labs_v2 (id, user_id, name, cover_photo_url, type, is_system, position, created_at, updated_at)
+        SELECT
+            id,
+            user_id,
+            name,
+            cover_photo_url,
+            CASE WHEN type = 'premium' THEN 'standard' ELSE type END,
+            0,
+            position + 3,
+            created_at,
+            updated_at
+        FROM labs;
+    `);
+
+    await db.execAsync('DROP TABLE labs;');
+    await db.execAsync('ALTER TABLE labs_v2 RENAME TO labs;');
+
+    // Seed 3 system labs at positions 0, 1, 2
+    const now = new Date().toISOString();
+    await db.runAsync(
+        `INSERT INTO labs (id, user_id, name, cover_photo_url, type, is_system, position, created_at, updated_at)
+         VALUES (?, NULL, 'My Stack', NULL, 'standard', 1, 0, ?, ?)`,
+        [generateUUID(), now, now]
+    );
+    await db.runAsync(
+        `INSERT INTO labs (id, user_id, name, cover_photo_url, type, is_system, position, created_at, updated_at)
+         VALUES (?, NULL, 'Wishlist', NULL, 'wishlist', 1, 1, ?, ?)`,
+        [generateUUID(), now, now]
+    );
+    await db.runAsync(
+        `INSERT INTO labs (id, user_id, name, cover_photo_url, type, is_system, position, created_at, updated_at)
+         VALUES (?, NULL, 'Trash', NULL, 'trash', 1, 2, ?, ?)`,
+        [generateUUID(), now, now]
+    );
 }

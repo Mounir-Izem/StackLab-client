@@ -22,3 +22,18 @@ async function applyPragmas(database: SQLite.SQLiteDatabase): Promise<void> {
     await database.execAsync('PRAGMA journal_mode = WAL;');
     await database.execAsync('PRAGMA synchronous = NORMAL;');
 }
+
+export async function withTransaction<T>(
+    operation: () => Promise<T>
+): Promise<T> {
+    const database = getDatabase();
+    await database.execAsync('BEGIN TRANSACTION');
+    try {
+        const result = await operation();
+        await database.execAsync('COMMIT');
+        return result;
+    } catch (error) {
+        await database.execAsync('ROLLBACK');
+        throw error;
+    }
+}

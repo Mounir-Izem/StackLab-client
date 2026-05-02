@@ -1,0 +1,195 @@
+import React, { useLayoutEffect, useState, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import {
+    View, Text, FlatList, Pressable,
+    StyleSheet, ActivityIndicator, Modal,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useLabStore } from '../../stores/labStore';
+import { useDeckStore } from '../../stores/deckStore';
+import { useItemStore } from '../../stores/itemStore';
+import { useSettingsStore } from '../../stores/settingsStore';
+import { DeckCard } from '../cards/DeckCard';
+import { ItemCard } from '../cards/ItemCard';
+import { colors, fonts, card } from '../../utils/theme';
+import type { LabsStackScreenProps } from '../../navigation/types';
+import type { Item } from '../../types/item.types';
+
+type Props = LabsStackScreenProps<'DeckDetail'>;
+
+export function DeckDetail({ route, navigation }: Props) {
+    const { deckId, labId } = route.params;
+
+    const { labs } = useLabStore();
+    const { decks, loadDecks } = useDeckStore();
+    const { items, loadItems } = useItemStore();
+    const currency = useSettingsStore(s => s.settings?.currency ?? 'USD');
+    const weightUnit = useSettingsStore(s => s.settings?.weightUnit ?? 'oz');
+
+    const lab = labs.find(l => l.id === labId);
+    const deck = decks.find(d => d.id === deckId);
+    const subDecks = decks.filter(d => d.parentId === deckId);
+    const deckItems = items.filter(i => i.deckId === deckId);
+
+    const [showPaywall, setShowPaywall] = useState(false);
+
+    useFocusEffect(
+        useCallback(() => { loadDecks(labId); loadItems(labId); }, [labId])
+    );
+
+    useLayoutEffect(() => {
+        if (!deck || !lab) return;
+        navigation.setOptions({
+            headerTitle: () => (
+                <View style={styles.breadcrumb}>
+                    <Pressable onPress={() => navigation.pop()} hitSlop={8}>
+                        <Text style={styles.crumbParent}>{lab.name}</Text>
+                    </Pressable>
+                    <Text style={styles.crumbSep}>›</Text>
+                    <Text style={styles.crumbCurrent} numberOfLines={1}>{deck.name}</Text>
+                </View>
+            ),
+        });
+    }, [deck, lab, navigation]);
+
+    const renderItem = useCallback(({ item }: { item: Item }) => (
+        <View style={styles.col}>
+            <ItemCard
+                item={item}
+                meltValue={null}
+                currency={currency}
+                weightUnit={weightUnit}
+                onPress={() => navigation.navigate('ItemDetail', { itemId: item.id })}
+            />
+        </View>
+    ), [currency, weightUnit, navigation]);
+
+    if (!deck) return (
+        <View style={[styles.screen, styles.center]}>
+            <ActivityIndicator color={colors.violet} />
+        </View>
+    );
+
+    return (
+        <View style={styles.screen}>
+            <FlatList
+                data={deckItems}
+                keyExtractor={i => i.id}
+                renderItem={renderItem}
+                numColumns={2}
+                columnWrapperStyle={styles.row}
+                contentContainerStyle={styles.content}
+                showsVerticalScrollIndicator={false}
+                ListHeaderComponent={
+                    <>
+                        {subDecks.length > 0 && (
+                            <View style={styles.section}>
+                                <Text style={styles.label}>SUB-DECKS</Text>
+                                {subDecks.map(d => (
+                                    <DeckCard
+                                        key={d.id}
+                                        deck={d}
+                                        itemCount={items.filter(i => i.deckId === d.id).length}
+                                        subDeckCount={0}
+                                        totalValue={null}
+                                        onPress={() => navigation.navigate('DeckDetail', { deckId: d.id, labId })}
+                                    />
+                                ))}
+                            </View>
+                        )}
+                        {deckItems.length > 0 && <Text style={[styles.label, styles.itemsLabel]}>ITEMS</Text>}
+                    </>
+                }
+                ListEmptyComponent={
+                    subDecks.length === 0
+                        ? (
+                            <View style={styles.empty}>
+                                <Ionicons name="cube-outline" size={36} color={colors.text2} />
+                                <Text style={styles.emptyTitle}>No items in this deck</Text>
+                                <Text style={styles.emptyText}>Tap + to add your first piece</Text>
+                            </View>
+                        )
+                        : null
+                }
+            />
+
+            <View style={styles.footer}>
+                <Pressable style={styles.btnSecondary} onPress={() => setShowPaywall(true)}>
+                    <Ionicons name="add" size={16} color={colors.text2} />
+                    <Text style={styles.btnTextMuted}>Sub-Deck</Text>
+                </Pressable>
+                <Pressable
+                    style={styles.btnSecondary}
+                    onPress={() => navigation.navigate('CreateItem', { labId, deckId })}
+                >
+                    <Ionicons name="add" size={20} color={colors.text} />
+                </Pressable>
+                <Pressable
+                    style={[styles.btnSecondary, styles.btnWide]}
+                    onPress={() => navigation.navigate('Modifier', { labId, deckId })}
+                >
+                    <Text style={styles.btnText}>Edit</Text>
+                </Pressable>
+            </View>
+
+            <Modal visible={showPaywall} transparent animationType="fade" onRequestClose={() => setShowPaywall(false)}>
+                <Pressable style={styles.overlay} onPress={() => setShowPaywall(false)}>
+                    <View style={styles.sheet}>
+                        <Text style={styles.sheetTitle}>Premium Feature</Text>
+                        <Text style={styles.sheetBody}>
+                            {'Sub-Decks are available in the premium version.\nStackLab is currently in beta.'}
+                        </Text>
+                        <View style={styles.sheetActions}>
+                            <Pressable style={styles.btnPrimary} onPress={() => setShowPaywall(false)}>
+                                <Text style={styles.btnText}>Got it</Text>
+                            </Pressable>
+                        </View>
+                    </View>
+                </Pressable>
+            </Modal>
+        </View>
+    );
+}
+
+const styles = StyleSheet.create({
+    screen: { flex: 1, backgroundColor: colors.bg },
+    center: { alignItems: 'center', justifyContent: 'center' },
+    content: { padding: 16, paddingBottom: 90 },
+    section: { marginBottom: 20, gap: 12 },
+    label: { fontSize: 9, letterSpacing: 2, color: colors.text2, fontFamily: fonts.outfitSemiBold, marginBottom: 8 },
+    itemsLabel: { marginBottom: 10 },
+    row: { gap: card.gridGap, marginBottom: card.gridGap },
+    col: { flex: 1, maxWidth: '50%' },
+    empty: { alignItems: 'center', paddingTop: 48, gap: 8 },
+    emptyTitle: { color: colors.text, fontFamily: fonts.manrope, fontSize: 16 },
+    emptyText: { color: colors.text2, fontFamily: fonts.outfit, fontSize: 13 },
+    breadcrumb: { flexDirection: 'row', alignItems: 'center', gap: 6, maxWidth: 260 },
+    crumbParent: { color: colors.text2, fontFamily: fonts.outfit, fontSize: 14 },
+    crumbSep: { color: colors.text2, fontSize: 14, opacity: 0.5 },
+    crumbCurrent: { color: colors.text, fontFamily: fonts.manrope, fontSize: 15, flexShrink: 1 },
+    footer: {
+        position: 'absolute', bottom: 0, left: 0, right: 0,
+        flexDirection: 'row', gap: 8,
+        paddingHorizontal: 16, paddingTop: 12, paddingBottom: 28,
+        backgroundColor: colors.bg,
+        borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)',
+    },
+    btnSecondary: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+        gap: 6, paddingVertical: 10, paddingHorizontal: 14,
+        borderRadius: 10, backgroundColor: colors.surface2,
+    },
+    btnWide: { flex: 1 },
+    btnPrimary: { flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: colors.violet, alignItems: 'center' },
+    btnCancel: { flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: colors.surface2, alignItems: 'center' },
+    disabled: { opacity: 0.4 },
+    btnText: { color: colors.text, fontFamily: fonts.outfitSemiBold, fontSize: 14 },
+    btnTextMuted: { color: colors.text2, fontFamily: fonts.outfitMedium, fontSize: 14 },
+    overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+    sheet: { width: '100%', backgroundColor: colors.surface, borderRadius: 16, padding: 20, gap: 14 },
+    sheetTitle: { fontFamily: fonts.manrope, fontSize: 17, color: colors.text, textAlign: 'center' },
+    sheetBody: { color: colors.text2, fontFamily: fonts.outfit, fontSize: 13, textAlign: 'center', lineHeight: 20 },
+    sheetActions: { flexDirection: 'row', gap: 10 },
+    input: { backgroundColor: colors.surface2, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, color: colors.text, fontFamily: fonts.outfit, fontSize: 15, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+    errorText: { fontFamily: fonts.outfit, fontSize: 12, color: colors.crimson, textAlign: 'center' },
+});
