@@ -101,7 +101,9 @@ calculerEcartWishlist()    → observed_price − valeur_melt_actuelle (Wishlist
 supprimer(n?)
   → sans n : suppression physique totale avec confirmation (items active uniquement)
   → avec n : supprime n unités, quantity -= n
-marquerAcquis()            → depuis Wishlist : duplique vers Lab cible, apparence change
+acquérir(qty, labCible, deckCible?, purchasePrice?, purchaseCurrency?)
+  → si qty = quantity : status→active, lab/deck mis à jour, observed fields effacés
+  → si qty < quantity : quantity -= qty, nouvel item status:active créé dans le lab/deck cible
 ```
 
 ---
@@ -112,10 +114,11 @@ marquerAcquis()            → depuis Wishlist : duplique vers Lab cible, appare
 Lab {
   id              UUID      PK, généré côté client
   user_id         UUID?     FK → User (null si backend non activé)
-  name            STRING    Nom libre (modifiable par l'utilisateur)
-  type            ENUM      standard | premium | wishlist
+  name            STRING    Nom libre (modifiable par l'utilisateur, y compris les labs système)
+  type            ENUM      standard | wishlist | trash
+  is_system       BOOLEAN   true = lab système non supprimable (My Stack, Wishlist, Trash)
   cover_photo_url STRING?   Chemin local ou URL distante (null si absent)
-  position        INTEGER   Ordre d'affichage
+  position        INTEGER   Ordre d'affichage (Trash toujours en dernier)
   created_at      TIMESTAMP
   updated_at      TIMESTAMP
 }
@@ -167,7 +170,7 @@ calculerOzTotales()        → SUM (weight_oz × quantity) des items actifs réc
 | | Free | Premium |
 |---|---|---|
 | Decks par Lab | 3 | Illimité |
-| Profondeur | 2 niveaux | 3 niveaux |
+| Profondeur | 1 niveau (Deck seul) | 2 niveaux (Deck + 1 sous-Deck) |
 
 Navigation : breadcrumb obligatoire — `Lab › Deck › Sous-Deck › Item`
 
@@ -267,8 +270,11 @@ Le poids est toujours stocké en **troy oz** en base, quelle que soit l'unité s
 1 kg  = 32.1507 troy oz
 ```
 
-### Règle 3 — Status
-Un item `status: sold` n'est jamais supprimé physiquement. Il reste en base, invisible dans les Labs actifs.
+### Règle 3 — Suppression et Trash
+Tout item "supprimé" est d'abord déplacé dans le lab Trash (`type: 'trash'`, `is_system: true`). Son `deckId` est mis à null.
+Depuis le Trash, l'utilisateur peut restaurer (choisir un lab de destination) ou supprimer définitivement.
+La suppression définitive (physique SQLite) n'est possible que depuis le Trash.
+La suppression partielle de quantité (`delete(id, qty)`) est toujours physique — elle ne passe pas par le Trash.
 
 ### Règle 4 — Prix inconnu
 Si `purchase_price` est null, le P&L n'est jamais affiché, estimé ou interpolé. L'item est inclus dans la valeur totale (melt value) mais exclu des calculs P&L.
@@ -304,10 +310,12 @@ Dans le respect de la hiérarchie parent-enfant :
 Suppression Deck non vide : items et sous-Decks remontent au parent. Modal de confirmation obligatoire.
 Suppression Lab non vide : modal proposant migration vers un autre Lab ou suppression totale avec double confirmation + export automatique forcé.
 
-### Règle 10 — Suppression physique vs soft delete
+### Règle 10 — Suppression : toujours via le Trash
 
-- `status: sold` → soft delete uniquement. Jamais de suppression physique.
-- Items `active` et items Wishlist → suppression physique autorisée avec confirmation obligatoire.
+- Tout item supprimé (quel que soit son status) → déplacé dans le Trash lab (`labId` → trash, `deckId` → null)
+- Suppression définitive uniquement depuis le Trash, avec confirmation obligatoire
+- Suppression partielle de quantité (`delete(id, qty)`) → réduction directe de `quantity`, sans passage par le Trash
+- Il n'existe plus de guard `CANNOT_DELETE_SOLD_ITEM` — les items vendus peuvent aller en Trash
 
 ### Règle 11 — Import safety
 
@@ -437,14 +445,13 @@ Il n'y a pas de grouping automatique imposé par l'app.
 ```
 Lab Standard
 ├── Deck "Silver"
-│   ├── Deck "DCA"
-│   │   └── Maple Leaf × 10
-│   └── Deck "Liquidity"
-│       └── ASE × 5
+│   └── Maple Leaf × 10
 ├── Deck "Gold"
 │   └── Krugerrand × 1
 └── [Items sans Deck]
     └── Britannia × 2
+
+// Sub-decks (ex: Deck "Silver" > Deck "DCA") → Premium uniquement
 ```
 
 **Règles :**

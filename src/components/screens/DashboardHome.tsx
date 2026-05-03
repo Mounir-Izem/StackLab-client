@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLabStore } from '../../stores/labStore';
 import { useSpotStore } from '../../stores/spotStore';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { convertSpotPrice } from '../../utils/calculations';
 import { formatWeight, formatCurrency } from '../../utils/formatters';
 import { colors, fonts } from '../../utils/theme';
 import type { Currency, WeightUnit } from '../../types/settings.types';
@@ -17,14 +18,12 @@ const CURRENCY_SYMBOL: Record<Currency, string> = {
 
 export function DashboardHome() {
     const { labs, labOzTotals, labItemCounts, loadLabs } = useLabStore();
-    const { spot, isLoading: spotLoading, fetchPrices } = useSpotStore();
+    const { spot, rates, isLoading: spotLoading, refresh } = useSpotStore();
     const currency = useSettingsStore(s => s.settings?.currency ?? 'USD') as Currency;
     const weightUnit = useSettingsStore(s => s.settings?.weightUnit ?? 'oz') as WeightUnit;
 
-
     useEffect(() => {
         loadLabs();
-        fetchPrices(currency);
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const trashLab = labs.find(l => l.type === 'trash');
@@ -41,8 +40,11 @@ export function DashboardHome() {
         .filter(([id]) => id !== trashLab?.id)
         .reduce((sum, [, v]) => sum + v, 0);
 
-    const totalValue = spot
-        ? totalFineOzGold * spot.gold + totalFineOzSilver * spot.silver
+    const spotGold = spot ? convertSpotPrice(spot.gold, currency, rates) : null;
+    const spotSilver = spot ? convertSpotPrice(spot.silver, currency, rates) : null;
+
+    const totalValue = spotGold !== null && spotSilver !== null
+        ? totalFineOzGold * spotGold + totalFineOzSilver * spotSilver
         : null;
 
     const hasStack = totalItems > 0;
@@ -110,9 +112,9 @@ export function DashboardHome() {
                         {formatWeight(totalFineOzGold, weightUnit)}
                     </Text>
                     <Text style={styles.metalSub}>fine {weightUnit}</Text>
-                    {spot && (
+                    {spotGold !== null && (
                         <Text style={styles.metalValue}>
-                            {formatCurrency(totalFineOzGold * spot.gold, currency)}
+                            {formatCurrency(totalFineOzGold * spotGold, currency)}
                         </Text>
                     )}
                 </View>
@@ -122,9 +124,9 @@ export function DashboardHome() {
                         {formatWeight(totalFineOzSilver, weightUnit)}
                     </Text>
                     <Text style={styles.metalSub}>fine {weightUnit}</Text>
-                    {spot && (
+                    {spotSilver !== null && (
                         <Text style={styles.metalValue}>
-                            {formatCurrency(totalFineOzSilver * spot.silver, currency)}
+                            {formatCurrency(totalFineOzSilver * spotSilver, currency)}
                         </Text>
                     )}
                 </View>
@@ -139,13 +141,7 @@ export function DashboardHome() {
             </View>
 
             {/* Refresh spot */}
-            <Pressable
-                style={styles.refreshBtn}
-                onPress={() => {
-                    useSpotStore.setState({ lastFetchAt: null });
-                    fetchPrices(currency);
-                }}
-            >
+            <Pressable style={styles.refreshBtn} onPress={refresh}>
                 <Ionicons name="refresh-outline" size={14} color={colors.text2} />
                 <Text style={styles.refreshText}>Refresh spot prices</Text>
             </Pressable>

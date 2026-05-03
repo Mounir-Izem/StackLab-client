@@ -20,7 +20,7 @@ Deux règles absolues :
 ---
 
 ## Architecture des skins
-
+> Référence visuelle des états de card : assets/references/item-card-reference.png
 ### Principe de layering
 
 Chaque card est composée de 3 couches superposées (PRODUCT_DECISIONS.md section 11) :

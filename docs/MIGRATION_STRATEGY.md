@@ -40,7 +40,8 @@ INSERT INTO schema_info (version, applied_at) VALUES (1, datetime('now'));
 | Version | Phase | Description |
 |---|---|---|
 | 1 | Phase 1 | Schéma initial — labs, decks, items, stack_snapshots, settings, settings_extended |
-| 2 | Pré-lancement | Chiffrement applicatif — colonnes TEXT pour blobs AES-256 |
+| 2 | Phase 2 | Labs : `premium` supprimé, `trash` ajouté, colonne `is_system`, 3 labs système seedés |
+| 3 | Pré-lancement | Chiffrement applicatif — colonnes TEXT pour blobs AES-256 |
 
 Les versions futures sont ajoutées ici au moment de leur implémentation.
 

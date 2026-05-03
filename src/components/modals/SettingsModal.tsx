@@ -5,7 +5,6 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSettingsStore } from '../../stores/settingsStore';
-import { useSpotStore } from '../../stores/spotStore';
 import { colors, fonts } from '../../utils/theme';
 import type { Currency, WeightUnit } from '../../types/settings.types';
 
@@ -17,8 +16,6 @@ export function SettingsModal() {
 
     async function handleCurrency(currency: Currency) {
         await updateSettings({ currency });
-        useSpotStore.setState({ lastFetchAt: null });
-        useSpotStore.getState().fetchPrices(currency);
     }
 
     async function handleWeightUnit(weightUnit: WeightUnit) {

@@ -363,6 +363,16 @@ Un prompt non bloquant apparaît dans ces situations :
 **Type :** modal plein écran — guide étapes
 
 ```
+⚠️ Photos warning (affiché avant Step 1 si backup automatique désactivé)
+"Your photos are stored locally on this device.
+ To transfer them to your new device, enable automatic backup
+ (iCloud on iOS / Google Drive on Android) before exporting."
+→ [Enable automatic backup]
+   → iOS : Linking.openURL('app-settings:') → paramètres iCloud de l'app
+   → Android : intent android.settings.BACKUP_AND_RESTORE_SETTINGS
+"Without backup enabled, your item photos will not transfer.
+ Your stack data (items, labs, prices) will transfer completely."
+
 Step 1 — Export
 "Let's get your data ready for transfer."
 → Bouton "Export my data" → déclenche l'export JSON

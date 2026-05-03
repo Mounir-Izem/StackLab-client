@@ -93,10 +93,12 @@ VALUES (1, datetime('now'));
 CREATE TABLE IF NOT EXISTS labs (
   id               TEXT    NOT NULL PRIMARY KEY,  -- UUID v4 généré côté client
   user_id          TEXT,                          -- UUID FK → User (null si pas de cloud sync)
-  name             TEXT    NOT NULL,              -- Nom libre du Lab
+  name             TEXT    NOT NULL,              -- Nom libre du Lab (modifiable par l'utilisateur)
   cover_photo_url  TEXT,                          -- Chemin local ou URL distante (null si absent)
-  type             TEXT    NOT NULL               -- standard | premium | wishlist
-                   CHECK (type IN ('standard', 'premium', 'wishlist')),
+  type             TEXT    NOT NULL               -- standard | wishlist | trash
+                   CHECK (type IN ('standard', 'wishlist', 'trash')),
+  is_system        INTEGER NOT NULL DEFAULT 0     -- 1 = lab système (non supprimable), 0 = créé par l'utilisateur
+                   CHECK (is_system IN (0, 1)),
   position         INTEGER NOT NULL DEFAULT 0,    -- Ordre d'affichage (0-based)
   created_at       TEXT    NOT NULL,              -- ISO 8601 datetime
   updated_at       TEXT    NOT NULL               -- ISO 8601 datetime
@@ -105,8 +107,11 @@ CREATE TABLE IF NOT EXISTS labs (
 
 **Règles :**
 - `type` est immutable après création
+- `is_system = 1` : lab non supprimable — enforced par l'app (labService)
+- 3 labs système créés automatiquement à l'init : `standard` ("My Stack"), `wishlist` ("Wishlist"), `trash` ("Trash")
 - `position` est géré par l'app — pas de contrainte UNIQUE (réordonnage libre)
 - `user_id` est null jusqu'à activation du cloud sync
+- Le lab `trash` est toujours affiché en dernier dans LabsHome
 
 ---
 

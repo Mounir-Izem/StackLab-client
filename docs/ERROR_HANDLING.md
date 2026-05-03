@@ -343,8 +343,17 @@ Comportement :
 → Valider la taille (> 0 bytes) et la structure JSON du fichier temporaire
 → Uniquement si valide → renommer en export.json (opération atomique)
 → Si la validation échoue → supprimer le fichier temporaire
-→ Afficher : "Export failed. Your data is safe, but no backup was
-  created. Try again."
+→ Afficher modal :
+  "Export failed. Your data is safe, but no backup was created."
+
+  Bouton primaire : "Enable automatic backup"
+    → iOS : Linking.openURL('app-settings:') → paramètres iCloud de l'app
+    → Android : intent android.settings.BACKUP_AND_RESTORE_SETTINGS
+  Bouton secondaire : "Dismiss"
+    → Grisé et non cliquable pendant 5 secondes (forcer la lecture)
+    → Après 5s : actif, l'utilisateur peut refuser — c'est son choix
+    → Aucune conséquence supplémentaire si refus
+
 → Ne jamais confirmer un export qui n'a pas été validé
 
 Vérification post-export (obligatoire) :
@@ -575,7 +584,7 @@ Jamais de jargon technique. Toujours une action proposée quand possible.
 | EH-13 | Modal de confirmation guidée | Confirmer ou annuler |
 | EH-14 | "Import failed. Your existing data is safe." | — |
 | EH-15 | Modal de conversion premium | Upgrade ou Plus tard |
-| EH-16 | "Export failed. No backup was created. Try again." | Retry |
+| EH-16 | "Export failed. Your data is safe, but no backup was created." | Enable backup (bouton primaire) / Dismiss grisé 5s |
 
 ---
 

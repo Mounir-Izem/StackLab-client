@@ -9,6 +9,8 @@ import { useLabStore } from '../../stores/labStore';
 import { useDeckStore } from '../../stores/deckStore';
 import { useItemStore } from '../../stores/itemStore';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { useSpotStore } from '../../stores/spotStore';
+import { convertSpotPrice, calcFineWeightOz, calcMeltValue } from '../../utils/calculations';
 import { DeckCard } from '../cards/DeckCard';
 import { ItemCard } from '../cards/ItemCard';
 import { colors, fonts, card } from '../../utils/theme';
@@ -25,6 +27,10 @@ export function DeckDetail({ route, navigation }: Props) {
     const { items, loadItems } = useItemStore();
     const currency = useSettingsStore(s => s.settings?.currency ?? 'USD');
     const weightUnit = useSettingsStore(s => s.settings?.weightUnit ?? 'oz');
+    const { spot, rates } = useSpotStore();
+
+    const spotGold = spot ? convertSpotPrice(spot.gold, currency, rates) : null;
+    const spotSilver = spot ? convertSpotPrice(spot.silver, currency, rates) : null;
 
     const lab = labs.find(l => l.id === labId);
     const deck = decks.find(d => d.id === deckId);
@@ -52,17 +58,23 @@ export function DeckDetail({ route, navigation }: Props) {
         });
     }, [deck, lab, navigation]);
 
-    const renderItem = useCallback(({ item }: { item: Item }) => (
-        <View style={styles.col}>
-            <ItemCard
-                item={item}
-                meltValue={null}
-                currency={currency}
-                weightUnit={weightUnit}
-                onPress={() => navigation.navigate('ItemDetail', { itemId: item.id })}
-            />
-        </View>
-    ), [currency, weightUnit, navigation]);
+    const renderItem = useCallback(({ item }: { item: Item }) => {
+        const spotPrice = item.metal === 'gold' ? spotGold : spotSilver;
+        const meltValue = spotPrice !== null
+            ? calcMeltValue(calcFineWeightOz(item.weightOz, item.purity), spotPrice) * item.quantity
+            : null;
+        return (
+            <View style={styles.col}>
+                <ItemCard
+                    item={item}
+                    meltValue={meltValue}
+                    currency={currency}
+                    weightUnit={weightUnit}
+                    onPress={() => navigation.navigate('ItemDetail', { itemId: item.id })}
+                />
+            </View>
+        );
+    }, [currency, weightUnit, navigation, spotGold, spotSilver]);
 
     if (!deck) return (
         <View style={[styles.screen, styles.center]}>
@@ -85,16 +97,25 @@ export function DeckDetail({ route, navigation }: Props) {
                         {subDecks.length > 0 && (
                             <View style={styles.section}>
                                 <Text style={styles.label}>SUB-DECKS</Text>
-                                {subDecks.map(d => (
-                                    <DeckCard
-                                        key={d.id}
-                                        deck={d}
-                                        itemCount={items.filter(i => i.deckId === d.id).length}
-                                        subDeckCount={0}
-                                        totalValue={null}
-                                        onPress={() => navigation.navigate('DeckDetail', { deckId: d.id, labId })}
-                                    />
-                                ))}
+                                {subDecks.map(d => {
+                                    const subItems = items.filter(i => i.deckId === d.id && i.status === 'active');
+                                    const totalValue = spotGold !== null && spotSilver !== null
+                                        ? subItems.reduce((sum, i) => {
+                                            const sp = i.metal === 'gold' ? spotGold : spotSilver;
+                                            return sum + calcMeltValue(calcFineWeightOz(i.weightOz, i.purity), sp) * i.quantity;
+                                        }, 0)
+                                        : null;
+                                    return (
+                                        <DeckCard
+                                            key={d.id}
+                                            deck={d}
+                                            itemCount={items.filter(i => i.deckId === d.id).length}
+                                            subDeckCount={0}
+                                            totalValue={totalValue}
+                                            onPress={() => navigation.navigate('DeckDetail', { deckId: d.id, labId })}
+                                        />
+                                    );
+                                })}
                             </View>
                         )}
                         {deckItems.length > 0 && <Text style={[styles.label, styles.itemsLabel]}>ITEMS</Text>}

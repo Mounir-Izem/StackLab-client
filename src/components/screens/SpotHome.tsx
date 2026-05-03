@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
     View, Text, Pressable, StyleSheet,
     ActivityIndicator, ScrollView,
@@ -6,6 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSpotStore } from '../../stores/spotStore';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { convertSpotPrice } from '../../utils/calculations';
 import { colors, fonts } from '../../utils/theme';
 import type { Currency } from '../../types/settings.types';
 
@@ -23,8 +24,14 @@ const CURRENCY_SYMBOL: Record<Currency, string> = {
     USD: '$', EUR: '€', GBP: '£', CAD: 'CA$', AUD: 'A$',
 };
 
-function formatSpotPrice(price: number, unit: DisplayUnit, currency: Currency): string {
-    const converted = price * UNIT_FACTOR[unit];
+function formatSpotPrice(
+    priceUsd: number,
+    unit: DisplayUnit,
+    currency: Currency,
+    rates: Record<string, number>,
+): string {
+    const priceInCurrency = convertSpotPrice(priceUsd, currency, rates);
+    const converted = priceInCurrency * UNIT_FACTOR[unit];
     const symbol = CURRENCY_SYMBOL[currency];
     if (converted >= 1000) return `${symbol}${converted.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     return `${symbol}${converted.toFixed(2)}`;
@@ -38,18 +45,13 @@ function minutesAgo(isoString: string): string {
 }
 
 export function SpotHome() {
-    const { spot, isLoading, error, fetchPrices } = useSpotStore();
+    const { spot, rates, isLoading, error, refresh } = useSpotStore();
     const defaultCurrency = useSettingsStore(s => s.settings?.currency ?? 'USD');
 
     const [currency, setCurrency] = useState<Currency>(defaultCurrency);
     const [unit, setUnit] = useState<DisplayUnit>('oz');
 
-    useEffect(() => {
-        useSpotStore.setState({ lastFetchAt: null });
-        fetchPrices(currency);
-    }, [currency]); // eslint-disable-line react-hooks/exhaustive-deps
-
-    const isUnavailable = !isLoading && (error !== null) && spot === null;
+    const isUnavailable = !isLoading && error !== null && spot === null;
     const isStale = error !== null && spot !== null;
 
     return (
@@ -96,13 +98,7 @@ export function SpotHome() {
                             ? 'The price service took too long to respond.'
                             : 'The price service is temporarily unavailable.'}
                     </Text>
-                    <Pressable
-                        style={styles.retryBtn}
-                        onPress={() => {
-                            useSpotStore.setState({ lastFetchAt: null });
-                            fetchPrices(currency);
-                        }}
-                    >
+                    <Pressable style={styles.retryBtn} onPress={refresh}>
                         <Text style={styles.retryText}>Retry</Text>
                     </Pressable>
                 </View>
@@ -131,7 +127,7 @@ export function SpotHome() {
                             <Text style={styles.metalSub}>XAU</Text>
                         </View>
                         <Text style={[styles.price, { color: colors.gold }]}>
-                            {formatSpotPrice(spot.gold, unit, currency as Currency)}
+                            {formatSpotPrice(spot.gold, unit, currency, rates)}
                         </Text>
                         <Text style={styles.perUnit}>per troy {unit}</Text>
                     </View>
@@ -142,7 +138,7 @@ export function SpotHome() {
                             <Text style={styles.metalSub}>XAG</Text>
                         </View>
                         <Text style={[styles.price, { color: colors.silver }]}>
-                            {formatSpotPrice(spot.silver, unit, currency as Currency)}
+                            {formatSpotPrice(spot.silver, unit, currency, rates)}
                         </Text>
                         <Text style={styles.perUnit}>per troy {unit}</Text>
                     </View>
@@ -153,13 +149,7 @@ export function SpotHome() {
                             Updated {minutesAgo(spot.updatedAt)}
                             {spot.cached ? ' · cached' : ''}
                         </Text>
-                        <Pressable
-                            onPress={() => {
-                                useSpotStore.setState({ lastFetchAt: null });
-                                fetchPrices(currency);
-                            }}
-                            hitSlop={8}
-                        >
+                        <Pressable onPress={refresh} hitSlop={8}>
                             <Ionicons name="refresh-outline" size={14} color={colors.text2} />
                         </Pressable>
                     </View>

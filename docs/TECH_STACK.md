@@ -93,7 +93,7 @@ Toute lib ajoutée doit être compatible Expo managed. Avant d'ajouter une lib, 
 | Stripe | Paiements premium | IAP obligatoire sur iOS App Store |
 | iCloud | Backup automatique iOS | Via expo-file-system, répertoire Documents |
 | Google Drive | Backup automatique Android | Via expo-file-system, répertoire Documents |
-| GitHub | Versionning + open source | Repo client public, backend privé |
+| GitHub | Versionning + open source | Repo client public, backend public, proxy publique |
 | Dependabot | Scan vulnérabilités | Activé dès le premier push |
 
 ---

@@ -2,7 +2,7 @@
 > Documentation du flow de création d'item (3 écrans).
 > Inclut les edge cases, points d'attention, et décisions de design.
 > À lire avant d'implémenter la Phase 2 (ROADMAP.md).
-
+> Référence visuelle card : assets/references/item-card-reference.png
 ---
 
 ## Vue d'ensemble du flow

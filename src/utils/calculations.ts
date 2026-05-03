@@ -56,3 +56,14 @@ export function calcWishlistGap(
 ): number {
     return observedPrice - currentValue;
 }
+
+export function convertSpotPrice(
+    priceUsd: number,
+    currency: string,
+    rates: Record<string, number>,
+): number {
+    if (currency === 'USD') return priceUsd;
+    const rate = rates[currency];
+    if (!rate) return priceUsd;
+    return priceUsd / rate;
+}

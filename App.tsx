@@ -9,10 +9,13 @@ import { Manrope_700Bold } from '@expo-google-fonts/manrope';
 import { DMMono_500Medium } from '@expo-google-fonts/dm-mono';
 import { initDatabase } from './src/db/database';
 import { useSettingsStore } from './src/stores/settingsStore';
+import { useSpotPrice } from './src/hooks/useSpotPrice';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 export default function App() {
+  useSpotPrice();
+
   const [fontsLoaded] = useFonts({
     Outfit_400Regular,
     Outfit_500Medium,
