@@ -72,18 +72,27 @@ GET https://proxy.stacklab.app/prices?currency=USD
   "currency": "USD",
   "updated_at": "2026-04-17T14:32:00Z",
   "source": "metals.dev",
-  "cached": true
+  "cached": true,
+  "rates": {
+    "EUR": 1.1746628028,
+    "GBP": 1.3603784858,
+    "CAD": 0.7359109922,
+    "AUD": 0.7218127039
+  }
 }
 ```
 
 | Champ | Type | Description |
 |---|---|---|
-| `gold` | number | Prix spot XAU en troy oz dans la devise demandée |
-| `silver` | number | Prix spot XAG en troy oz dans la devise demandée |
-| `currency` | string | Devise de la réponse |
+| `gold` | number | Prix spot XAU en troy oz, toujours en USD |
+| `silver` | number | Prix spot XAG en troy oz, toujours en USD |
+| `currency` | string | Toujours "USD" — le proxy n'accepte que USD |
 | `updated_at` | string | ISO 8601 — timestamp de la dernière donnée metals.dev |
 | `source` | string | Toujours "metals.dev" en MVP |
 | `cached` | boolean | true si réponse depuis le cache, false si fraîche |
+| `rates` | object | Taux de change depuis metals.dev. Convention : `rates["EUR"] = 1.1746` signifie 1 EUR = 1.1746 USD. Conversion client : `price_eur = price_usd / rates["EUR"]`. Devises exposées : EUR, GBP, CAD, AUD. |
+
+**Note architecture Phase 3 :** le client appelle toujours `?currency=USD`. La conversion dans les autres devises est faite localement via `convertSpotPrice(priceUsd, currency, rates)` dans `utils/calculations.ts`. Le champ `rates` est stocké séparément dans `spotStore` et n'est jamais écrasé sur une réponse 503.
 
 #### Réponse — metals.dev indisponible (503)
 
@@ -121,19 +130,20 @@ Body :
 #### Comportement côté client
 
 ```
-1. Appeler GET /prices au lancement de l'app
-2. Stocker le résultat dans Zustand (spotStore)
-3. Planifier le prochain refresh dans 5 minutes
-4. Si 503 → utiliser last_known + afficher "Spot prices temporarily unavailable"
-5. Si 429 → lire Retry-After → attendre → retry
-6. Si timeout (10s) → traiter comme 503
-7. Si offline (netinfo) → pas d'appel → afficher cache + "Last updated X min ago"
+1. useSpotPrice() monté à la racine de l'app (App.tsx) — source unique de polling
+2. fetchPrices() appelé au lancement, puis toutes les 5 minutes via setInterval
+3. NetInfo listener — retry immédiat au retour de connectivité
+4. AppState listener — retry immédiat au retour au foreground
+5. Toujours appeler ?currency=USD — conversion locale via convertSpotPrice()
+6. Si 503 → utiliser last_known, conserver rates du dernier succès
+7. Si timeout (10s) → traiter comme 503
+8. Si offline (netinfo) → pas d'appel → afficher cache + "Last updated X min ago"
 ```
 
 **Règle TTL :**
 Le client ne doit jamais appeler `/prices` plus d'une fois par 5 minutes.
-Le serveur cache déjà, mais le client doit aussi respecter ce délai
-pour ne pas consommer inutilement le quota metals.dev.
+`fetchPrices()` vérifie `lastFetchAt` avant d'appeler le réseau.
+`refresh()` bypass le TTL pour les boutons Retry/Refresh manuels uniquement.
 
 ---
 
@@ -425,10 +435,33 @@ Ne jamais confirmer ou infirmer qu'un email est en base — protection contre l'
 | Environnement | Proxy URL | Backend URL |
 |---|---|---|
 | Développement | `http://localhost:8080` | `http://localhost:8081` |
-| Production | `https://proxy.stacklab.app` | `https://api.stacklab.app` |
+| Production (actuelle) | `https://stacklab-proxy.onrender.com` | non déployé (Phase 7) |
+| Production (cible) | `https://proxy.stacklab.app` | `https://api.stacklab.app` |
 
 Les URLs de production sont définies via variables d'environnement Expo (`EXPO_PUBLIC_PROXY_URL`, `EXPO_PUBLIC_API_URL`).
 Jamais hardcodées dans le code source.
+
+---
+
+## Couche réseau client — `api.ts` (non implémentée)
+
+`client/utils/api.ts` n'existe pas encore. En Phase 3, il n'y a qu'un seul service réseau (`spotService.ts`) — créer un wrapper partagé serait une abstraction prématurée.
+
+**Pourquoi il faudra le créer en Phase 7 :**
+Dès que plusieurs services appellent le réseau (proxy + backend), les besoins communs se dupliquent :
+- Headers communs (`Content-Type`, `Authorization`)
+- Token d'auth injecté automatiquement
+- Timeout centralisé (aujourd'hui hardcodé à 10s dans `spotService.ts`)
+- Logs et tracing centralisés
+
+**Ce que `api.ts` devra faire en Phase 7 :**
+```typescript
+// wrapper fetch avec timeout, headers communs, gestion erreurs HTTP
+export async function apiGet<T>(url: string, schema: ZodSchema<T>): Promise<Result<T>>
+export async function apiPost<T>(url: string, body: unknown, schema: ZodSchema<T>): Promise<Result<T>>
+```
+
+**Règle :** ne pas créer `api.ts` avant Phase 7. Un seul consommateur ne justifie pas l'abstraction.
 
 ---
 
