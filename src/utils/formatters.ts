@@ -29,12 +29,16 @@ export function formatPurity(value: number | null): string {
 }
 
 export function formatDate(isoDate: string | null): string {
-    if (isoDate === null) return EMPTY;
-    const [year, month, day] = isoDate.split('T')[0].split('-').map(Number);
-    const date = new Date(year, month - 1, day);
+    if (!isoDate) return EMPTY;
+    const parts = isoDate.split('T')[0].split('-').map(Number);
+    const [year, month, day] = parts;
+    if (!year || isNaN(year)) return EMPTY;
+    if (!month) return String(year);
+    const date = new Date(year, month - 1, day ?? 1);
+    if (isNaN(date.getTime())) return EMPTY;
     return new Intl.DateTimeFormat('en-US', {
         month: 'short',
-        day: 'numeric',
+        ...(day ? { day: 'numeric' } : {}),
         year: 'numeric',
     }).format(date);
 }

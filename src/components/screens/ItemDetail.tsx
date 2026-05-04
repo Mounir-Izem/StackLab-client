@@ -10,7 +10,8 @@ import { useLabStore } from '../../stores/labStore';
 import { useDeckStore } from '../../stores/deckStore';
 import { useItemStore } from '../../stores/itemStore';
 import { useSettingsStore } from '../../stores/settingsStore';
-import { calcFineWeightOz } from '../../utils/calculations';
+import { useSpotStore } from '../../stores/spotStore';
+import { calcFineWeightOz, calcMeltValue, convertSpotPrice } from '../../utils/calculations';
 import {
     formatWeight, formatPurity, formatCurrency,
     formatDate, formatStrikeLabel,
@@ -113,8 +114,12 @@ export function ItemDetail({ route, navigation }: Props) {
         </View>
     );
 
+    const { spot, rates } = useSpotStore();
     const metal = metalTokens[item.metal];
     const fineOz = calcFineWeightOz(item.weightOz, item.purity);
+    const spotPrice = spot ? (item.metal === 'gold' ? spot.gold : spot.silver) : null;
+    const meltValueUsd = spotPrice !== null ? calcMeltValue(fineOz, spotPrice) : null;
+    const meltValue = meltValueUsd !== null ? convertSpotPrice(meltValueUsd, currency, rates) : null;
     const strikeLabel = item.strikeFinish && item.strikeFinish !== 'unknown'
         ? formatStrikeLabel(item.strikeFinish) : null;
     const sub = [item.year?.toString(), strikeLabel].filter(Boolean).join(' · ');
@@ -181,6 +186,16 @@ export function ItemDetail({ route, navigation }: Props) {
                     </View>
                 </View>
 
+                {/* Melt value */}
+                <View style={styles.row2}>
+                    <View style={styles.stat}>
+                        <Text style={styles.statLabel}>Melt value</Text>
+                        <Text style={[styles.statVal, { color: meltValue !== null ? colors.green : colors.text3 }]}>
+                            {meltValue !== null ? formatCurrency(meltValue, currency as Currency) : '—'}
+                        </Text>
+                    </View>
+                </View>
+
                 {/* Financial */}
                 {!isWishlist && item.purchasePrice !== null && (
                     <View style={styles.row2}>
@@ -229,7 +244,7 @@ export function ItemDetail({ route, navigation }: Props) {
                 {(item.mintName || item.condition || item.location) && (
                     <View style={styles.detailsRow}>
                         {item.mintName && <DetailChip label="Mint" value={item.mintName} />}
-                        {item.condition && <DetailChip label="Condition" value={item.condition} />}
+                        {item.condition && <DetailChip label="Condition" value={item.condition.charAt(0).toUpperCase() + item.condition.slice(1)} />}
                         {item.location && <DetailChip label="Location" value={item.location} />}
                     </View>
                 )}
