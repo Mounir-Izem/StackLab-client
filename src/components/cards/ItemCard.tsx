@@ -10,6 +10,7 @@ import {
     card, metalTokens,
 } from '../../utils/theme';
 import { formatCardValue, formatStrikeLabel, formatWeight } from '../../utils/formatters';
+import { useSpotStore } from '../../stores/spotStore';
 import type { Item } from '../../types/item.types';
 import type { WeightUnit } from '../../types/settings.types';
 
@@ -23,6 +24,7 @@ type ItemCardProps = {
 
 function ItemCardComponent({ item, meltValue, currency = 'USD', weightUnit = 'oz', onPress }: ItemCardProps) {
     const metal = metalTokens[item.metal];
+    const { rates } = useSpotStore();
 
     const strikeLabel = item.strikeFinish && item.strikeFinish !== 'unknown'
         ? formatStrikeLabel(item.strikeFinish) : null;
@@ -43,11 +45,20 @@ function ItemCardComponent({ item, meltValue, currency = 'USD', weightUnit = 'oz
         displayValue = formatCardValue(numericValue, currency);
     }
 
-    const valueColor = numericValue === null
-        ? colors.text
-        : numericValue < 0
-            ? colors.crimson
-            : colors.green;
+    const valueColor = (() => {
+        if (numericValue === null) return colors.text;
+        if (item.status !== 'active' || meltValue == null || item.purchasePrice === null) return colors.text;
+        const purchaseCur = item.purchaseCurrency ?? 'USD';
+        const purchaseUsd = purchaseCur === 'USD' ? item.purchasePrice
+            : (rates[purchaseCur] ? item.purchasePrice * rates[purchaseCur] : null);
+        if (purchaseUsd === null) return colors.text;
+        const purchaseInDisplay = currency === 'USD' ? purchaseUsd
+            : (rates[currency] ? purchaseUsd / rates[currency] : null);
+        if (purchaseInDisplay === null) return colors.text;
+        if (meltValue > purchaseInDisplay) return colors.green;
+        if (meltValue < purchaseInDisplay) return colors.crimson;
+        return colors.text;
+    })();
 
     const isSold = item.status === 'sold';
     const isWishlist = item.status === 'wishlist';
@@ -111,11 +122,11 @@ function ItemCardComponent({ item, meltValue, currency = 'USD', weightUnit = 'oz
                 <View style={styles.wishlistIcon}>
                     <Ionicons name="cloud-outline" size={13} color="rgba(255,255,255,0.85)" />
                 </View>
-            ) : (
+            ) : item.quantity > 1 ? (
                 <View style={[styles.qtyBadge, isSold && styles.qtyBadgeSold]}>
                     <Text style={[styles.qtyText, isSold && styles.qtyTextSold]}>×{item.quantity}</Text>
                 </View>
-            )}
+            ) : null}
 
             <View style={styles.photoArea}>
                 {item.photoUrl ? (
@@ -171,9 +182,11 @@ function ItemCardComponent({ item, meltValue, currency = 'USD', weightUnit = 'oz
                         {isSold ? 'SOLD' : item.metal.toUpperCase()}
                     </Text>
                 </View>
-                <View style={styles.qtyBadge}>
-                    <Text style={styles.qtyText}>×{item.quantity}</Text>
-                </View>
+                {item.quantity > 1 && (
+                    <View style={styles.qtyBadge}>
+                        <Text style={styles.qtyText}>×{item.quantity}</Text>
+                    </View>
+                )}
                 <View style={styles.scPhotoArea}>
                     {item.photoUrl ? (
                         <Image source={{ uri: item.photoUrl }} style={styles.scPhoto} resizeMode="cover" />

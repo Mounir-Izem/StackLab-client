@@ -67,3 +67,17 @@ export function convertSpotPrice(
     if (!rate) return priceUsd;
     return priceUsd / rate;
 }
+
+export function calcTotalInvested(
+    investedByCurrency: Record<string, number>,
+    displayCurrency: string,
+    rates: Record<string, number>,
+): number | null {
+    if (Object.keys(investedByCurrency).length === 0) return null;
+    const hasNonUsd = Object.keys(investedByCurrency).some(c => c !== 'USD');
+    if (hasNonUsd && Object.keys(rates).length === 0) return null;
+    const totalUsd = Object.entries(investedByCurrency).reduce((sum, [cur, amount]) => {
+        return sum + (cur === 'USD' ? amount : amount * (rates[cur] ?? 1));
+    }, 0);
+    return convertSpotPrice(totalUsd, displayCurrency, rates);
+}

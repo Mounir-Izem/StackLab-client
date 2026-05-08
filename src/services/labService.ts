@@ -26,6 +26,28 @@ export const labService = {
         return labRepository.getItemCountsByLab();
     },
 
+    async getInvestedTotalsByLab(): Promise<Record<string, Record<string, number>>> {
+        const [trashLab, activeItems] = await Promise.all([
+            labRepository.findByType('trash'),
+            itemRepository.findAll('active'),
+        ]);
+
+        const nonTrashItems = trashLab
+            ? activeItems.filter(i => i.labId !== trashLab.id)
+            : activeItems;
+
+        const totals: Record<string, Record<string, number>> = {};
+
+        for (const item of nonTrashItems) {
+            if (item.purchasePrice === null) continue;
+            const cur = item.purchaseCurrency ?? 'USD';
+            if (!totals[item.labId]) totals[item.labId] = {};
+            totals[item.labId][cur] = (totals[item.labId][cur] ?? 0) + item.purchasePrice * item.quantity;
+        }
+
+        return totals;
+    },
+
     async getOzTotalsByLab(): Promise<Record<string, { gold: number; silver: number }>> {
         const [trashLab, activeItems] = await Promise.all([
             labRepository.findByType('trash'),

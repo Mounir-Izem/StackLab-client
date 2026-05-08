@@ -6,6 +6,7 @@ interface LabStore {
     labs: Lab[];
     labItemCounts: Record<string, number>;
     labOzTotals: Record<string, { gold: number; silver: number }>;
+    labInvestedTotals: Record<string, Record<string, number>>;
     isLoading: boolean;
     error: string | null;
 
@@ -19,18 +20,20 @@ export const useLabStore = create<LabStore>((set) => ({
     labs: [],
     labItemCounts: {},
     labOzTotals: {},
+    labInvestedTotals: {},
     isLoading: false,
     error: null,
 
     loadLabs: async () => {
         set({ isLoading: true, error: null });
         try {
-            const [labs, labItemCounts, labOzTotals] = await Promise.all([
+            const [labs, labItemCounts, labOzTotals, labInvestedTotals] = await Promise.all([
                 labService.getAll(),
                 labService.getItemCountsByLab(),
                 labService.getOzTotalsByLab(),
+                labService.getInvestedTotalsByLab(),
             ]);
-            set({ labs, labItemCounts, labOzTotals, isLoading: false });
+            set({ labs, labItemCounts, labOzTotals, labInvestedTotals, isLoading: false });
         } catch {
             set({ isLoading: false, error: 'LOAD_ERROR' });
         }
@@ -56,6 +59,7 @@ export const useLabStore = create<LabStore>((set) => ({
                 labs: [...state.labs, lab],
                 labItemCounts: { ...state.labItemCounts, [lab.id]: 0 },
                 labOzTotals: { ...state.labOzTotals, [lab.id]: { gold: 0, silver: 0 } },
+                labInvestedTotals: { ...state.labInvestedTotals, [lab.id]: {} },
             }));
         } catch {
             set({ error: 'CREATE_ERROR' });

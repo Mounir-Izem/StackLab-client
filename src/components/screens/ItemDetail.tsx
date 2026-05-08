@@ -30,6 +30,7 @@ export function ItemDetail({ route, navigation }: Props) {
     const { items, loadItems, updateItem, deleteItem, restoreFromTrash, sellItem, acquireItem, moveItem } = useItemStore();
     const currency = useSettingsStore(s => s.settings?.currency ?? 'USD');
     const weightUnit = useSettingsStore(s => s.settings?.weightUnit ?? 'oz');
+    const { spot, rates } = useSpotStore();
     const [showPhotoOptions, setShowPhotoOptions] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [showDeleteForeverConfirm, setShowDeleteForeverConfirm] = useState(false);
@@ -113,13 +114,37 @@ export function ItemDetail({ route, navigation }: Props) {
             <ActivityIndicator color={colors.violet} />
         </View>
     );
-
-    const { spot, rates } = useSpotStore();
     const metal = metalTokens[item.metal];
     const fineOz = calcFineWeightOz(item.weightOz, item.purity);
     const spotPrice = spot ? (item.metal === 'gold' ? spot.gold : spot.silver) : null;
     const meltValueUsd = spotPrice !== null ? calcMeltValue(fineOz, spotPrice) : null;
     const meltValue = meltValueUsd !== null ? convertSpotPrice(meltValueUsd, currency, rates) : null;
+
+    const purchaseUsd = item.purchasePrice !== null
+        ? (!item.purchaseCurrency || item.purchaseCurrency === 'USD'
+            ? item.purchasePrice
+            : (rates[item.purchaseCurrency] ? item.purchasePrice * rates[item.purchaseCurrency] : null))
+        : null;
+    const purchaseInDisplay = purchaseUsd !== null ? convertSpotPrice(purchaseUsd, currency, rates) : null;
+
+    const totalMeltValue = meltValue !== null ? meltValue * item.quantity : null;
+    const meltColor = totalMeltValue === null ? colors.text3
+        : purchaseInDisplay === null ? colors.text
+        : totalMeltValue > purchaseInDisplay ? colors.green
+        : totalMeltValue < purchaseInDisplay ? colors.crimson
+        : colors.text;
+
+    const soldUsd = item.soldPrice !== null
+        ? (!item.soldCurrency || item.soldCurrency === 'USD'
+            ? item.soldPrice
+            : (rates[item.soldCurrency] ? item.soldPrice * rates[item.soldCurrency] : null))
+        : null;
+    const soldInDisplay = soldUsd !== null ? convertSpotPrice(soldUsd, currency, rates) : null;
+    const soldColor = soldInDisplay === null || purchaseInDisplay === null ? colors.text
+        : soldInDisplay > purchaseInDisplay ? colors.green
+        : soldInDisplay < purchaseInDisplay ? colors.crimson
+        : colors.text;
+
     const strikeLabel = item.strikeFinish && item.strikeFinish !== 'unknown'
         ? formatStrikeLabel(item.strikeFinish) : null;
     const sub = [item.year?.toString(), strikeLabel].filter(Boolean).join(' · ');
@@ -182,7 +207,7 @@ export function ItemDetail({ route, navigation }: Props) {
                     </View>
                     <View style={styles.stat}>
                         <Text style={styles.statLabel}>Fine {weightUnit}</Text>
-                        <Text style={[styles.statVal, { color: colors.green }]}>{formatWeight(fineOz, weightUnit)}</Text>
+                        <Text style={[styles.statVal, { color: colors.text }]}>{formatWeight(fineOz, weightUnit, true)}</Text>
                     </View>
                 </View>
 
@@ -190,7 +215,7 @@ export function ItemDetail({ route, navigation }: Props) {
                 <View style={styles.row2}>
                     <View style={styles.stat}>
                         <Text style={styles.statLabel}>Melt value</Text>
-                        <Text style={[styles.statVal, { color: meltValue !== null ? colors.green : colors.text3 }]}>
+                        <Text style={[styles.statVal, { color: meltColor }]}>
                             {meltValue !== null ? formatCurrency(meltValue, currency as Currency) : '—'}
                         </Text>
                     </View>
@@ -229,7 +254,7 @@ export function ItemDetail({ route, navigation }: Props) {
                     <View style={styles.row2}>
                         <View style={styles.stat}>
                             <Text style={styles.statLabel}>Sold for</Text>
-                            <Text style={[styles.statVal, { color: colors.green }]}>{formatCurrency(item.soldPrice, item.soldCurrency ?? currency)}</Text>
+                            <Text style={[styles.statVal, { color: soldColor }]}>{formatCurrency(item.soldPrice, item.soldCurrency ?? currency)}</Text>
                         </View>
                         {item.soldDate && (
                             <View style={styles.stat}>
@@ -279,6 +304,7 @@ export function ItemDetail({ route, navigation }: Props) {
                         <ActionBtn icon="create-outline" label="Edit" onPress={() => navigation.navigate('EditItem', { itemId: item.id })} />
                         <ActionBtn icon="copy-outline" label="Duplicate" disabled />
                         <ActionBtn icon="arrow-forward-outline" label="Move" onPress={() => { setMoveQty(1); setMoveDestLabId(null); setMoveDestDeckId(null); setShowMoveModal(true); }} />
+                        <ActionBtn icon="trash-outline" label="Delete" danger onPress={() => setShowDeleteConfirm(true)} />
                     </>
                 ) : (
                     <>

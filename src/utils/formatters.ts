@@ -13,12 +13,12 @@ export function formatCurrency(value: number | null, currency: Currency): string
     }).format(value);
 }
 
-export function formatWeight(weightOz: number | null, unit: WeightUnit): string {
+export function formatWeight(weightOz: number | null, unit: WeightUnit, fine = false): string {
     if (weightOz === null) return EMPTY;
     switch (unit) {
-        case 'oz': return `${weightOz.toFixed(3)} oz`;
-        case 'g': return `${(weightOz * 31.1035).toFixed(2)} g`;
-        case 'kg': return `${(weightOz * 0.0311035).toFixed(4)} kg`;
+        case 'oz': return `${weightOz.toFixed(fine ? 4 : 3)} oz`;
+        case 'g': return `${(weightOz * 31.1035).toFixed(fine ? 3 : 2)} g`;
+        case 'kg': return `${(weightOz * 0.0311035).toFixed(fine ? 5 : 4)} kg`;
     }
 }
 

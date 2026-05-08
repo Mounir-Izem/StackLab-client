@@ -7,8 +7,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLabStore } from '../../stores/labStore';
 import { useSpotStore } from '../../stores/spotStore';
 import { useSettingsStore } from '../../stores/settingsStore';
-import { convertSpotPrice } from '../../utils/calculations';
-import { formatWeight, formatCurrency } from '../../utils/formatters';
+import { convertSpotPrice, calcTotalInvested, calcUnrealizedPnL } from '../../utils/calculations';
+import { formatWeight, formatCurrency, formatPnL } from '../../utils/formatters';
+import { snapshotService } from '../../services/snapshotService';
 import { colors, fonts } from '../../utils/theme';
 import type { Currency, WeightUnit } from '../../types/settings.types';
 
@@ -17,7 +18,7 @@ const CURRENCY_SYMBOL: Record<Currency, string> = {
 };
 
 export function DashboardHome() {
-    const { labs, labOzTotals, labItemCounts, loadLabs } = useLabStore();
+    const { labs, labOzTotals, labItemCounts, labInvestedTotals, loadLabs } = useLabStore();
     const { spot, rates, isLoading: spotLoading, refresh } = useSpotStore();
     const currency = useSettingsStore(s => s.settings?.currency ?? 'USD') as Currency;
     const weightUnit = useSettingsStore(s => s.settings?.weightUnit ?? 'oz') as WeightUnit;
@@ -47,7 +48,24 @@ export function DashboardHome() {
         ? totalFineOzGold * spotGold + totalFineOzSilver * spotSilver
         : null;
 
+    const investedByCurrency: Record<string, number> = {};
+    for (const [labId, byCurrency] of Object.entries(labInvestedTotals)) {
+        if (labId === trashLab?.id) continue;
+        for (const [cur, amount] of Object.entries(byCurrency)) {
+            investedByCurrency[cur] = (investedByCurrency[cur] ?? 0) + amount;
+        }
+    }
+    const totalInvested = calcTotalInvested(investedByCurrency, currency, rates);
+    const unrealizedPnL = totalValue !== null && totalInvested !== null
+        ? calcUnrealizedPnL(totalValue, totalInvested)
+        : null;
+
     const hasStack = totalItems > 0;
+
+    useEffect(() => {
+        if (!spot || !hasStack) return;
+        void snapshotService.captureIfNeeded(spot.gold, spot.silver, currency);
+    }, [spot?.gold, spot?.silver, hasStack, currency]); // eslint-disable-line react-hooks/exhaustive-deps
 
     if (!hasStack) {
         return (
@@ -87,19 +105,28 @@ export function DashboardHome() {
                 )}
             </View>
 
-            {/* P&L — placeholder */}
+            {/* P&L */}
             <View style={styles.pnlCard}>
                 <View style={styles.pnlRow}>
                     <View style={styles.pnlItem}>
                         <Text style={styles.statLabel}>INVESTED</Text>
-                        <Text style={styles.statValue}>—</Text>
-                        <Text style={styles.statNote}>add purchase prices to items</Text>
+                        <Text style={styles.statValue}>
+                            {totalInvested !== null ? formatCurrency(totalInvested, currency) : '—'}
+                        </Text>
+                        {totalInvested === null && (
+                            <Text style={styles.statNote}>add purchase prices to items</Text>
+                        )}
                     </View>
                     <View style={styles.divider} />
                     <View style={styles.pnlItem}>
                         <Text style={styles.statLabel}>UNREALIZED P&L</Text>
-                        <Text style={styles.statValue}>—</Text>
-                        <Text style={styles.statNote}>requires purchase prices</Text>
+                        <Text style={[
+                            styles.statValue,
+                            unrealizedPnL !== null && unrealizedPnL > 0 && { color: colors.green },
+                            unrealizedPnL !== null && unrealizedPnL < 0 && { color: colors.crimson },
+                        ]}>
+                            {formatPnL(unrealizedPnL, currency)}
+                        </Text>
                     </View>
                 </View>
             </View>
@@ -109,7 +136,7 @@ export function DashboardHome() {
                 <View style={styles.metalCard}>
                     <Text style={styles.metalLabel}>GOLD</Text>
                     <Text style={[styles.metalOz, { color: colors.gold }]}>
-                        {formatWeight(totalFineOzGold, weightUnit)}
+                        {formatWeight(totalFineOzGold, weightUnit, true)}
                     </Text>
                     <Text style={styles.metalSub}>fine {weightUnit}</Text>
                     {spotGold !== null && (
@@ -121,7 +148,7 @@ export function DashboardHome() {
                 <View style={styles.metalCard}>
                     <Text style={styles.metalLabel}>SILVER</Text>
                     <Text style={[styles.metalOz, { color: colors.silver }]}>
-                        {formatWeight(totalFineOzSilver, weightUnit)}
+                        {formatWeight(totalFineOzSilver, weightUnit, true)}
                     </Text>
                     <Text style={styles.metalSub}>fine {weightUnit}</Text>
                     {spotSilver !== null && (
