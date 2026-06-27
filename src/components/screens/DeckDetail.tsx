@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useState, useCallback } from 'react';
+import React, { useLayoutEffect, useEffect, useState, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
     View, Text, FlatList, Pressable,
@@ -23,7 +23,7 @@ export function DeckDetail({ route, navigation }: Props) {
     const { deckId, labId } = route.params;
 
     const { labs } = useLabStore();
-    const { decks, loadDecks } = useDeckStore();
+    const { decks, loadDecks, isLoading: isLoadingDecks, currentLabId } = useDeckStore();
     const { items, loadItems } = useItemStore();
     const currency = useSettingsStore(s => s.settings?.currency ?? 'USD');
     const weightUnit = useSettingsStore(s => s.settings?.weightUnit ?? 'oz');
@@ -42,6 +42,12 @@ export function DeckDetail({ route, navigation }: Props) {
     useFocusEffect(
         useCallback(() => { loadDecks(labId); loadItems(labId); }, [labId])
     );
+
+    useEffect(() => {
+        if (!deck && !isLoadingDecks && currentLabId === labId) {
+            navigation.goBack();
+        }
+    }, [deck, isLoadingDecks, currentLabId, labId, navigation]);
 
     useLayoutEffect(() => {
         if (!deck || !lab) return;

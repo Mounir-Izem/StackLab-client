@@ -96,7 +96,7 @@ export function ModifierFlow({ route, navigation }: Props) {
         }
         await loadDecks(labId);
         setDeletingDeck(false);
-        handleClose();
+        navigation.pop(2);
     }
 
     if (screen === 'B') return (
