@@ -1,5 +1,5 @@
 import React, { useLayoutEffect, useEffect, useState, useCallback } from 'react';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import {
     View, Text, FlatList, Pressable,
     StyleSheet, ActivityIndicator, Modal,
@@ -38,16 +38,17 @@ export function DeckDetail({ route, navigation }: Props) {
     const deckItems = items.filter(i => i.deckId === deckId);
 
     const [showPaywall, setShowPaywall] = useState(false);
+    const isFocused = useIsFocused();
 
     useFocusEffect(
         useCallback(() => { loadDecks(labId); loadItems(labId); }, [labId])
     );
 
     useEffect(() => {
-        if (!deck && !isLoadingDecks && currentLabId === labId) {
+        if (isFocused && !deck && !isLoadingDecks && currentLabId === labId) {
             navigation.goBack();
         }
-    }, [deck, isLoadingDecks, currentLabId, labId, navigation]);
+    }, [isFocused, deck, isLoadingDecks, currentLabId, labId, navigation]);
 
     useLayoutEffect(() => {
         if (!deck || !lab) return;
