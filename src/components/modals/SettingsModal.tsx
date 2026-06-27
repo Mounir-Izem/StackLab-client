@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
-    Modal, View, Text, Pressable,
+    Modal, View, Text, Pressable, TextInput,
     StyleSheet, ScrollView, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { useBackupStore } from '../../stores/backupStore';
+import { resetToLabsHome } from '../../navigation/navigationRef';
 import { colors, fonts } from '../../utils/theme';
 import type { Currency, WeightUnit } from '../../types/settings.types';
 
@@ -13,6 +15,20 @@ const WEIGHT_UNITS: WeightUnit[] = ['oz', 'g', 'kg'];
 
 export function SettingsModal() {
     const { settings, showSettings, closeSettings, updateSettings } = useSettingsStore();
+    const { isExporting, exportData, isImporting, importData, isReplacing, replaceData, error: backupError } = useBackupStore();
+    const [showExportConfirm, setShowExportConfirm] = useState(false);
+    const [showReplaceConfirm, setShowReplaceConfirm] = useState(false);
+    const [replaceConfirmText, setReplaceConfirmText] = useState('');
+
+    async function handleReplace() {
+        setShowReplaceConfirm(false);
+        setReplaceConfirmText('');
+        const didReplace = await replaceData();
+        if (didReplace) {
+            closeSettings();
+            resetToLabsHome();
+        }
+    }
 
     async function handleCurrency(currency: Currency) {
         await updateSettings({ currency });
@@ -23,6 +39,7 @@ export function SettingsModal() {
     }
 
     return (
+        <>
         <Modal
             visible={showSettings}
             animationType="slide"
@@ -80,15 +97,50 @@ export function SettingsModal() {
 
                         {/* Data */}
                         <Text style={styles.sectionLabel}>DATA</Text>
-                        <Pressable style={styles.row} disabled>
+                        <Pressable
+                            style={styles.row}
+                            disabled={isExporting}
+                            onPress={() => setShowExportConfirm(true)}
+                        >
                             <View style={styles.rowLeft}>
                                 <Ionicons name="download-outline" size={18} color={colors.text2} />
                                 <Text style={styles.rowLabel}>Export data</Text>
                             </View>
-                            <View style={styles.comingSoon}>
-                                <Text style={styles.comingSoonText}>Soon</Text>
-                            </View>
+                            {isExporting && <ActivityIndicator size="small" color={colors.text2} />}
                         </Pressable>
+                        <Pressable
+                            style={styles.row}
+                            disabled={isImporting}
+                            onPress={importData}
+                        >
+                            <View style={styles.rowLeft}>
+                                <Ionicons name="cloud-upload-outline" size={18} color={colors.text2} />
+                                <Text style={styles.rowLabel}>Import data</Text>
+                            </View>
+                            {isImporting && <ActivityIndicator size="small" color={colors.text2} />}
+                        </Pressable>
+                        <Pressable
+                            style={styles.row}
+                            disabled={isReplacing}
+                            onPress={() => setShowReplaceConfirm(true)}
+                        >
+                            <View style={styles.rowLeft}>
+                                <Ionicons name="warning-outline" size={18} color={colors.crimson} />
+                                <Text style={[styles.rowLabel, { color: colors.crimson }]}>Replace all data</Text>
+                            </View>
+                            {isReplacing && <ActivityIndicator size="small" color={colors.text2} />}
+                        </Pressable>
+                        {backupError && (
+                            <View style={styles.errorBanner}>
+                                <Text style={styles.errorText}>
+                                    {backupError === 'IMPORT_VERSION_MISMATCH'
+                                        ? "This file was made with a different version of StackLab and can't be imported."
+                                        : backupError === 'IMPORT_INVALID_FILE'
+                                        ? "This file couldn't be read — it may be corrupted or not a StackLab export."
+                                        : 'Something went wrong. Please try again.'}
+                                </Text>
+                            </View>
+                        )}
                         <View style={styles.row}>
                             <View style={styles.rowLeft}>
                                 <Ionicons name="time-outline" size={18} color={colors.text2} />
@@ -119,6 +171,76 @@ export function SettingsModal() {
                 )}
             </View>
         </Modal>
+
+        {/* Export confirmation modal */}
+        <Modal visible={showExportConfirm} transparent animationType="fade" onRequestClose={() => setShowExportConfirm(false)}>
+            <Pressable style={styles.overlay} onPress={() => setShowExportConfirm(false)}>
+                <View style={styles.optionSheet}>
+                    <Text style={styles.optionTitle}>Export your data?</Text>
+                    <Text style={styles.optionSubtitle}>
+                        This file contains your complete stack data in plain text. Store it securely. Do not share it.
+                    </Text>
+                    <Pressable style={styles.optionBtn} onPress={async () => {
+                        setShowExportConfirm(false);
+                        await exportData();
+                    }}>
+                        <Ionicons name="download-outline" size={20} color={colors.violet} />
+                        <Text style={[styles.optionBtnText, { color: colors.violet }]}>Export</Text>
+                    </Pressable>
+                    <Pressable style={styles.optionBtn} onPress={() => setShowExportConfirm(false)}>
+                        <Text style={styles.optionBtnText}>Cancel</Text>
+                    </Pressable>
+                </View>
+            </Pressable>
+        </Modal>
+
+        {/* Replace confirmation modal */}
+        <Modal
+            visible={showReplaceConfirm}
+            transparent
+            animationType="fade"
+            onRequestClose={() => { setShowReplaceConfirm(false); setReplaceConfirmText(''); }}
+        >
+            <Pressable
+                style={styles.overlay}
+                onPress={() => { setShowReplaceConfirm(false); setReplaceConfirmText(''); }}
+            >
+                <View style={styles.optionSheet}>
+                    <Text style={styles.optionTitle}>Replace all data?</Text>
+                    <Text style={styles.optionSubtitle}>
+                        This permanently deletes everything currently on this device and replaces it with the
+                        imported file. Your current data will be backed up automatically first — you'll be asked
+                        where to save it before anything is deleted.
+                    </Text>
+                    <View style={styles.replaceInputWrap}>
+                        <TextInput
+                            style={styles.replaceInput}
+                            value={replaceConfirmText}
+                            onChangeText={setReplaceConfirmText}
+                            placeholder="Type REPLACE to confirm"
+                            placeholderTextColor={colors.text2}
+                            autoCapitalize="characters"
+                            autoCorrect={false}
+                        />
+                    </View>
+                    <Pressable
+                        style={[styles.optionBtn, replaceConfirmText !== 'REPLACE' && styles.disabled]}
+                        disabled={replaceConfirmText !== 'REPLACE'}
+                        onPress={handleReplace}
+                    >
+                        <Ionicons name="warning-outline" size={20} color={colors.crimson} />
+                        <Text style={[styles.optionBtnText, { color: colors.crimson }]}>Replace</Text>
+                    </Pressable>
+                    <Pressable
+                        style={styles.optionBtn}
+                        onPress={() => { setShowReplaceConfirm(false); setReplaceConfirmText(''); }}
+                    >
+                        <Text style={styles.optionBtnText}>Cancel</Text>
+                    </Pressable>
+                </View>
+            </Pressable>
+        </Modal>
+        </>
     );
 }
 
@@ -167,11 +289,6 @@ const styles = StyleSheet.create({
     rowLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     rowLabel: { fontFamily: fonts.outfit, fontSize: 14, color: colors.text },
     rowValue: { fontFamily: fonts.outfit, fontSize: 13, color: colors.text2 },
-    comingSoon: {
-        paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8,
-        backgroundColor: colors.surface2,
-    },
-    comingSoonText: { fontFamily: fonts.outfit, fontSize: 11, color: colors.text2 },
     version: {
         fontFamily: fonts.outfit, fontSize: 12, color: colors.text2,
         textAlign: 'center', marginTop: 28, marginBottom: 8,
@@ -182,4 +299,18 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)',
     },
     devBtnText: { fontFamily: fonts.outfit, fontSize: 14, color: colors.orange },
+    errorBanner: { backgroundColor: 'rgba(180,30,30,0.15)', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: 'rgba(180,30,30,0.30)', marginTop: 10 },
+    errorText: { fontFamily: fonts.outfit, fontSize: 13, color: colors.crimson },
+    overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end', padding: 16, paddingBottom: 40 },
+    optionSheet: { backgroundColor: colors.surface, borderRadius: 16, overflow: 'hidden' },
+    optionTitle: { fontFamily: fonts.manrope, fontSize: 15, color: colors.text2, textAlign: 'center', paddingTop: 14, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' },
+    optionSubtitle: { fontFamily: fonts.outfit, fontSize: 12, color: colors.text2, textAlign: 'center', paddingBottom: 14, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' },
+    optionBtn: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 18, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' },
+    optionBtnText: { fontFamily: fonts.outfitMedium, fontSize: 15, color: colors.text },
+    replaceInputWrap: { paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' },
+    replaceInput: {
+        backgroundColor: colors.surface2, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10,
+        fontFamily: fonts.outfit, fontSize: 14, color: colors.text,
+    },
+    disabled: { opacity: 0.4 },
 });

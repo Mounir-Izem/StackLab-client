@@ -4,6 +4,7 @@ import { useSettingsStore } from '../stores/settingsStore';
 import { MainNavigator } from './MainNavigator';
 import { OnboardingStack } from './OnboardingStack';
 import { SettingsModal } from '../components/modals/SettingsModal';
+import { navigationRef } from './navigationRef';
 
 export function RootNavigator() {
     const settings = useSettingsStore(s => s.settings);
@@ -11,7 +12,7 @@ export function RootNavigator() {
     if (!settings) return null;
 
     return (
-        <NavigationContainer key={settings.onboardingCompleted ? 'main' : 'onboarding'}>
+        <NavigationContainer ref={navigationRef} key={settings.onboardingCompleted ? 'main' : 'onboarding'}>
             {settings.onboardingCompleted ? (
                 <>
                     <MainNavigator />

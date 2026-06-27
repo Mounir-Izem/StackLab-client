@@ -25,6 +25,8 @@ Si un besoin n'est pas couvert — signaler et attendre validation avant d'ajout
 | Validation | Zod | Schémas partagés client/serveur |
 | State management | Zustand | Performances supérieures à Context API sur gros volume. Sélecteurs = re-renders ciblés uniquement. |
 | Backup fichier | expo-file-system | Accès répertoire Documents iCloud/Drive |
+| Partage fichier (Android) | expo-sharing | `Share.share()` de react-native ne gère pas fiablement les URIs `file://` sur Android (nécessite un content provider). iOS utilise `Share` natif directement — pas besoin d'expo-sharing là. Décision validée Phase 6.1, déjà utilisée dans `useCardGestures.ts`. |
+| Sélecteur fichier import | expo-document-picker | Laisse l'utilisateur choisir le fichier JSON à importer (Phase 6.2). Officiel Expo, compatible managed workflow. |
 | Photos items | expo-image-picker | Accès galerie et appareil photo. Compatible Expo managed. |
 | Screenshot | expo-screen-capture | Prevention sur écrans sensibles |
 | Réseau / offline | @react-native-community/netinfo | Détection offline, fallback cache spot |

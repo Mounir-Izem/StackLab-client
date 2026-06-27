@@ -55,11 +55,27 @@ export const snapshotRepository = {
         return mapRowToSnapshot(row);
     },
 
+    async restore(data: StackSnapshot): Promise<void> {
+        const db = getDatabase();
+        await db.runAsync(
+            `INSERT INTO stack_snapshots
+                (id, date, total_value, total_oz_gold, total_oz_silver, spot_gold, spot_silver, currency, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [data.id, data.date, data.totalValue, data.totalOzGold, data.totalOzSilver,
+            data.spotGold, data.spotSilver, data.currency, data.createdAt]
+        );
+    },
+
     async findAll(): Promise<StackSnapshot[]> {
         const db = getDatabase();
         const rows = await db.getAllAsync<RawSnapshot>(
             'SELECT * FROM stack_snapshots ORDER BY date ASC'
         );
         return rows.map(mapRowToSnapshot);
+    },
+
+    async delete(id: string): Promise<void> {
+        const db = getDatabase();
+        await db.runAsync('DELETE FROM stack_snapshots WHERE id = ?', [id]);
     },
 };

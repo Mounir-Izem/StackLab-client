@@ -89,6 +89,8 @@ const SettingsExportSchema = z.object({
     updatedAt: z.string().min(1),
 });
 
+export const CURRENT_EXPORT_SCHEMA_VERSION = 1;
+
 export const ExportSchema = z.object({
     schema_version: z.number().int().positive(),
     exported_at: z.string().min(1),

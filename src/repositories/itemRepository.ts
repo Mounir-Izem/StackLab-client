@@ -214,6 +214,70 @@ export const itemRepository = {
         return this.findById(data.id) as Promise<Item>;
     },
 
+    async restore(data: Item): Promise<void> {
+        const db = getDatabase();
+
+        await db.execAsync('SAVEPOINT sp_item_restore');
+        try {
+            await db.runAsync(
+                `INSERT INTO items (
+                    id, lab_id, deck_id, status, name, family_key, metal, mint_name,
+                    shape, shape_description, weight_oz, weight_unit_input, purity,
+                    year, strike_finish, condition, grading_company, grade_value,
+                    notes, quantity, purchase_price, purchase_currency, purchase_exchange_rate,
+                    purchase_date, observed_price, observed_currency, observed_price_date,
+                    sold_date, sold_price, sold_currency, photo_url, location,
+                    created_at, updated_at
+                ) VALUES (
+                    ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?,
+                    ?, ?
+                )`,
+                [
+                    data.id, data.labId, data.deckId ?? null, data.status, data.name,
+                    data.familyKey, data.metal, data.mintName ?? null,
+                    data.shape, data.shapeDescription ?? null, data.weightOz,
+                    data.weightUnitInput, data.purity,
+                    data.year ?? null, data.strikeFinish ?? null, data.condition ?? null,
+                    data.gradingCompany ?? null, data.gradeValue ?? null,
+                    data.notes ?? null, data.quantity,
+                    data.purchasePrice ?? null, data.purchaseCurrency ?? null,
+                    data.purchaseExchangeRate ?? null, data.purchaseDate ?? null,
+                    data.observedPrice ?? null, data.observedCurrency ?? null,
+                    data.observedPriceDate ?? null,
+                    data.soldDate ?? null, data.soldPrice ?? null,
+                    data.soldCurrency ?? null, data.photoUrl ?? null,
+                    data.location ?? null,
+                    data.createdAt, data.updatedAt,
+                ]
+            );
+
+            for (const feature of data.features) {
+                await db.runAsync(
+                    'INSERT INTO item_features (item_id, feature) VALUES (?, ?)',
+                    [data.id, feature]
+                );
+            }
+
+            for (const pkg of data.packaging) {
+                await db.runAsync(
+                    'INSERT INTO item_packaging (item_id, packaging) VALUES (?, ?)',
+                    [data.id, pkg]
+                );
+            }
+
+            await db.execAsync('RELEASE sp_item_restore');
+        } catch (error) {
+            await db.execAsync('ROLLBACK TO sp_item_restore');
+            await db.execAsync('RELEASE sp_item_restore');
+            throw error;
+        }
+    },
+
     async update(id: string, data: Partial<Omit<Item, 'id' | 'familyKey' | 'createdAt' | 'updatedAt'>>): Promise<Item> {
         const db = getDatabase();
         const now = new Date().toISOString();

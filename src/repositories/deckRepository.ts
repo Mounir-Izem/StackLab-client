@@ -26,6 +26,14 @@ function mapRowToDeck(row: RawDeck): Deck {
 }
 
 export const deckRepository = {
+    async findAll(): Promise<Deck[]> {
+        const db = getDatabase();
+        const rows = await db.getAllAsync<RawDeck>(
+            'SELECT * FROM decks ORDER BY position ASC'
+        );
+        return rows.map(mapRowToDeck);
+    },
+
     async findByLabId(labId: string): Promise<Deck[]> {
         const db = getDatabase();
         const rows = await db.getAllAsync<RawDeck>(
@@ -63,6 +71,16 @@ export const deckRepository = {
             data.coverPhotoUrl ?? null, data.position, now, now]
         );
         return this.findById(data.id) as Promise<Deck>;
+    },
+
+    async restore(data: Deck): Promise<void> {
+        const db = getDatabase();
+        await db.runAsync(
+            `INSERT INTO decks (id, lab_id, parent_id, name, cover_photo_url, position, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [data.id, data.labId, data.parentId ?? null, data.name,
+            data.coverPhotoUrl ?? null, data.position, data.createdAt, data.updatedAt]
+        );
     },
 
     async update(id: string, data: Partial<Pick<Deck, 'name' | 'coverPhotoUrl' | 'position' | 'parentId' | 'labId'>>): Promise<Deck> {

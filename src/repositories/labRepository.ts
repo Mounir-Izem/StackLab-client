@@ -66,6 +66,16 @@ export const labRepository = {
         return this.findById(data.id) as Promise<Lab>;
     },
 
+    async restore(data: Lab): Promise<void> {
+        const db = getDatabase();
+        await db.runAsync(
+            `INSERT INTO labs (id, user_id, name, cover_photo_url, type, is_system, position, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [data.id, data.userId ?? null, data.name, data.coverPhotoUrl ?? null,
+            data.type, data.isSystem ? 1 : 0, data.position, data.createdAt, data.updatedAt]
+        );
+    },
+
     async update(id: string, data: Partial<Pick<Lab, 'name' | 'coverPhotoUrl' | 'position'>>): Promise<Lab> {
         const db = getDatabase();
         const now = new Date().toISOString();

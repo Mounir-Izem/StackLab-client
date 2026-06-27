@@ -113,6 +113,7 @@ AsyncStorage n'est jamais utilisé pour des données sensibles (UUID, passphrase
   *"This file contains your complete stack data in plain text. Store it securely. Do not share it. Do not upload it to unencrypted cloud storage."*
 - L'utilisateur doit confirmer avant l'export.
 - Post-MVP : option d'export chiffré avec mot de passe.
+- **Limite connue (Phase 6.1/6.2) : les photos ne sont pas incluses dans l'export/import.** `photoUrl` n'est qu'un chemin local (`file://...`), pas le fichier image — il devient invalide après réinstallation ou sur un autre appareil. Embarquer les photos en base64 dans le JSON a été écarté : risque réel de crash (out-of-memory) sur une grosse collection photographiée, au moment précis où la fiabilité du backup compte le plus. Une archive (ZIP) serait plus robuste mais nécessite de valider une lib compatible Expo managed sans prebuild — différé à un lot dédié post-6.2.
 
 ### Secrets — Jamais dans le code client
 
