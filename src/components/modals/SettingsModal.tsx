@@ -99,6 +99,22 @@ export function SettingsModal() {
 
                         {/* Version */}
                         <Text style={styles.version}>StackLab — Beta</Text>
+
+                        {__DEV__ && (
+                            <>
+                                <Text style={styles.sectionLabel}>DEV</Text>
+                                <Pressable
+                                    style={styles.devBtn}
+                                    onPress={async () => {
+                                        await updateSettings({ onboardingCompleted: false, onboardingStep: 0 });
+                                        closeSettings();
+                                    }}
+                                >
+                                    <Ionicons name="refresh-outline" size={16} color={colors.orange} />
+                                    <Text style={styles.devBtnText}>Reset onboarding</Text>
+                                </Pressable>
+                            </>
+                        )}
                     </ScrollView>
                 )}
             </View>
@@ -160,4 +176,10 @@ const styles = StyleSheet.create({
         fontFamily: fonts.outfit, fontSize: 12, color: colors.text2,
         textAlign: 'center', marginTop: 28, marginBottom: 8,
     },
+    devBtn: {
+        flexDirection: 'row', alignItems: 'center', gap: 10,
+        paddingVertical: 14,
+        borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)',
+    },
+    devBtnText: { fontFamily: fonts.outfit, fontSize: 14, color: colors.orange },
 });

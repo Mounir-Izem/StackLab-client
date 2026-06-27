@@ -297,7 +297,6 @@ DashboardTab (Stack)
 - Total oz gold (fine oz)
 - Total oz silver (fine oz)
 - Maximum 1 insight simple MVP
-- Screenshot prevention actif sur cet écran
 
 ---
 
@@ -350,11 +349,12 @@ Contenu :
 
 **Timing du prompt de backup :**
 ```
-Un prompt non bloquant apparaît dans ces situations :
-1. Premier item créé → prompt obligatoire immédiat
+1. Premier item créé → Étape 1b onboarding (non-blocking)
+   [Enable auto-backup] ou [I'll export manually]
 2. AppState passe en "background" → si modifications depuis le dernier export
    (comparaison updated_at des items vs timestamp du dernier export)
-3. Ouverture de l'app → si dernier export > 7 jours ET ≥ 1 item en base
+3. 5 items actifs trackés ET backup jamais activé ET pas d'export
+   → Bannière discrète dans My Stack (une seule fois, fermable via ×)
 ```
 
 ### Modal — Transfer to new device (iOS→Android ou inverse)
@@ -676,7 +676,6 @@ Affiché discrètement dans Dashboard si spot non rafraîchi.
 ### Screenshot prevention
 Actif sur :
 - Modal Cloud Sync Activation (étape passphrase)
-- DashboardHome
 
 ---
 

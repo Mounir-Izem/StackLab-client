@@ -9,7 +9,10 @@
 L'onboarding ne dit pas "voici comment utiliser l'app."
 Il dit **"voici ton espace. Fais-en ce que tu veux."**
 
-Chaque étape doit être rapide, non bloquante, et laisser l'utilisateur en contrôle.
+La première minute répond à la question inconsciente du stacker :
+**"Est-ce que cette app va faire honneur à ma collection ?"**
+
+Chaque étape est rapide, non bloquante, et laisse l'utilisateur en contrôle.
 
 ---
 
@@ -28,10 +31,12 @@ Lancements suivants → MainNavigator (Tab)
 ## Flow complet
 
 ```
-Premier lancement → micro-animation logo → My Stack
-Étape 1 — First Item (optionnel mais incité)
-Étape 2 — Backup Prompt (déclenché au 5ème item créé)
-→ MainNavigator
+Premier lancement → micro-animation logo → My Stack (vide)
+Étape 1 — First Item (flow création complet)
+Étape 1b — Backup prompt (juste après l'animation d'entrée de la card)
+→ MainNavigator (onboarding_completed = true)
+
+Reminder silencieux — au 5ème item si backup jamais activé (système séparé)
 ```
 
 ---
@@ -64,35 +69,61 @@ Your stack is waiting."
 ```
 
 Si l'utilisateur clique **Add Item** :
-→ Modal création d'item s'ouvre (voir NAVIGATION.md)
-→ Après création : retour dans My Stack, onboarding_step avancé
+→ Flow création d'item complet (3 écrans, voir NAVIGATION.md)
+→ Card animée à l'entrée dans My Stack ← moment de rétention
+→ Étape 1b déclenchée dans la continuité de l'animation
 
 Si l'utilisateur clique **Skip** :
+→ `onboarding_completed = true` immédiatement
 → Atterrissage direct dans My Stack
 → Hint Deck affiché au premier accès au Lab (voir section Hints)
+→ Reminder au 5ème item si backup jamais activé
 
 ---
 
-## Étape 2 — Backup Prompt
+## Étape 1b — Backup prompt (post-premier item)
 
-**Déclenché au 5ème item créé** — pas au premier, pas après un Skip.
+**Déclenché une seule fois, juste après l'animation d'entrée de la card.**
+
+L'utilisateur vient de voir son premier item apparaître. L'émotion est là. C'est le moment exact pour parler de protection — il a maintenant quelque chose à perdre.
 
 ```
-"Your stack is yours.
-Keep it safe."
+"Your stack is on your phone.
+If you lose your phone, you lose your stack.
+Choose how you want to protect it."
 
-"Export your data now — it takes 5 seconds.
-If you lose your phone, you lose your stack."
-
-[Export Now →]        [Later]
+[Enable auto-backup]           [I'll export manually]
 ```
 
-**Comportement :**
-- Si "Export Now" → modal export JSON s'ouvre (voir NAVIGATION.md)
-- Si "Later" → reminder silencieux activé, se redéclenche tous les **30 jours**
-- Ce prompt ne peut pas être complètement ignoré sans afficher "Later" — pas de fermeture directe
+**[Enable auto-backup]** :
+→ Ouvre les paramètres système (iCloud sur iOS / Google Drive sur Android)
+→ L'utilisateur active, revient dans l'app
+→ `auto_backup_enabled = true`
+→ `onboarding_completed = true`
 
-Après cette étape → **MainNavigator (Tab)**. L'onboarding est terminé.
+**[I'll export manually]** :
+→ Pas de blocking, pas de modal supplémentaire
+→ `backup_reminder = true`
+→ `onboarding_completed = true`
+
+Ce prompt ne peut pas être fermé sans choisir une option — pas de × en haut à droite.
+Ce n'est pas un blocage : les deux options avancent vers l'app.
+
+---
+
+## Reminder silencieux — 5ème item
+
+Système séparé de l'onboarding. Déclenché si :
+- `auto_backup_enabled = false`
+- Aucun export JSON jamais effectué
+- `item_count (active) >= 5`
+
+```
+Bannière discrète en haut de My Stack :
+"5 items tracked. Back up your stack."  [Export]  [×]
+```
+
+Apparaît une seule fois. Si l'utilisateur ferme (×), la bannière ne réapparaît pas. Son choix est respecté.
 
 ---
 
@@ -140,8 +171,9 @@ Si l'utilisateur quitte l'app pendant l'onboarding :
 
 | Étape abandonnée | Reprise |
 |---|---|
-| Étape 1 (First Item) | Reprend à l'Étape 1 |
-| Étape 2 (Backup) | Reprend à l'Étape 2 |
+| Avant Étape 1 (My Stack vide) | Reprend à l'Étape 1 |
+| Pendant création item | Reprend à l'Étape 1 |
+| Étape 1b (Backup prompt) | Reprend à l'Étape 1b |
 
 L'état d'avancement est persisté localement via un flag `onboarding_step` dans Settings.
 
@@ -149,14 +181,21 @@ L'état d'avancement est persisté localement via un flag `onboarding_step` dans
 Settings {
   ...
   onboarding_completed  BOOLEAN   false par défaut
-  onboarding_step       INTEGER   0 par défaut (0-2)
+  onboarding_step       INTEGER   0 par défaut (0–1)
 }
 ```
+
+| Valeur | Signification |
+|---|---|
+| 0 | Premier lancement, Étape 1 non commencée |
+| 1 | 1er item créé, Étape 1b (backup prompt) non traitée |
 
 ---
 
 ## Ce que l'onboarding ne fait PAS
 
+- Pas d'écran Privacy & Backup avant les données (aucune valeur = aucune raison d'écouter)
+- Pas d'export JSON blocking (tue le moment de rétention)
 - Pas de tutoriel sur les features
 - Pas d'explication sur les Decks (seulement un hint post-onboarding)
 - Pas de demande de notifications
@@ -173,8 +212,7 @@ onboarding_completed = false → OnboardingStack au lancement
 onboarding_completed = true  → MainNavigator au lancement
 ```
 
-Dès que l'utilisateur termine l'Étape 2 (ou clique "Later") :
-`onboarding_completed = true`
+`onboarding_completed = true` est positionné dès que l'Étape 1b est traitée (Enable ou I'll export manually), ou immédiatement si l'utilisateur clique Skip à l'Étape 1.
 
 ---
 

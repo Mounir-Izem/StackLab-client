@@ -2,6 +2,7 @@ import { Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useSettingsStore } from '../stores/settingsStore';
+import { colors, fonts } from '../utils/theme';
 import type { LabsStackParamList } from './types';
 import { LabsHome } from '../components/screens/LabsHome';
 import { LabDetail } from '../components/screens/LabDetail';
@@ -16,9 +17,9 @@ import { TrashModifierFlow } from '../components/screens/TrashModifierFlow';
 const Stack = createNativeStackNavigator<LabsStackParamList>();
 
 const HEADER_OPTIONS = {
-    headerStyle: { backgroundColor: '#2D1B5E' },
-    headerTintColor: '#00FF75',
-    headerTitleStyle: { fontFamily: 'Manrope_700Bold', fontSize: 17, color: '#00FF75' },
+    headerStyle: { backgroundColor: colors.bg },
+    headerTintColor: colors.text,
+    headerTitleStyle: { fontFamily: fonts.manrope, fontSize: 17, color: colors.text },
     headerTitleAlign: 'center' as const,
     headerShadowVisible: false,
 } as const;
@@ -26,7 +27,7 @@ const HEADER_OPTIONS = {
 function GearButton() {
     return (
         <Pressable onPress={() => useSettingsStore.getState().openSettings()} hitSlop={8} style={{ marginRight: 4 }}>
-            <Ionicons name="settings-outline" size={20} color="#00FF75" />
+            <Ionicons name="settings-outline" size={20} color={colors.text2} />
         </Pressable>
     );
 }

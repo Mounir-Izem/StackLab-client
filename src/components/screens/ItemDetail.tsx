@@ -172,6 +172,7 @@ export function ItemDetail({ route, navigation }: Props) {
                         <View style={styles.photoPlaceholder}>
                             <Ionicons name="camera-outline" size={32} color={colors.text3} />
                             <Text style={styles.photoPlaceholderText}>Add your photo</Text>
+                            <Text style={styles.photoHintText}>Tap to shoot or pick from library</Text>
                         </View>
                     )}
                     <View style={[styles.metalBadge, { backgroundColor: metal.badgeBg, borderColor: metal.badgeBorder }]}>
@@ -713,6 +714,7 @@ const styles = StyleSheet.create({
         backgroundColor: colors.surface, gap: 8,
     },
     photoPlaceholderText: { color: colors.text3, fontFamily: fonts.outfit, fontSize: 13 },
+    photoHintText: { color: colors.text3, fontFamily: fonts.outfit, fontSize: 11, marginTop: 2 },
     metalBadge: {
         position: 'absolute', top: 12, left: 12,
         paddingHorizontal: 8, paddingVertical: 3,

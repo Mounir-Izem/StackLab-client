@@ -1,6 +1,16 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 
+export type OnboardingStackParamList = {
+    OnboardingLogo: undefined;
+    OnboardingStep1: undefined;
+    CreateItem: { labId: string; deckId: string | null };
+    OnboardingBackupPrompt: undefined;
+};
+
+export type OnboardingStackScreenProps<T extends keyof OnboardingStackParamList> =
+    NativeStackScreenProps<OnboardingStackParamList, T>;
+
 export type LabsStackParamList = {
     LabsHome: undefined;
     LabDetail: { labId: string };

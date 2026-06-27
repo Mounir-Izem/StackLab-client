@@ -137,6 +137,12 @@ export function LabDetail({ route, navigation }: Props) {
                                 <Text style={styles.emptyText}>
                                     {isWishlist ? 'Tap + to add items you want to acquire' : 'Tap + to add your first piece'}
                                 </Text>
+                                {!isWishlist && !isTrash && (
+                                    <View style={styles.deckHint}>
+                                        <Ionicons name="layers-outline" size={14} color={colors.violet} />
+                                        <Text style={styles.deckHintText}>Use Decks to group your pieces by theme, year, or origin.</Text>
+                                    </View>
+                                )}
                             </View>
                         )
                         : null
@@ -260,4 +266,12 @@ const styles = StyleSheet.create({
         borderWidth: 1, borderColor: colors.crimson + '44',
     },
     trashBtnText: { fontFamily: fonts.outfitSemiBold, fontSize: 14, color: colors.crimson },
+    deckHint: {
+        flexDirection: 'row', alignItems: 'flex-start', gap: 6,
+        marginTop: 16, paddingHorizontal: 24,
+    },
+    deckHintText: {
+        fontFamily: fonts.outfit, fontSize: 12, color: colors.text2,
+        flex: 1, lineHeight: 17,
+    },
 });

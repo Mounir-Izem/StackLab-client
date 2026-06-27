@@ -8,10 +8,11 @@ export type Settings = {
     cloudSync: boolean;
     autoBackupEnabled: boolean;
     backupReminder: boolean;
+    backupBannerDismissed: boolean;
     hideValues: boolean;
     subscriptionStatus: SubscriptionStatus;
     subscriptionExpiry: string | null;
     onboardingCompleted: boolean;
-    onboardingStep: 0 | 1 | 2 | 3;
+    onboardingStep: 0 | 1;
     updatedAt: string;
 };

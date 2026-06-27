@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
+import * as SplashScreen from 'expo-splash-screen';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as NavigationBar from 'expo-navigation-bar';
 import { Outfit_400Regular, Outfit_500Medium, Outfit_600SemiBold } from '@expo-google-fonts/outfit';
@@ -12,6 +13,8 @@ import { useSettingsStore } from './src/stores/settingsStore';
 import { useSpotPrice } from './src/hooks/useSpotPrice';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+
+SplashScreen.preventAutoHideAsync();
 
 export default function App() {
   useSpotPrice();
@@ -31,14 +34,16 @@ export default function App() {
       NavigationBar.setButtonStyleAsync('light');
     }
     initDatabase()
-      .then(() => {
-        setDbReady(true);
-        useSettingsStore.getState().loadSettings();
-      })
+      .then(() => useSettingsStore.getState().loadSettings())
+      .then(() => setDbReady(true))
       .catch((e: unknown) => console.error('[DB INIT ERROR]', e));
   }, []);
 
-
+  useEffect(() => {
+    if (fontsLoaded && dbReady) {
+      SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded, dbReady]);
 
   if (!fontsLoaded || !dbReady) return null;
 

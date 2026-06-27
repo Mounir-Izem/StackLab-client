@@ -1,11 +1,12 @@
 import * as SQLite from 'expo-sqlite';
 import { generateUUID } from '../utils/uuid';
 
-export const CURRENT_SCHEMA_VERSION = 2;
+export const CURRENT_SCHEMA_VERSION = 3;
 
 const MIGRATIONS: Record<number, (db: SQLite.SQLiteDatabase) => Promise<void>> = {
     1: migrateV0toV1,
     2: migrateV1toV2,
+    3: migrateV2toV3,
 };
 
 export async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
@@ -304,5 +305,15 @@ async function migrateV1toV2(db: SQLite.SQLiteDatabase): Promise<void> {
         `INSERT INTO labs (id, user_id, name, cover_photo_url, type, is_system, position, created_at, updated_at)
          VALUES (?, NULL, 'Trash', NULL, 'trash', 1, 2, ?, ?)`,
         [generateUUID(), now, now]
+    );
+}
+
+async function migrateV2toV3(db: SQLite.SQLiteDatabase): Promise<void> {
+    await db.execAsync(
+        'ALTER TABLE settings ADD COLUMN backup_banner_dismissed INTEGER NOT NULL DEFAULT 0'
+    );
+    // Existing users with items skip onboarding — they already have a stack
+    await db.execAsync(
+        'UPDATE settings SET onboarding_completed = 1 WHERE (SELECT COUNT(*) FROM items) > 0'
     );
 }

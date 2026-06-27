@@ -8,7 +8,6 @@ import { colors, fonts } from '../../utils/theme';
 import { CreateItemStep1 } from './CreateItemStep1';
 import { CreateItemStep2 } from './CreateItemStep2';
 import { CreateItemStep3 } from './CreateItemStep3';
-import type { LabsStackScreenProps } from '../../navigation/types';
 import type { ItemMetal, ItemShape, ItemWeightUnit, StrikeFinish } from '../../types/item.types';
 
 export type MixRow = {
@@ -42,7 +41,10 @@ const INITIAL: FlowState = {
     weightInput: '1', weightUnit: 'oz', purity: 0.9999,
 };
 
-type Props = LabsStackScreenProps<'CreateItem'>;
+type Props = {
+    route: { params: { labId: string; deckId: string | null } };
+    navigation: { goBack: () => void };
+};
 
 export function CreateItemFlow({ route, navigation }: Props) {
     const { labId, deckId } = route.params;

@@ -1,40 +1,62 @@
-import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { triggerSuccess } from '../../utils/haptics';
 import { colors, fonts } from '../../utils/theme';
+import type { Settings } from '../../types/settings.types';
 import type { OnboardingStackScreenProps } from '../../navigation/types';
 
 type Props = OnboardingStackScreenProps<'OnboardingBackupPrompt'>;
 
+const CLOUD_NAME = Platform.OS === 'ios' ? 'iCloud' : 'Google Drive';
+
 export function OnboardingBackupPrompt(_props: Props) {
     const updateSettings = useSettingsStore(s => s.updateSettings);
+    const [confirmed, setConfirmed] = useState(false);
 
-    async function handleEnable() {
-        await updateSettings({ autoBackupEnabled: true, onboardingCompleted: true });
+    function finish(data: Partial<Omit<Settings, 'updatedAt'>>) {
+        setConfirmed(true);
+        triggerSuccess();
+        setTimeout(() => { updateSettings(data); }, 400);
     }
 
-    async function handleManual() {
-        await updateSettings({ backupReminder: true, onboardingCompleted: true });
+    function handleEnable() {
+        finish({ autoBackupEnabled: true, onboardingCompleted: true });
+    }
+
+    function handleManual() {
+        finish({ backupReminder: true, onboardingCompleted: true });
     }
 
     return (
         <View style={styles.screen}>
             <View style={styles.content}>
-                <Ionicons name="shield-checkmark-outline" size={52} color={colors.violet} style={styles.icon} />
-                <Text style={styles.heading}>Protect your stack</Text>
-                <Text style={styles.sub}>
-                    Enable auto-backup so your data is always safe — no cloud required.
-                </Text>
+                <Ionicons
+                    name={confirmed ? 'checkmark-circle' : 'shield-checkmark-outline'}
+                    size={52}
+                    color={colors.violet}
+                    style={styles.icon}
+                />
+                <Text style={styles.heading}>{confirmed ? 'Got it' : 'Protect your stack'}</Text>
+                {!confirmed && (
+                    <Text style={styles.sub}>
+                        We'll automatically save a backup to your {CLOUD_NAME} — nothing leaves your
+                        phone except to your own {CLOUD_NAME}.{'\n\n'}You can turn this on or off
+                        anytime in Settings.
+                    </Text>
+                )}
             </View>
-            <View style={styles.actions}>
-                <Pressable style={styles.primary} onPress={handleEnable}>
-                    <Text style={styles.primaryText}>Enable auto-backup</Text>
-                </Pressable>
-                <Pressable onPress={handleManual} hitSlop={8}>
-                    <Text style={styles.skip}>I'll export manually</Text>
-                </Pressable>
-            </View>
+            {!confirmed && (
+                <View style={styles.actions}>
+                    <Pressable style={styles.primary} onPress={handleEnable}>
+                        <Text style={styles.primaryText}>Enable auto-backup</Text>
+                    </Pressable>
+                    <Pressable onPress={handleManual} hitSlop={8}>
+                        <Text style={styles.skip}>I'll export manually</Text>
+                    </Pressable>
+                </View>
+            )}
         </View>
     );
 }

@@ -1,12 +1,13 @@
 import { useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
-import { View, FlatList, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, Pressable, FlatList, ActivityIndicator, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useLabStore } from '../../stores/labStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useSpotStore } from '../../stores/spotStore';
 import { convertSpotPrice } from '../../utils/calculations';
 import { LabCard } from '../cards/LabCard';
-import { colors } from '../../utils/theme';
+import { colors, fonts } from '../../utils/theme';
 import type { LabsStackScreenProps } from '../../navigation/types';
 import type { Lab } from '../../types/lab.types';
 
@@ -14,12 +15,21 @@ type Props = LabsStackScreenProps<'LabsHome'>;
 
 export function LabsHome({ navigation }: Props) {
     const { labs, labItemCounts, labOzTotals, loadLabs, isLoading } = useLabStore();
-    const { settings } = useSettingsStore();
+    const { settings, updateSettings } = useSettingsStore();
     const { spot, rates } = useSpotStore();
     const currency = settings?.currency ?? 'USD';
 
     const spotGold = spot ? convertSpotPrice(spot.gold, currency, rates) : null;
     const spotSilver = spot ? convertSpotPrice(spot.silver, currency, rates) : null;
+
+    const totalItems = labs
+        .filter(l => l.type !== 'trash')
+        .reduce((sum, l) => sum + (labItemCounts[l.id] ?? 0), 0);
+
+    const showBackupBanner =
+        !settings?.autoBackupEnabled &&
+        !settings?.backupBannerDismissed &&
+        totalItems >= 5;
 
     useFocusEffect(
         useCallback(() => { loadLabs(); }, [])
@@ -53,6 +63,16 @@ export function LabsHome({ navigation }: Props) {
         );
     }
 
+    const backupBanner = showBackupBanner ? (
+        <View style={styles.banner}>
+            <Ionicons name="shield-outline" size={18} color={colors.violet} style={styles.bannerIcon} />
+            <Text style={styles.bannerText}>Back up your stack to keep your data safe.</Text>
+            <Pressable onPress={() => updateSettings({ backupBannerDismissed: true })} hitSlop={8}>
+                <Ionicons name="close" size={16} color={colors.text2} />
+            </Pressable>
+        </View>
+    ) : null;
+
     return (
         <View style={styles.screen}>
             <FlatList
@@ -63,6 +83,7 @@ export function LabsHome({ navigation }: Props) {
                 showsVerticalScrollIndicator={false}
                 refreshing={isLoading}
                 onRefresh={loadLabs}
+                ListHeaderComponent={backupBanner}
                 ItemSeparatorComponent={() => <View style={styles.separator} />}
             />
         </View>
@@ -85,5 +106,23 @@ const styles = StyleSheet.create({
     },
     separator: {
         height: 12,
+    },
+    banner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: colors.surface,
+        borderRadius: 12,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        marginBottom: 12,
+        gap: 8,
+    },
+    bannerIcon: { flexShrink: 0 },
+    bannerText: {
+        flex: 1,
+        fontFamily: fonts.outfit,
+        fontSize: 13,
+        color: colors.text2,
+        lineHeight: 18,
     },
 });

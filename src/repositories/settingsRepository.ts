@@ -7,6 +7,7 @@ type RawSettings = {
     cloud_sync: number;
     auto_backup_enabled: number;
     backup_reminder: number;
+    backup_banner_dismissed: number;
     hide_values: number;
     subscription_status: string;
     subscription_expiry: string | null;
@@ -22,11 +23,12 @@ function mapRowToSettings(row: RawSettings): Settings {
         cloudSync: row.cloud_sync === 1,
         autoBackupEnabled: row.auto_backup_enabled === 1,
         backupReminder: row.backup_reminder === 1,
+        backupBannerDismissed: row.backup_banner_dismissed === 1,
         hideValues: row.hide_values === 1,
         subscriptionStatus: row.subscription_status as SubscriptionStatus,
         subscriptionExpiry: row.subscription_expiry,
         onboardingCompleted: row.onboarding_completed === 1,
-        onboardingStep: row.onboarding_step as 0 | 1 | 2 | 3,
+        onboardingStep: row.onboarding_step as 0 | 1,
         updatedAt: row.updated_at,
     };
 }
@@ -55,6 +57,7 @@ export const settingsRepository = {
         if (data.cloudSync !== undefined) { fields.push('cloud_sync = ?'); values.push(data.cloudSync ? 1 : 0); }
         if (data.autoBackupEnabled !== undefined) { fields.push('auto_backup_enabled = ?'); values.push(data.autoBackupEnabled ? 1 : 0); }
         if (data.backupReminder !== undefined) { fields.push('backup_reminder = ?'); values.push(data.backupReminder ? 1 : 0); }
+        if (data.backupBannerDismissed !== undefined) { fields.push('backup_banner_dismissed = ?'); values.push(data.backupBannerDismissed ? 1 : 0); }
         if (data.hideValues !== undefined) { fields.push('hide_values = ?'); values.push(data.hideValues ? 1 : 0); }
         if (data.subscriptionStatus !== undefined) { fields.push('subscription_status = ?'); values.push(data.subscriptionStatus); }
         if (data.subscriptionExpiry !== undefined) { fields.push('subscription_expiry = ?'); values.push(data.subscriptionExpiry); }
