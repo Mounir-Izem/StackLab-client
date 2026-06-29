@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
     View, Text, Pressable, StyleSheet,
-    ActivityIndicator, ScrollView,
+    ActivityIndicator, ScrollView, RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSpotStore } from '../../stores/spotStore';
@@ -59,6 +59,9 @@ export function SpotHome() {
             style={styles.screen}
             contentContainerStyle={styles.content}
             showsVerticalScrollIndicator={false}
+            refreshControl={
+                <RefreshControl refreshing={isLoading} onRefresh={refresh} tintColor={colors.violet} />
+            }
         >
             {/* Currency selector */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>

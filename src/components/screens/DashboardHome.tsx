@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import {
     View, Text, StyleSheet,
-    ScrollView, ActivityIndicator, Pressable,
+    ScrollView, ActivityIndicator, Pressable, RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLabStore } from '../../stores/labStore';
@@ -18,8 +18,13 @@ const CURRENCY_SYMBOL: Record<Currency, string> = {
 };
 
 export function DashboardHome() {
-    const { labs, labOzTotals, labItemCounts, labInvestedTotals, loadLabs } = useLabStore();
+    const { labs, labOzTotals, labItemCounts, labInvestedTotals, loadLabs, isLoading: labsLoading } = useLabStore();
     const { spot, rates, isLoading: spotLoading, refresh } = useSpotStore();
+
+    function handleRefresh() {
+        loadLabs();
+        refresh();
+    }
     const currency = useSettingsStore(s => s.settings?.currency ?? 'USD') as Currency;
     const weightUnit = useSettingsStore(s => s.settings?.weightUnit ?? 'oz') as WeightUnit;
 
@@ -78,7 +83,14 @@ export function DashboardHome() {
     }
 
     return (
-        <ScrollView style={styles.screen} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+            style={styles.screen}
+            contentContainerStyle={styles.content}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+                <RefreshControl refreshing={labsLoading || spotLoading} onRefresh={handleRefresh} tintColor={colors.violet} />
+            }
+        >
 
             {/* Total value */}
             <View style={styles.valueCard}>
