@@ -13,6 +13,7 @@ type RawSettings = {
     subscription_expiry: string | null;
     onboarding_completed: number;
     onboarding_step: number;
+    last_backup_at: string | null;
     updated_at: string;
 };
 
@@ -29,6 +30,7 @@ function mapRowToSettings(row: RawSettings): Settings {
         subscriptionExpiry: row.subscription_expiry,
         onboardingCompleted: row.onboarding_completed === 1,
         onboardingStep: row.onboarding_step as 0 | 1,
+        lastBackupAt: row.last_backup_at,
         updatedAt: row.updated_at,
     };
 }
@@ -63,6 +65,7 @@ export const settingsRepository = {
         if (data.subscriptionExpiry !== undefined) { fields.push('subscription_expiry = ?'); values.push(data.subscriptionExpiry); }
         if (data.onboardingCompleted !== undefined) { fields.push('onboarding_completed = ?'); values.push(data.onboardingCompleted ? 1 : 0); }
         if (data.onboardingStep !== undefined) { fields.push('onboarding_step = ?'); values.push(data.onboardingStep); }
+        if (data.lastBackupAt !== undefined) { fields.push('last_backup_at = ?'); values.push(data.lastBackupAt); }
 
         fields.push('updated_at = ?');
         values.push(now);

@@ -1,22 +1,32 @@
 import { create } from 'zustand';
 import { backupService } from '../services/backupService';
-import { writeAndShareExport, pickImportFile } from '../utils/backup';
+import { writeAndShareExport, writeAutoBackup, deleteAutoBackup, pickImportFile } from '../utils/backup';
+import { useSettingsStore } from './settingsStore';
+
+async function markBackedUpNow(): Promise<void> {
+    await useSettingsStore.getState().updateSettings({ lastBackupAt: new Date().toISOString() });
+}
 
 interface BackupStore {
     isExporting: boolean;
     isImporting: boolean;
     isReplacing: boolean;
+    isDeletingData: boolean;
     error: string | null;
 
     exportData: () => Promise<void>;
     importData: () => Promise<void>;
     replaceData: () => Promise<boolean>;
+    runAutoBackup: () => Promise<void>;
+    deleteAllData: () => Promise<boolean>;
+    deleteBackupFile: () => Promise<boolean>;
 }
 
 export const useBackupStore = create<BackupStore>((set) => ({
     isExporting: false,
     isImporting: false,
     isReplacing: false,
+    isDeletingData: false,
     error: null,
 
     exportData: async () => {
@@ -24,6 +34,7 @@ export const useBackupStore = create<BackupStore>((set) => ({
         try {
             const data = await backupService.buildExport();
             await writeAndShareExport(data);
+            await markBackedUpNow();
             set({ isExporting: false });
         } catch (error) {
             const cancelled = error instanceof Error && error.message === 'EXPORT_CANCELLED';
@@ -61,6 +72,7 @@ export const useBackupStore = create<BackupStore>((set) => ({
             const currentData = await backupService.buildExport();
             try {
                 await writeAndShareExport(currentData);
+                await markBackedUpNow();
             } catch (forcedExportError) {
                 const cancelled = forcedExportError instanceof Error && forcedExportError.message === 'EXPORT_CANCELLED';
                 set({ isReplacing: false, error: cancelled ? null : 'EXPORT_ERROR' });
@@ -73,6 +85,45 @@ export const useBackupStore = create<BackupStore>((set) => ({
         } catch (error) {
             const versionMismatch = error instanceof Error && error.message === 'IMPORT_VERSION_MISMATCH';
             set({ isReplacing: false, error: versionMismatch ? 'IMPORT_VERSION_MISMATCH' : 'IMPORT_INVALID_FILE' });
+            return false;
+        }
+    },
+
+    runAutoBackup: async () => {
+        try {
+            const hasNeverBackedUp = useSettingsStore.getState().settings?.lastBackupAt == null;
+            const data = await backupService.buildExport();
+            if (hasNeverBackedUp && data.items.length === 0) return;
+
+            await writeAutoBackup(data);
+            await markBackedUpNow();
+        } catch {
+            // Silent by design — the app isn't visible while backgrounded,
+            // nothing to show. Next foreground/background cycle retries.
+        }
+    },
+
+    deleteAllData: async () => {
+        set({ isDeletingData: true, error: null });
+        try {
+            await backupService.deleteAllData();
+            set({ isDeletingData: false });
+            return true;
+        } catch {
+            set({ isDeletingData: false, error: 'DELETE_DATA_ERROR' });
+            return false;
+        }
+    },
+
+    deleteBackupFile: async () => {
+        try {
+            const deleted = await deleteAutoBackup();
+            if (deleted) {
+                await useSettingsStore.getState().updateSettings({ lastBackupAt: null });
+            }
+            return deleted;
+        } catch {
+            set({ error: 'DELETE_BACKUP_ERROR' });
             return false;
         }
     },

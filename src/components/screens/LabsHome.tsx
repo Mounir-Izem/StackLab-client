@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { View, Text, Pressable, FlatList, ActivityIndicator, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,11 +22,25 @@ export function LabsHome({ navigation }: Props) {
     const spotGold = spot ? convertSpotPrice(spot.gold, currency, rates) : null;
     const spotSilver = spot ? convertSpotPrice(spot.silver, currency, rates) : null;
 
+    const [reminderDismissed, setReminderDismissed] = useState(false);
+
     const totalItems = labs
         .filter(l => l.type !== 'trash')
         .reduce((sum, l) => sum + (labItemCounts[l.id] ?? 0), 0);
 
+    const daysSinceBackup = settings?.lastBackupAt
+        ? (Date.now() - new Date(settings.lastBackupAt).getTime()) / (1000 * 60 * 60 * 24)
+        : Infinity;
+
+    const showReminderBanner =
+        !settings?.autoBackupEnabled &&
+        !!settings?.backupReminder &&
+        totalItems > 0 &&
+        daysSinceBackup > 7 &&
+        !reminderDismissed;
+
     const showBackupBanner =
+        !showReminderBanner &&
         !settings?.autoBackupEnabled &&
         !settings?.backupBannerDismissed &&
         totalItems >= 5;
@@ -63,6 +77,20 @@ export function LabsHome({ navigation }: Props) {
         );
     }
 
+    const reminderBanner = showReminderBanner ? (
+        <View style={styles.banner}>
+            <Ionicons name="time-outline" size={18} color={colors.violet} style={styles.bannerIcon} />
+            <Text style={styles.bannerText}>
+                {settings?.lastBackupAt
+                    ? "It's been over a week since your last backup."
+                    : "You haven't backed up your stack yet."} Export it in Settings.
+            </Text>
+            <Pressable onPress={() => setReminderDismissed(true)} hitSlop={8}>
+                <Ionicons name="close" size={16} color={colors.text2} />
+            </Pressable>
+        </View>
+    ) : null;
+
     const backupBanner = showBackupBanner ? (
         <View style={styles.banner}>
             <Ionicons name="shield-outline" size={18} color={colors.violet} style={styles.bannerIcon} />
@@ -83,7 +111,7 @@ export function LabsHome({ navigation }: Props) {
                 showsVerticalScrollIndicator={false}
                 refreshing={isLoading}
                 onRefresh={loadLabs}
-                ListHeaderComponent={backupBanner}
+                ListHeaderComponent={reminderBanner ?? backupBanner}
                 ItemSeparatorComponent={() => <View style={styles.separator} />}
             />
         </View>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Platform, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { triggerSuccess } from '../../utils/haptics';
@@ -15,14 +15,19 @@ export function OnboardingBackupPrompt(_props: Props) {
     const updateSettings = useSettingsStore(s => s.updateSettings);
     const [confirmed, setConfirmed] = useState(false);
 
-    function finish(data: Partial<Omit<Settings, 'updatedAt'>>) {
+    function finish(data: Partial<Omit<Settings, 'updatedAt'>>, afterConfirm?: () => void) {
         setConfirmed(true);
         triggerSuccess();
-        setTimeout(() => { updateSettings(data); }, 400);
+        setTimeout(async () => {
+            await updateSettings(data);
+            if (afterConfirm) setTimeout(afterConfirm, 500);
+        }, 400);
     }
 
     function handleEnable() {
-        finish({ autoBackupEnabled: true, onboardingCompleted: true });
+        finish({ autoBackupEnabled: true, onboardingCompleted: true }, () => {
+            Linking.openSettings();
+        });
     }
 
     function handleManual() {

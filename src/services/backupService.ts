@@ -36,6 +36,22 @@ async function deleteAllDecks(): Promise<void> {
     }
 }
 
+async function wipeAllData(options: { keepSystemLabs: boolean }): Promise<void> {
+    const allItems = await itemRepository.findAll();
+    for (const item of allItems) await itemRepository.delete(item.id);
+
+    const allSnapshots = await snapshotRepository.findAll();
+    for (const snapshot of allSnapshots) await snapshotRepository.delete(snapshot.id);
+
+    await deleteAllDecks();
+
+    const allLabs = await labRepository.findAll();
+    for (const lab of allLabs) {
+        if (options.keepSystemLabs && lab.isSystem) continue;
+        await labRepository.delete(lab.id);
+    }
+}
+
 export const backupService = {
     async buildExport(): Promise<ExportData> {
         const [labs, decks, items, stackSnapshots, settings] = await Promise.all([
@@ -100,21 +116,18 @@ export const backupService = {
         const orderedDecks = orderDecksByParent(parsed.decks, new Set());
 
         await withTransaction(async () => {
-            const allItems = await itemRepository.findAll();
-            for (const item of allItems) await itemRepository.delete(item.id);
-
-            const allSnapshots = await snapshotRepository.findAll();
-            for (const snapshot of allSnapshots) await snapshotRepository.delete(snapshot.id);
-
-            await deleteAllDecks();
-
-            const allLabs = await labRepository.findAll();
-            for (const lab of allLabs) await labRepository.delete(lab.id);
+            await wipeAllData({ keepSystemLabs: false });
 
             for (const lab of parsed.labs) await labRepository.restore(lab);
             for (const deck of orderedDecks) await deckRepository.restore(deck);
             for (const item of parsed.items) await itemRepository.restore(item);
             for (const snapshot of parsed.stack_snapshots) await snapshotRepository.restore(snapshot);
+        });
+    },
+
+    async deleteAllData(): Promise<void> {
+        await withTransaction(async () => {
+            await wipeAllData({ keepSystemLabs: true });
         });
     },
 };

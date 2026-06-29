@@ -31,6 +31,33 @@ export async function writeAndShareExport(data: ExportData): Promise<void> {
     }
 }
 
+const AUTO_BACKUP_FILENAME = 'stacklab-autobackup.json';
+
+export async function writeAutoBackup(data: ExportData): Promise<void> {
+    const content = JSON.stringify(data, null, 2);
+
+    const tempFile = new FileSystem.File(FileSystem.Paths.document, `${AUTO_BACKUP_FILENAME}.tmp`);
+    tempFile.write(content);
+
+    const finalFile = new FileSystem.File(FileSystem.Paths.document, AUTO_BACKUP_FILENAME);
+    if (finalFile.exists) finalFile.delete();
+    tempFile.move(finalFile);
+}
+
+export async function shareAutoBackupForDebug(): Promise<boolean> {
+    const file = new FileSystem.File(FileSystem.Paths.document, AUTO_BACKUP_FILENAME);
+    if (!file.exists) return false;
+    await Share.share({ url: file.uri });
+    return true;
+}
+
+export async function deleteAutoBackup(): Promise<boolean> {
+    const file = new FileSystem.File(FileSystem.Paths.document, AUTO_BACKUP_FILENAME);
+    if (!file.exists) return false;
+    file.delete();
+    return true;
+}
+
 export async function pickImportFile(): Promise<unknown | null> {
     const result = await DocumentPicker.getDocumentAsync({ type: 'application/json' });
     if (result.canceled) return null;

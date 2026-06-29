@@ -9,6 +9,7 @@ export type Settings = {
     autoBackupEnabled: boolean;
     backupReminder: boolean;
     backupBannerDismissed: boolean;
+    lastBackupAt: string | null;
     hideValues: boolean;
     subscriptionStatus: SubscriptionStatus;
     subscriptionExpiry: string | null;

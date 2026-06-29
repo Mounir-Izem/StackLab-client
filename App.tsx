@@ -9,8 +9,10 @@ import { Outfit_400Regular, Outfit_500Medium, Outfit_600SemiBold } from '@expo-g
 import { Manrope_700Bold } from '@expo-google-fonts/manrope';
 import { DMMono_500Medium } from '@expo-google-fonts/dm-mono';
 import { initDatabase } from './src/db/database';
+import { labService } from './src/services/labService';
 import { useSettingsStore } from './src/stores/settingsStore';
 import { useSpotPrice } from './src/hooks/useSpotPrice';
+import { useAutoBackup } from './src/hooks/useAutoBackup';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
@@ -18,6 +20,7 @@ SplashScreen.preventAutoHideAsync();
 
 export default function App() {
   useSpotPrice();
+  useAutoBackup();
 
   const [fontsLoaded] = useFonts({
     Outfit_400Regular,
@@ -34,6 +37,7 @@ export default function App() {
       NavigationBar.setButtonStyleAsync('light');
     }
     initDatabase()
+      .then(() => labService.ensureSystemLabs())
       .then(() => useSettingsStore.getState().loadSettings())
       .then(() => setDbReady(true))
       .catch((e: unknown) => console.error('[DB INIT ERROR]', e));

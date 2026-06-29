@@ -17,9 +17,33 @@ async function deleteDeckTree(labId: string): Promise<void> {
     }
 }
 
+const SYSTEM_LABS: { type: LabType; name: string }[] = [
+    { type: 'standard', name: 'My Stack' },
+    { type: 'wishlist', name: 'Wishlist' },
+    { type: 'trash', name: 'Trash' },
+];
+
 export const labService = {
     async getAll(): Promise<Lab[]> {
         return labRepository.findAll();
+    },
+
+    async ensureSystemLabs(): Promise<void> {
+        for (let i = 0; i < SYSTEM_LABS.length; i++) {
+            const { type, name } = SYSTEM_LABS[i];
+            const existing = await labRepository.findByType(type);
+            if (existing) continue;
+
+            await labRepository.create({
+                id: generateUUID(),
+                userId: null,
+                name,
+                coverPhotoUrl: null,
+                type,
+                isSystem: true,
+                position: i,
+            });
+        }
     },
 
     async getItemCountsByLab(): Promise<Record<string, number>> {

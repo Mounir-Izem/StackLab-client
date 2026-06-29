@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-    Modal, View, Text, Pressable, TextInput,
+    Modal, View, Text, Pressable, TextInput, Switch, Linking,
     StyleSheet, ScrollView, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,17 +8,41 @@ import { useSettingsStore } from '../../stores/settingsStore';
 import { useBackupStore } from '../../stores/backupStore';
 import { resetToLabsHome } from '../../navigation/navigationRef';
 import { colors, fonts } from '../../utils/theme';
+import { formatDate } from '../../utils/formatters';
+import { shareAutoBackupForDebug } from '../../utils/backup';
 import type { Currency, WeightUnit } from '../../types/settings.types';
 
 const CURRENCIES: Currency[] = ['USD', 'EUR', 'GBP', 'CAD', 'AUD'];
 const WEIGHT_UNITS: WeightUnit[] = ['oz', 'g', 'kg'];
 
+const INFO_TEXT = {
+    replace: "Erases everything currently on this device and replaces it with the file you choose. Anything added since that file was made will be lost. Your current data is backed up automatically first, before anything is deleted.",
+    deleteAllData: "Permanently erases everything in this app — labs, decks, items, and value history. This does NOT delete copies you've already saved elsewhere: manual exports you've shared, or backups already stored in iCloud/Google Drive.",
+    deleteBackupFile: "Removes the automatic backup file stored on this device. This does NOT delete older copies iCloud or Google Drive may have already saved on their own — manage those from your phone's own settings.",
+};
+
+function InfoButton({ onPress }: { onPress: () => void }) {
+    return (
+        <Pressable onPress={onPress} hitSlop={8}>
+            <Ionicons name="information-circle-outline" size={16} color={colors.text2} />
+        </Pressable>
+    );
+}
+
 export function SettingsModal() {
     const { settings, showSettings, closeSettings, updateSettings } = useSettingsStore();
-    const { isExporting, exportData, isImporting, importData, isReplacing, replaceData, error: backupError } = useBackupStore();
+    const {
+        isExporting, exportData, isImporting, importData, isReplacing, replaceData,
+        isDeletingData, deleteAllData, deleteBackupFile, error: backupError,
+    } = useBackupStore();
     const [showExportConfirm, setShowExportConfirm] = useState(false);
     const [showReplaceConfirm, setShowReplaceConfirm] = useState(false);
     const [replaceConfirmText, setReplaceConfirmText] = useState('');
+    const [showDeleteDataConfirm, setShowDeleteDataConfirm] = useState(false);
+    const [deleteDataConfirmText, setDeleteDataConfirmText] = useState('');
+    const [showDeleteBackupConfirm, setShowDeleteBackupConfirm] = useState(false);
+    const [infoModal, setInfoModal] = useState<string | null>(null);
+    const [debugMsg, setDebugMsg] = useState<string | null>(null);
 
     async function handleReplace() {
         setShowReplaceConfirm(false);
@@ -30,12 +54,32 @@ export function SettingsModal() {
         }
     }
 
+    async function handleDeleteAllData() {
+        setShowDeleteDataConfirm(false);
+        setDeleteDataConfirmText('');
+        const didDelete = await deleteAllData();
+        if (didDelete) {
+            closeSettings();
+            resetToLabsHome();
+        }
+    }
+
+    async function handleDeleteBackupFile() {
+        setShowDeleteBackupConfirm(false);
+        await deleteBackupFile();
+    }
+
     async function handleCurrency(currency: Currency) {
         await updateSettings({ currency });
     }
 
     async function handleWeightUnit(weightUnit: WeightUnit) {
         await updateSettings({ weightUnit });
+    }
+
+    async function handleAutoBackupToggle(value: boolean) {
+        await updateSettings({ autoBackupEnabled: value });
+        if (value) Linking.openSettings();
     }
 
     return (
@@ -97,6 +141,30 @@ export function SettingsModal() {
 
                         {/* Data */}
                         <Text style={styles.sectionLabel}>DATA</Text>
+                        <View style={styles.row}>
+                            <View style={styles.rowLeft}>
+                                <Ionicons name="cloud-done-outline" size={18} color={colors.text2} />
+                                <Text style={styles.rowLabel}>Auto-backup</Text>
+                            </View>
+                            <Switch
+                                value={settings.autoBackupEnabled}
+                                onValueChange={handleAutoBackupToggle}
+                                trackColor={{ true: colors.violet, false: colors.surface2 }}
+                            />
+                        </View>
+                        {!settings.autoBackupEnabled && (
+                            <View style={styles.row}>
+                                <View style={styles.rowLeft}>
+                                    <Ionicons name="notifications-outline" size={18} color={colors.text2} />
+                                    <Text style={styles.rowLabel}>Backup reminders</Text>
+                                </View>
+                                <Switch
+                                    value={settings.backupReminder}
+                                    onValueChange={(value) => updateSettings({ backupReminder: value })}
+                                    trackColor={{ true: colors.violet, false: colors.surface2 }}
+                                />
+                            </View>
+                        )}
                         <Pressable
                             style={styles.row}
                             disabled={isExporting}
@@ -127,8 +195,31 @@ export function SettingsModal() {
                             <View style={styles.rowLeft}>
                                 <Ionicons name="warning-outline" size={18} color={colors.crimson} />
                                 <Text style={[styles.rowLabel, { color: colors.crimson }]}>Replace all data</Text>
+                                <InfoButton onPress={() => setInfoModal('replace')} />
                             </View>
                             {isReplacing && <ActivityIndicator size="small" color={colors.text2} />}
+                        </Pressable>
+                        <Pressable
+                            style={styles.row}
+                            disabled={isDeletingData}
+                            onPress={() => setShowDeleteDataConfirm(true)}
+                        >
+                            <View style={styles.rowLeft}>
+                                <Ionicons name="trash-outline" size={18} color={colors.crimson} />
+                                <Text style={[styles.rowLabel, { color: colors.crimson }]}>Delete all my data</Text>
+                                <InfoButton onPress={() => setInfoModal('deleteAllData')} />
+                            </View>
+                            {isDeletingData && <ActivityIndicator size="small" color={colors.text2} />}
+                        </Pressable>
+                        <Pressable
+                            style={styles.row}
+                            onPress={() => setShowDeleteBackupConfirm(true)}
+                        >
+                            <View style={styles.rowLeft}>
+                                <Ionicons name="close-circle-outline" size={18} color={colors.text2} />
+                                <Text style={styles.rowLabel}>Delete backup file</Text>
+                                <InfoButton onPress={() => setInfoModal('deleteBackupFile')} />
+                            </View>
                         </Pressable>
                         {backupError && (
                             <View style={styles.errorBanner}>
@@ -146,7 +237,9 @@ export function SettingsModal() {
                                 <Ionicons name="time-outline" size={18} color={colors.text2} />
                                 <Text style={styles.rowLabel}>Last backup</Text>
                             </View>
-                            <Text style={styles.rowValue}>Never</Text>
+                            <Text style={styles.rowValue}>
+                                {settings.lastBackupAt ? formatDate(settings.lastBackupAt) : 'Never'}
+                            </Text>
                         </View>
 
                         {/* Version */}
@@ -165,6 +258,17 @@ export function SettingsModal() {
                                     <Ionicons name="refresh-outline" size={16} color={colors.orange} />
                                     <Text style={styles.devBtnText}>Reset onboarding</Text>
                                 </Pressable>
+                                <Pressable
+                                    style={styles.devBtn}
+                                    onPress={async () => {
+                                        const found = await shareAutoBackupForDebug();
+                                        setDebugMsg(found ? null : 'No auto-backup written yet.');
+                                    }}
+                                >
+                                    <Ionicons name="eye-outline" size={16} color={colors.orange} />
+                                    <Text style={styles.devBtnText}>View auto-backup file</Text>
+                                </Pressable>
+                                {debugMsg && <Text style={styles.devMsg}>{debugMsg}</Text>}
                             </>
                         )}
                     </ScrollView>
@@ -240,6 +344,92 @@ export function SettingsModal() {
                 </View>
             </Pressable>
         </Modal>
+
+        {/* Delete all data confirmation modal */}
+        <Modal
+            visible={showDeleteDataConfirm}
+            transparent
+            animationType="fade"
+            onRequestClose={() => { setShowDeleteDataConfirm(false); setDeleteDataConfirmText(''); }}
+        >
+            <Pressable
+                style={styles.overlay}
+                onPress={() => { setShowDeleteDataConfirm(false); setDeleteDataConfirmText(''); }}
+            >
+                <View style={styles.optionSheet}>
+                    <Text style={styles.optionTitle}>Delete all your data?</Text>
+                    <Text style={styles.optionSubtitle}>
+                        This permanently erases every lab, deck, item, and value snapshot on this device.
+                        This cannot be undone, and no backup is made automatically before this action.
+                    </Text>
+                    <View style={styles.replaceInputWrap}>
+                        <TextInput
+                            style={styles.replaceInput}
+                            value={deleteDataConfirmText}
+                            onChangeText={setDeleteDataConfirmText}
+                            placeholder="Type DELETE to confirm"
+                            placeholderTextColor={colors.text2}
+                            autoCapitalize="characters"
+                            autoCorrect={false}
+                        />
+                    </View>
+                    <Pressable
+                        style={[styles.optionBtn, deleteDataConfirmText !== 'DELETE' && styles.disabled]}
+                        disabled={deleteDataConfirmText !== 'DELETE'}
+                        onPress={handleDeleteAllData}
+                    >
+                        <Ionicons name="trash-outline" size={20} color={colors.crimson} />
+                        <Text style={[styles.optionBtnText, { color: colors.crimson }]}>Delete everything</Text>
+                    </Pressable>
+                    <Pressable
+                        style={styles.optionBtn}
+                        onPress={() => { setShowDeleteDataConfirm(false); setDeleteDataConfirmText(''); }}
+                    >
+                        <Text style={styles.optionBtnText}>Cancel</Text>
+                    </Pressable>
+                </View>
+            </Pressable>
+        </Modal>
+
+        {/* Delete backup file confirmation modal */}
+        <Modal
+            visible={showDeleteBackupConfirm}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowDeleteBackupConfirm(false)}
+        >
+            <Pressable style={styles.overlay} onPress={() => setShowDeleteBackupConfirm(false)}>
+                <View style={styles.optionSheet}>
+                    <Text style={styles.optionTitle}>Delete the backup file?</Text>
+                    <Text style={styles.optionSubtitle}>
+                        Removes the automatic backup stored on this device. Your labs, decks, and items are
+                        not affected — only the backup copy is deleted.
+                    </Text>
+                    <Pressable style={styles.optionBtn} onPress={handleDeleteBackupFile}>
+                        <Ionicons name="close-circle-outline" size={20} color={colors.crimson} />
+                        <Text style={[styles.optionBtnText, { color: colors.crimson }]}>Delete backup</Text>
+                    </Pressable>
+                    <Pressable style={styles.optionBtn} onPress={() => setShowDeleteBackupConfirm(false)}>
+                        <Text style={styles.optionBtnText}>Cancel</Text>
+                    </Pressable>
+                </View>
+            </Pressable>
+        </Modal>
+
+        {/* Info modal — shared by Replace / Delete all data / Delete backup file */}
+        <Modal visible={infoModal !== null} transparent animationType="fade" onRequestClose={() => setInfoModal(null)}>
+            <Pressable style={styles.overlay} onPress={() => setInfoModal(null)}>
+                <View style={styles.optionSheet}>
+                    <Text style={styles.optionTitle}>What does this do?</Text>
+                    <Text style={styles.optionSubtitle}>
+                        {infoModal ? INFO_TEXT[infoModal as keyof typeof INFO_TEXT] : ''}
+                    </Text>
+                    <Pressable style={styles.optionBtn} onPress={() => setInfoModal(null)}>
+                        <Text style={styles.optionBtnText}>Got it</Text>
+                    </Pressable>
+                </View>
+            </Pressable>
+        </Modal>
         </>
     );
 }
@@ -299,6 +489,7 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)',
     },
     devBtnText: { fontFamily: fonts.outfit, fontSize: 14, color: colors.orange },
+    devMsg: { fontFamily: fonts.outfit, fontSize: 12, color: colors.text2, paddingVertical: 8 },
     errorBanner: { backgroundColor: 'rgba(180,30,30,0.15)', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: 'rgba(180,30,30,0.30)', marginTop: 10 },
     errorText: { fontFamily: fonts.outfit, fontSize: 13, color: colors.crimson },
     overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end', padding: 16, paddingBottom: 40 },
