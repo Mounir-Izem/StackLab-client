@@ -6,10 +6,13 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useBackupStore } from '../../stores/backupStore';
+import { useLockStore } from '../../stores/lockStore';
 import { resetToLabsHome } from '../../navigation/navigationRef';
 import { colors, fonts } from '../../utils/theme';
 import { formatDate } from '../../utils/formatters';
 import { shareAutoBackupForDebug } from '../../utils/backup';
+import { PinSetupModal } from './PinSetupModal';
+import { PinVerifyModal } from './PinVerifyModal';
 import type { Currency, WeightUnit } from '../../types/settings.types';
 
 const CURRENCIES: Currency[] = ['USD', 'EUR', 'GBP', 'CAD', 'AUD'];
@@ -19,6 +22,7 @@ const INFO_TEXT = {
     replace: "Erases everything currently on this device and replaces it with the file you choose. Anything added since that file was made will be lost. Your current data is backed up automatically first, before anything is deleted.",
     deleteAllData: "Permanently erases everything in this app — labs, decks, items, and value history. This does NOT delete copies you've already saved elsewhere: manual exports you've shared, or backups already stored in iCloud/Google Drive.",
     deleteBackupFile: "Removes the automatic backup file stored on this device. This does NOT delete older copies iCloud or Google Drive may have already saved on their own — manage those from your phone's own settings.",
+    autoWipe: "If someone enters the wrong PIN 10 times in a row, everything on this device is permanently deleted — labs, decks, items, snapshots — with no automatic backup beforehand. Off by default; only enable this if you understand and want that risk.",
 };
 
 function InfoButton({ onPress }: { onPress: () => void }) {
@@ -43,6 +47,11 @@ export function SettingsModal() {
     const [showDeleteBackupConfirm, setShowDeleteBackupConfirm] = useState(false);
     const [infoModal, setInfoModal] = useState<string | null>(null);
     const [debugMsg, setDebugMsg] = useState<string | null>(null);
+    const [showPinSetup, setShowPinSetup] = useState(false);
+    const [showAutoWipeConfirm, setShowAutoWipeConfirm] = useState(false);
+    const [showPinVerify, setShowPinVerify] = useState(false);
+    const [pinVerifyPurpose, setPinVerifyPurpose] = useState<'change' | 'disable'>('change');
+    const disableLock = useLockStore(s => s.disableLock);
 
     async function handleReplace() {
         setShowReplaceConfirm(false);
@@ -75,6 +84,37 @@ export function SettingsModal() {
 
     async function handleWeightUnit(weightUnit: WeightUnit) {
         await updateSettings({ weightUnit });
+    }
+
+    function handleAppLockToggle(value: boolean) {
+        if (value) {
+            setShowPinSetup(true);
+        } else {
+            setPinVerifyPurpose('disable');
+            setShowPinVerify(true);
+        }
+    }
+
+    function handleChangePinPress() {
+        setPinVerifyPurpose('change');
+        setShowPinVerify(true);
+    }
+
+    function handlePinVerified() {
+        setShowPinVerify(false);
+        if (pinVerifyPurpose === 'change') {
+            setShowPinSetup(true);
+        } else {
+            disableLock();
+        }
+    }
+
+    function handleAutoWipeToggle(value: boolean) {
+        if (value) {
+            setShowAutoWipeConfirm(true);
+        } else {
+            updateSettings({ appLockAutoWipeEnabled: false });
+        }
     }
 
     async function handleAutoBackupToggle(value: boolean) {
@@ -138,6 +178,44 @@ export function SettingsModal() {
                                 </Pressable>
                             ))}
                         </View>
+
+                        {/* Security */}
+                        <Text style={styles.sectionLabel}>SECURITY</Text>
+                        <View style={styles.row}>
+                            <View style={styles.rowLeft}>
+                                <Ionicons name="lock-closed-outline" size={18} color={colors.text2} />
+                                <Text style={styles.rowLabel}>App Lock</Text>
+                            </View>
+                            <Switch
+                                value={settings.appLockEnabled}
+                                onValueChange={handleAppLockToggle}
+                                trackColor={{ true: colors.violet, false: colors.surface2 }}
+                            />
+                        </View>
+                        {settings.appLockEnabled && (
+                            <>
+                                <Pressable style={styles.row} onPress={handleChangePinPress}>
+                                    <View style={styles.rowLeft}>
+                                        <Ionicons name="keypad-outline" size={18} color={colors.text2} />
+                                        <Text style={styles.rowLabel}>Change PIN</Text>
+                                    </View>
+                                </Pressable>
+                                <View style={styles.row}>
+                                    <View style={styles.rowLeft}>
+                                        <Ionicons name="skull-outline" size={18} color={colors.crimson} />
+                                        <Text style={[styles.rowLabel, { color: colors.crimson }]}>
+                                            Erase after 10 failed attempts
+                                        </Text>
+                                        <InfoButton onPress={() => setInfoModal('autoWipe')} />
+                                    </View>
+                                    <Switch
+                                        value={settings.appLockAutoWipeEnabled}
+                                        onValueChange={handleAutoWipeToggle}
+                                        trackColor={{ true: colors.crimson, false: colors.surface2 }}
+                                    />
+                                </View>
+                            </>
+                        )}
 
                         {/* Data */}
                         <Text style={styles.sectionLabel}>DATA</Text>
@@ -430,6 +508,42 @@ export function SettingsModal() {
                 </View>
             </Pressable>
         </Modal>
+
+        {/* Auto-wipe confirmation modal */}
+        <Modal visible={showAutoWipeConfirm} transparent animationType="fade" onRequestClose={() => setShowAutoWipeConfirm(false)}>
+            <Pressable style={styles.overlay} onPress={() => setShowAutoWipeConfirm(false)}>
+                <View style={styles.optionSheet}>
+                    <Text style={styles.optionTitle}>Erase after 10 failed attempts?</Text>
+                    <Text style={styles.optionSubtitle}>{INFO_TEXT.autoWipe}</Text>
+                    <Pressable
+                        style={styles.optionBtn}
+                        onPress={() => {
+                            setShowAutoWipeConfirm(false);
+                            updateSettings({ appLockAutoWipeEnabled: true });
+                        }}
+                    >
+                        <Ionicons name="skull-outline" size={20} color={colors.crimson} />
+                        <Text style={[styles.optionBtnText, { color: colors.crimson }]}>Enable</Text>
+                    </Pressable>
+                    <Pressable style={styles.optionBtn} onPress={() => setShowAutoWipeConfirm(false)}>
+                        <Text style={styles.optionBtnText}>Cancel</Text>
+                    </Pressable>
+                </View>
+            </Pressable>
+        </Modal>
+
+        <PinSetupModal
+            visible={showPinSetup}
+            onClose={() => setShowPinSetup(false)}
+            onDone={() => setShowPinSetup(false)}
+        />
+
+        <PinVerifyModal
+            visible={showPinVerify}
+            title={pinVerifyPurpose === 'change' ? 'Enter your current PIN' : 'Confirm PIN to disable App Lock'}
+            onVerified={handlePinVerified}
+            onClose={() => setShowPinVerify(false)}
+        />
         </>
     );
 }

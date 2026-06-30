@@ -13,7 +13,10 @@ import { labService } from './src/services/labService';
 import { useSettingsStore } from './src/stores/settingsStore';
 import { useSpotPrice } from './src/hooks/useSpotPrice';
 import { useAutoBackup } from './src/hooks/useAutoBackup';
+import { useAppLock } from './src/hooks/useAppLock';
+import { useLockStore } from './src/stores/lockStore';
 import { RootNavigator } from './src/navigation/RootNavigator';
+import { LockScreen } from './src/components/screens/LockScreen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 SplashScreen.preventAutoHideAsync();
@@ -21,6 +24,8 @@ SplashScreen.preventAutoHideAsync();
 export default function App() {
   useSpotPrice();
   useAutoBackup();
+  useAppLock();
+  const isLocked = useLockStore(s => s.isLocked);
 
   const [fontsLoaded] = useFonts({
     Outfit_400Regular,
@@ -39,6 +44,7 @@ export default function App() {
     initDatabase()
       .then(() => labService.ensureSystemLabs())
       .then(() => useSettingsStore.getState().loadSettings())
+      .then(() => useLockStore.getState().checkInitialLockState())
       .then(() => setDbReady(true))
       .catch((e: unknown) => console.error('[DB INIT ERROR]', e));
   }, []);
@@ -54,7 +60,7 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#13111A' }}>
       <SafeAreaProvider>
-        <RootNavigator />
+        {isLocked ? <LockScreen /> : <RootNavigator />}
         <StatusBar style="light" translucent backgroundColor="transparent" />
       </SafeAreaProvider>
     </GestureHandlerRootView>

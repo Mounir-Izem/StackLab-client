@@ -21,7 +21,8 @@ Si un besoin n'est pas couvert — signaler et attendre validation avant d'ajout
 | Langage | TypeScript strict | Qualité, fiabilité, détection d'erreurs |
 | Navigation | React Navigation v6 | Standard de l'écosystème RN |
 | Storage local | expo-sqlite | Base relationnelle, requêtes complexes. Pas de SQLCipher en managed workflow — sandbox natif comme protection en MVP. Chiffrement applicatif prévu avant lancement public. |
-| Clés sécurisées | expo-secure-store | UUID cloud sync et clés sensibles stockés dans keychain iOS / Keystore Android. Compatible Expo managed. Limite 2MB/valeur. |
+| Clés sécurisées | expo-secure-store | UUID cloud sync et clés sensibles stockés dans keychain iOS / Keystore Android. Compatible Expo managed. Limite 2MB/valeur. Stocke aussi le PIN App Lock (Phase 7) — directement, pas haché, déjà chiffré par le Keychain/Keystore. Documenté depuis Phase 0 mais réellement installé seulement en Phase 7. |
+| Biométrie | expo-local-authentication | Face ID / Touch ID / empreinte (Phase 7, App Lock). `disableDeviceFallback: true` — sans ça, un échec biométrique basculerait sur le code du téléphone, pas le PIN de l'app. Nécessite `NSFaceIDUsageDescription` dans `app.json` (iOS), config plugin auto-ajouté pour expo-secure-store. |
 | Validation | Zod | Schémas partagés client/serveur |
 | State management | Zustand | Performances supérieures à Context API sur gros volume. Sélecteurs = re-renders ciblés uniquement. |
 | Backup fichier | expo-file-system | Accès répertoire Documents iCloud/Drive |

@@ -14,6 +14,9 @@ type RawSettings = {
     onboarding_completed: number;
     onboarding_step: number;
     last_backup_at: string | null;
+    app_lock_enabled: number;
+    app_lock_auto_wipe_enabled: number;
+    app_lock_prompt_shown: number;
     updated_at: string;
 };
 
@@ -31,6 +34,9 @@ function mapRowToSettings(row: RawSettings): Settings {
         onboardingCompleted: row.onboarding_completed === 1,
         onboardingStep: row.onboarding_step as 0 | 1,
         lastBackupAt: row.last_backup_at,
+        appLockEnabled: row.app_lock_enabled === 1,
+        appLockAutoWipeEnabled: row.app_lock_auto_wipe_enabled === 1,
+        appLockPromptShown: row.app_lock_prompt_shown === 1,
         updatedAt: row.updated_at,
     };
 }
@@ -66,6 +72,9 @@ export const settingsRepository = {
         if (data.onboardingCompleted !== undefined) { fields.push('onboarding_completed = ?'); values.push(data.onboardingCompleted ? 1 : 0); }
         if (data.onboardingStep !== undefined) { fields.push('onboarding_step = ?'); values.push(data.onboardingStep); }
         if (data.lastBackupAt !== undefined) { fields.push('last_backup_at = ?'); values.push(data.lastBackupAt); }
+        if (data.appLockEnabled !== undefined) { fields.push('app_lock_enabled = ?'); values.push(data.appLockEnabled ? 1 : 0); }
+        if (data.appLockAutoWipeEnabled !== undefined) { fields.push('app_lock_auto_wipe_enabled = ?'); values.push(data.appLockAutoWipeEnabled ? 1 : 0); }
+        if (data.appLockPromptShown !== undefined) { fields.push('app_lock_prompt_shown = ?'); values.push(data.appLockPromptShown ? 1 : 0); }
 
         fields.push('updated_at = ?');
         values.push(now);

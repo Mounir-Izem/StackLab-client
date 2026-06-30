@@ -13,7 +13,10 @@
       "backgroundColor": "#13111A"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "StackLab uses Face ID to unlock the app, so only you can see your stack."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -27,7 +30,8 @@
     },
     "plugins": [
       "expo-sqlite",
-      "expo-font"
+      "expo-font",
+      "expo-secure-store"
     ]
   }
 }

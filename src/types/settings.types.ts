@@ -10,6 +10,9 @@ export type Settings = {
     backupReminder: boolean;
     backupBannerDismissed: boolean;
     lastBackupAt: string | null;
+    appLockEnabled: boolean;
+    appLockAutoWipeEnabled: boolean;
+    appLockPromptShown: boolean;
     hideValues: boolean;
     subscriptionStatus: SubscriptionStatus;
     subscriptionExpiry: string | null;

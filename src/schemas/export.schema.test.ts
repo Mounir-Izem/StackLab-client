@@ -79,11 +79,16 @@ const makeSettings = () => ({
     cloudSync: false,
     autoBackupEnabled: false,
     backupReminder: true,
+    backupBannerDismissed: false,
+    lastBackupAt: null,
+    appLockEnabled: false,
+    appLockAutoWipeEnabled: false,
+    appLockPromptShown: false,
     hideValues: false,
     subscriptionStatus: 'free' as const,
     subscriptionExpiry: null,
     onboardingCompleted: true,
-    onboardingStep: 3 as const,
+    onboardingStep: 1 as const,
     updatedAt: '2026-01-01T00:00:00.000Z',
 });
 

@@ -81,11 +81,16 @@ const SettingsExportSchema = z.object({
     cloudSync: z.boolean(),
     autoBackupEnabled: z.boolean(),
     backupReminder: z.boolean(),
+    backupBannerDismissed: z.boolean(),
+    lastBackupAt: z.string().nullable(),
+    appLockEnabled: z.boolean(),
+    appLockAutoWipeEnabled: z.boolean(),
+    appLockPromptShown: z.boolean(),
     hideValues: z.boolean(),
     subscriptionStatus: z.enum(['free', 'monthly', 'annual']),
     subscriptionExpiry: z.string().nullable(),
     onboardingCompleted: z.boolean(),
-    onboardingStep: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)]),
+    onboardingStep: z.union([z.literal(0), z.literal(1)]),
     updatedAt: z.string().min(1),
 });
 
