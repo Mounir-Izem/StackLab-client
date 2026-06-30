@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLabStore } from '../../stores/labStore';
 import { useSpotStore } from '../../stores/spotStore';
 import { useSettingsStore } from '../../stores/settingsStore';
-import { convertSpotPrice, calcTotalInvested, calcUnrealizedPnL } from '../../utils/calculations';
+import { convertSpotPrice, calcTotalInvested, calcUnrealizedPnL, calcRealizedPnL, sumByCurrency } from '../../utils/calculations';
 import { formatWeight, formatCurrency, formatPnL } from '../../utils/formatters';
 import { snapshotService } from '../../services/snapshotService';
 import { colors, fonts } from '../../utils/theme';
@@ -18,7 +18,7 @@ const CURRENCY_SYMBOL: Record<Currency, string> = {
 };
 
 export function DashboardHome() {
-    const { labs, labOzTotals, labItemCounts, labInvestedTotals, loadLabs, isLoading: labsLoading } = useLabStore();
+    const { labs, labOzTotals, labActiveSummaries, wishlistSummary, soldSummary, labInvestedTotals, loadLabs, isLoading: labsLoading } = useLabStore();
     const { spot, rates, isLoading: spotLoading, refresh } = useSpotStore();
 
     function handleRefresh() {
@@ -42,9 +42,8 @@ export function DashboardHome() {
         .filter(([id]) => id !== trashLab?.id)
         .reduce((sum, [, v]) => sum + v.silver, 0);
 
-    const totalItems = Object.entries(labItemCounts)
-        .filter(([id]) => id !== trashLab?.id)
-        .reduce((sum, [, v]) => sum + v, 0);
+    const activeCards = Object.values(labActiveSummaries).reduce((sum, v) => sum + v.cards, 0);
+    const activeUnits = Object.values(labActiveSummaries).reduce((sum, v) => sum + v.units, 0);
 
     const spotGold = spot ? convertSpotPrice(spot.gold, currency, rates) : null;
     const spotSilver = spot ? convertSpotPrice(spot.silver, currency, rates) : null;
@@ -65,14 +64,19 @@ export function DashboardHome() {
         ? calcUnrealizedPnL(totalValue, totalInvested)
         : null;
 
-    const hasStack = totalItems > 0;
+    const hasActiveHoldings = activeCards > 0;
+    const hasAnything = hasActiveHoldings || wishlistSummary.cards > 0 || soldSummary.cards > 0;
+
+    const realizedProceeds = sumByCurrency(soldSummary.proceedsByCurrency, currency, rates);
+    const realizedCostBasis = sumByCurrency(soldSummary.costBasisByCurrency, currency, rates);
+    const realizedPnL = calcRealizedPnL(realizedProceeds, realizedCostBasis);
 
     useEffect(() => {
-        if (!spot || !hasStack) return;
+        if (!spot || !hasActiveHoldings) return;
         void snapshotService.captureIfNeeded(spot.gold, spot.silver, currency);
-    }, [spot?.gold, spot?.silver, hasStack, currency]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [spot?.gold, spot?.silver, hasActiveHoldings, currency]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    if (!hasStack) {
+    if (!hasAnything) {
         return (
             <View style={[styles.screen, styles.center]}>
                 <Ionicons name="layers-outline" size={40} color={colors.text2} />
@@ -171,12 +175,33 @@ export function DashboardHome() {
                 </View>
             </View>
 
-            {/* Items count */}
-            <View style={styles.countRow}>
-                <Ionicons name="layers-outline" size={16} color={colors.text2} />
-                <Text style={styles.countText}>
-                    {totalItems} item{totalItems !== 1 ? 's' : ''} across {labs.filter(l => !l.isSystem || l.type !== 'trash').length} lab{labs.filter(l => !l.isSystem || l.type !== 'trash').length !== 1 ? 's' : ''}
-                </Text>
+            {/* Buckets: active / wishlist / sold — kept separate so no counter mixes them */}
+            <View style={styles.bucketsBlock}>
+                {hasActiveHoldings && (
+                    <View style={styles.countRow}>
+                        <Ionicons name="layers-outline" size={16} color={colors.text2} />
+                        <Text style={styles.countText}>
+                            Active holdings · {activeCards} card{activeCards !== 1 ? 's' : ''} · {activeUnits} unit{activeUnits !== 1 ? 's' : ''}
+                        </Text>
+                    </View>
+                )}
+                {wishlistSummary.cards > 0 && (
+                    <View style={styles.countRow}>
+                        <Ionicons name="heart-outline" size={16} color={colors.text2} />
+                        <Text style={styles.countText}>
+                            Wishlist · {wishlistSummary.cards} item{wishlistSummary.cards !== 1 ? 's' : ''}
+                        </Text>
+                    </View>
+                )}
+                {soldSummary.cards > 0 && (
+                    <View style={styles.countRow}>
+                        <Ionicons name="cash-outline" size={16} color={colors.text2} />
+                        <Text style={styles.countText}>
+                            Sold history · {soldSummary.cards} item{soldSummary.cards !== 1 ? 's' : ''}
+                            {realizedPnL !== null ? ` · realized ${formatPnL(realizedPnL, currency)}` : ''}
+                        </Text>
+                    </View>
+                )}
             </View>
 
             {/* Refresh spot */}
@@ -213,6 +238,7 @@ const styles = StyleSheet.create({
     metalOz: { fontFamily: fonts.dmMono, fontSize: 20 },
     metalSub: { fontFamily: fonts.outfit, fontSize: 11, color: colors.text2 },
     metalValue: { fontFamily: fonts.dmMono, fontSize: 13, color: colors.text, marginTop: 4 },
+    bucketsBlock: { gap: 6 },
     countRow: { flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'center' },
     countText: { fontFamily: fonts.outfit, fontSize: 13, color: colors.text2 },
     refreshBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'center', paddingVertical: 8 },

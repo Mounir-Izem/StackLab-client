@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useItemStore } from '../../stores/itemStore';
+import { PurchasePriceField } from '../common/PurchasePriceField';
 import { colors, fonts } from '../../utils/theme';
 import type { LabsStackScreenProps } from '../../navigation/types';
 import type { ItemMetal, ItemShape, StrikeFinish, ItemCondition, ItemFeature, ItemWeightUnit } from '../../types/item.types';
@@ -25,6 +26,7 @@ type EditState = {
     purity: number;
     quantity: number;
     purchasePrice: string;
+    purchasePriceIsPerUnit: boolean;
     purchaseCurrency: Currency;
     purchaseDate: string;
     condition: ItemCondition | null;
@@ -116,7 +118,7 @@ function weightOzToInput(weightOz: number, unit: ItemWeightUnit): string {
 
 export function EditItemFlow({ route, navigation }: Props) {
     const { itemId } = route.params;
-    const { items, updateItem } = useItemStore();
+    const { items, updateItem, updatePurchasePrice } = useItemStore();
     const item = items.find(i => i.id === itemId);
 
     const [submitting, setSubmitting] = useState(false);
@@ -127,7 +129,7 @@ export function EditItemFlow({ route, navigation }: Props) {
             name: '', metal: null, shape: 'coin', shapeDescription: '',
             mintName: '', year: '', strikeFinish: null,
             weightInput: '1', weightUnit: 'oz', purity: 0.9999,
-            quantity: 1, purchasePrice: '', purchaseCurrency: 'USD', purchaseDate: '',
+            quantity: 1, purchasePrice: '', purchasePriceIsPerUnit: false, purchaseCurrency: 'USD', purchaseDate: '',
             condition: null, location: '', features: [], notes: '',
         };
         const weightUnit = item.weightUnitInput ?? 'oz';
@@ -144,6 +146,7 @@ export function EditItemFlow({ route, navigation }: Props) {
             purity: item.purity,
             quantity: item.quantity,
             purchasePrice: item.purchasePrice?.toString() ?? '',
+            purchasePriceIsPerUnit: false,
             purchaseCurrency: item.purchaseCurrency ?? 'USD',
             purchaseDate: item.purchaseDate ?? '',
             condition: item.condition ?? null,
@@ -191,9 +194,6 @@ export function EditItemFlow({ route, navigation }: Props) {
                 weightUnitInput: state.weightUnit,
                 purity: state.purity,
                 quantity: state.quantity,
-                purchasePrice: state.purchasePrice.trim()
-                    ? parseFloat(state.purchasePrice.replace(',', '.'))
-                    : null,
                 purchaseCurrency: state.purchasePrice.trim() ? state.purchaseCurrency : null,
                 purchaseDate: (() => {
                     const d = state.purchaseDate.trim().replace(/\//g, '-');
@@ -207,6 +207,18 @@ export function EditItemFlow({ route, navigation }: Props) {
                 features: state.features,
                 notes: state.notes.trim() || null,
             });
+            if (useItemStore.getState().error) {
+                setSubmitError('Update failed. Please try again.');
+                return;
+            }
+
+            // Appelé après updateItem pour que la normalisation per-unit se base
+            // sur la quantity à jour (au cas où elle vient d'être modifiée ici aussi).
+            await updatePurchasePrice(
+                item.id,
+                state.purchasePrice.trim() ? parseFloat(state.purchasePrice.replace(',', '.')) : null,
+                state.purchasePriceIsPerUnit,
+            );
             if (useItemStore.getState().error) {
                 setSubmitError('Update failed. Please try again.');
                 return;
@@ -409,13 +421,12 @@ export function EditItemFlow({ route, navigation }: Props) {
                     <SectionHeader label="FINANCIAL" />
 
                     <FieldLabel label="Purchase price" optional />
-                    <TextInput
-                        style={[styles.input, styles.inputNarrow]}
-                        value={state.purchasePrice}
-                        onChangeText={v => patch({ purchasePrice: v.replace(/[^0-9.,]/g, '') })}
-                        keyboardType="decimal-pad"
-                        placeholder="0.00"
-                        placeholderTextColor={colors.text3}
+                    <PurchasePriceField
+                        quantity={state.quantity}
+                        priceText={state.purchasePrice}
+                        onPriceTextChange={v => patch({ purchasePrice: v.replace(/[^0-9.,]/g, '') })}
+                        isPerUnit={state.purchasePriceIsPerUnit}
+                        onIsPerUnitChange={v => patch({ purchasePriceIsPerUnit: v })}
                     />
 
                     <FieldLabel label="Currency" />

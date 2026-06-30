@@ -14,7 +14,7 @@ import type { Lab } from '../../types/lab.types';
 type Props = LabsStackScreenProps<'LabsHome'>;
 
 export function LabsHome({ navigation }: Props) {
-    const { labs, labItemCounts, labOzTotals, loadLabs, isLoading } = useLabStore();
+    const { labs, labActiveSummaries, wishlistSummary, soldSummary, trashSummary, labOzTotals, loadLabs, isLoading } = useLabStore();
     const { settings, updateSettings } = useSettingsStore();
     const { spot, rates } = useSpotStore();
     const currency = settings?.currency ?? 'USD';
@@ -24,9 +24,8 @@ export function LabsHome({ navigation }: Props) {
 
     const [reminderDismissed, setReminderDismissed] = useState(false);
 
-    const totalItems = labs
-        .filter(l => l.type !== 'trash')
-        .reduce((sum, l) => sum + (labItemCounts[l.id] ?? 0), 0);
+    const activeCards = Object.values(labActiveSummaries).reduce((sum, v) => sum + v.cards, 0);
+    const totalItems = activeCards + wishlistSummary.cards + soldSummary.cards;
 
     const daysSinceBackup = settings?.lastBackupAt
         ? (Date.now() - new Date(settings.lastBackupAt).getTime()) / (1000 * 60 * 60 * 24)
@@ -56,10 +55,15 @@ export function LabsHome({ navigation }: Props) {
             ? ozGold * spotGold + ozSilver * spotSilver
             : null;
 
+        const summary = item.type === 'wishlist' ? wishlistSummary
+            : item.type === 'trash' ? trashSummary
+            : labActiveSummaries[item.id] ?? { cards: 0, units: 0 };
+
         return (
             <LabCard
                 lab={item}
-                itemCount={labItemCounts[item.id] ?? 0}
+                cards={summary.cards}
+                units={summary.units}
                 totalOzGold={ozGold}
                 totalOzSilver={ozSilver}
                 totalValue={totalValue}
@@ -67,7 +71,7 @@ export function LabsHome({ navigation }: Props) {
                 onPress={() => navigation.navigate('LabDetail', { labId: item.id })}
             />
         );
-    }, [labItemCounts, labOzTotals, spotGold, spotSilver, currency, navigation]);
+    }, [labActiveSummaries, wishlistSummary, trashSummary, labOzTotals, spotGold, spotSilver, currency, navigation]);
 
     if (isLoading && labs.length === 0) {
         return (

@@ -93,7 +93,6 @@ export const useLockStore = create<LockStore>((set) => ({
     },
 
     disableLock: async () => {
-        await lockService.clearPin();
         await useSettingsStore.getState().updateSettings({ appLockEnabled: false });
         set({ isLocked: false, failedAttempts: 0, lockedUntil: null });
     },

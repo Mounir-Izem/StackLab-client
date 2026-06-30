@@ -12,14 +12,15 @@ interface ItemStore {
 
     loadItems: (labId: string) => Promise<void>;
     createItem: (data: ItemCreateInput) => Promise<void>;
-    updateItem: (id: string, data: Partial<Omit<Item, 'id' | 'familyKey' | 'createdAt' | 'updatedAt'>>) => Promise<void>;
+    updateItem: (id: string, data: Partial<Omit<Item, 'id' | 'familyKey' | 'createdAt' | 'updatedAt' | 'purchasePrice'>>) => Promise<void>;
+    updatePurchasePrice: (id: string, purchasePrice: number | null, purchasePriceIsPerUnit: boolean) => Promise<void>;
     sellItem: (id: string, qty: number, soldPrice: number | null, perUnit: boolean, soldCurrency: Currency, soldDate: string) => Promise<void>;
     moveItem: (id: string, qty: number, targetLabId: string, targetDeckId: string | null) => Promise<void>;
     extractItem: (id: string, qty: number) => Promise<void>;
     duplicateItem: (id: string) => Promise<void>;
     deleteItem: (id: string, qty?: number) => Promise<void>;
     restoreFromTrash: (id: string, targetLabId: string, targetDeckId: string | null) => Promise<void>;
-    acquireItem: (id: string, qty: number, targetLabId: string, targetDeckId: string | null, purchasePrice?: number | null, purchaseCurrency?: Currency | null) => Promise<void>;
+    acquireItem: (id: string, qty: number, targetLabId: string, targetDeckId: string | null, purchasePrice?: number | null, purchaseCurrency?: Currency | null, purchasePriceIsPerUnit?: boolean) => Promise<void>;
     sellManyItems: (sells: Array<{ id: string; qty: number; soldPrice: number | null; perUnit: boolean; soldCurrency: Currency; soldDate: string }>) => Promise<void>;
 
 }
@@ -54,6 +55,18 @@ export const useItemStore = create<ItemStore>((set, get) => ({
         set({ error: null });
         try {
             const updated = await itemService.update(id, data);
+            set(state => ({
+                items: state.items.map(i => i.id === id ? updated : i),
+            }));
+        } catch {
+            set({ error: 'UPDATE_ERROR' });
+        }
+    },
+
+    updatePurchasePrice: async (id, purchasePrice, purchasePriceIsPerUnit) => {
+        set({ error: null });
+        try {
+            const updated = await itemService.updatePurchasePrice(id, purchasePrice, purchasePriceIsPerUnit);
             set(state => ({
                 items: state.items.map(i => i.id === id ? updated : i),
             }));
@@ -140,10 +153,10 @@ export const useItemStore = create<ItemStore>((set, get) => ({
         }
     },
 
-    acquireItem: async (id, qty, targetLabId, targetDeckId, purchasePrice, purchaseCurrency) => {
+    acquireItem: async (id, qty, targetLabId, targetDeckId, purchasePrice, purchaseCurrency, purchasePriceIsPerUnit) => {
         set({ error: null });
         try {
-            await itemService.acquire(id, qty, targetLabId, targetDeckId, purchasePrice, purchaseCurrency);
+            await itemService.acquire(id, qty, targetLabId, targetDeckId, purchasePrice, purchaseCurrency, purchasePriceIsPerUnit);
             const { currentLabId } = get();
             if (currentLabId) {
                 set({ items: await itemService.getByLabId(currentLabId) });

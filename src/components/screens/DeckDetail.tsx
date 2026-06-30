@@ -35,7 +35,7 @@ export function DeckDetail({ route, navigation }: Props) {
     const lab = labs.find(l => l.id === labId);
     const deck = decks.find(d => d.id === deckId);
     const subDecks = decks.filter(d => d.parentId === deckId);
-    const deckItems = items.filter(i => i.deckId === deckId);
+    const deckItems = items.filter(i => i.deckId === deckId && i.status === 'active');
 
     const [showPaywall, setShowPaywall] = useState(false);
     const isFocused = useIsFocused();
@@ -116,7 +116,7 @@ export function DeckDetail({ route, navigation }: Props) {
                                         <DeckCard
                                             key={d.id}
                                             deck={d}
-                                            itemCount={items.filter(i => i.deckId === d.id).length}
+                                            itemCount={items.filter(i => i.deckId === d.id && i.status === 'active').length}
                                             subDeckCount={0}
                                             totalValue={totalValue}
                                             onPress={() => navigation.navigate('DeckDetail', { deckId: d.id, labId })}

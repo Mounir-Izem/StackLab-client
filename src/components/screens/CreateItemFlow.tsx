@@ -8,7 +8,9 @@ import { colors, fonts } from '../../utils/theme';
 import { CreateItemStep1 } from './CreateItemStep1';
 import { CreateItemStep2 } from './CreateItemStep2';
 import { CreateItemStep3 } from './CreateItemStep3';
+import { CreateItemStep4 } from './CreateItemStep4';
 import type { ItemMetal, ItemShape, ItemWeightUnit, StrikeFinish } from '../../types/item.types';
+import type { Currency } from '../../types/settings.types';
 
 export type MixRow = {
     id: string;
@@ -32,6 +34,14 @@ export type FlowState = {
     weightInput: string;
     weightUnit: ItemWeightUnit;
     purity: number;
+    purchasePrice: string;
+    purchasePriceIsPerUnit: boolean;
+    purchaseCurrency: Currency;
+    purchaseDate: string;
+    observedPrice: string;
+    observedPriceIsPerUnit: boolean;
+    observedCurrency: Currency;
+    observedPriceDate: string;
 };
 
 const INITIAL: FlowState = {
@@ -39,6 +49,8 @@ const INITIAL: FlowState = {
     mintName: '', mintVisible: false,
     quantity: 1, mode: 'simple', year: '', strikeFinish: null, rows: [],
     weightInput: '1', weightUnit: 'oz', purity: 0.9999,
+    purchasePrice: '', purchasePriceIsPerUnit: false, purchaseCurrency: 'USD', purchaseDate: '',
+    observedPrice: '', observedPriceIsPerUnit: false, observedCurrency: 'USD', observedPriceDate: '',
 };
 
 type Props = {
@@ -52,7 +64,7 @@ export function CreateItemFlow({ route, navigation }: Props) {
     const lab = useLabStore(s => s.labs.find(l => l.id === labId));
     const itemStatus: 'wishlist' | 'active' = lab?.type === 'wishlist' ? 'wishlist' : 'active';
 
-    const [step, setStep] = useState<1 | 2 | 3>(1);
+    const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
     const [state, setState] = useState<FlowState>(INITIAL);
     const [submitting, setSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState<string | null>(null);
@@ -63,17 +75,38 @@ export function CreateItemFlow({ route, navigation }: Props) {
 
     function handleBack() {
         if (step === 1) navigation.goBack();
-        else setStep(prev => (prev - 1) as 1 | 2 | 3);
+        else setStep(prev => (prev - 1) as 1 | 2 | 3 | 4);
     }
 
     function handleNext() {
-        setStep(prev => (prev + 1) as 1 | 2 | 3);
+        setStep(prev => (prev + 1) as 1 | 2 | 3 | 4);
     }
 
     async function handleCreate() {
         if (submitting) return;
         setSubmitting(true);
         setSubmitError(null);
+
+        // Le prix suit une union discriminée (price + priceIsPerUnit vont toujours ensemble,
+        // jamais l'un sans l'autre) — d'où le ternaire plutôt qu'un objet plat. Un lab standard
+        // remplit purchasePrice (prix payé), un lab wishlist remplit observedPrice (prix constaté).
+        const priceFields = itemStatus === 'wishlist'
+            ? (state.observedPrice.trim()
+                ? {
+                    observedPrice: parseFloat(state.observedPrice.replace(',', '.')),
+                    observedPriceIsPerUnit: state.observedPriceIsPerUnit,
+                    observedCurrency: state.observedCurrency,
+                    observedPriceDate: state.observedPriceDate.trim() || null,
+                }
+                : {})
+            : (state.purchasePrice.trim()
+                ? {
+                    purchasePrice: parseFloat(state.purchasePrice.replace(',', '.')),
+                    purchasePriceIsPerUnit: state.purchasePriceIsPerUnit,
+                    purchaseCurrency: state.purchaseCurrency,
+                    purchaseDate: state.purchaseDate.trim() || null,
+                }
+                : {});
 
         const base = {
             labId,
@@ -87,6 +120,7 @@ export function CreateItemFlow({ route, navigation }: Props) {
             weightInput: parseFloat(state.weightInput) || 0,
             weightUnit: state.weightUnit,
             purity: state.purity,
+            ...priceFields,
         };
 
         try {
@@ -133,12 +167,12 @@ export function CreateItemFlow({ route, navigation }: Props) {
                         : <Ionicons name="arrow-back" size={22} color={colors.text} />
                     }
                 </Pressable>
-                <Text style={styles.stepLabel}>{step} / 3</Text>
+                <Text style={styles.stepLabel}>{step} / 4</Text>
                 <View style={styles.headerBtn} />
             </View>
 
             <View style={styles.progress}>
-                {([1, 2, 3] as const).map(n => (
+                {([1, 2, 3, 4] as const).map(n => (
                     <View key={n} style={[styles.progressDot, n <= step && styles.progressDotActive]} />
                 ))}
             </View>
@@ -150,9 +184,13 @@ export function CreateItemFlow({ route, navigation }: Props) {
                 <CreateItemStep2 state={state} update={update} onNext={handleNext} />
             )}
             {step === 3 && (
-                <CreateItemStep3
+                <CreateItemStep3 state={state} update={update} onNext={handleNext} />
+            )}
+            {step === 4 && (
+                <CreateItemStep4
                     state={state}
                     update={update}
+                    itemStatus={itemStatus}
                     onCreate={handleCreate}
                     submitting={submitting}
                     error={submitError}

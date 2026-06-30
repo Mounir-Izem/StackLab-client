@@ -6,6 +6,16 @@ import { calcFineWeightOz } from '../utils/calculations';
 import { generateUUID } from '../utils/uuid';
 import type { Lab, LabType } from '../types/lab.types';
 
+// Partagé par deleteWithContent et deleteAndMigrate : les 3 labs système
+// (standard principal, Wishlist, Trash) ne sont jamais supprimables, peu importe
+// la voie de suppression. Garder ce garde-fou à un seul endroit évite qu'une des
+// deux fonctions l'oublie si la règle évolue (c'est déjà arrivé une fois).
+async function requireDeletableLab(id: string): Promise<void> {
+    const lab = await labRepository.findById(id);
+    if (!lab) throw new Error('LAB_NOT_FOUND');
+    if (lab.isSystem) throw new Error('CANNOT_DELETE_SYSTEM_LAB');
+}
+
 async function deleteDeckTree(labId: string): Promise<void> {
     let remaining = await deckRepository.findByLabId(labId);
     while (remaining.length > 0) {
@@ -46,8 +56,96 @@ export const labService = {
         }
     },
 
-    async getItemCountsByLab(): Promise<Record<string, number>> {
-        return labRepository.getItemCountsByLab();
+    // Active portfolio = status 'active' ET lab.type 'standard'. Le check explicite sur
+    // lab.type (plutôt qu'une simple exclusion du lab Trash) garantit qu'on ne compte
+    // jamais un item actif qui se trouverait par accident hors d'un lab standard.
+    async getActiveSummaryByLab(): Promise<Record<string, { cards: number; units: number }>> {
+        const [labs, activeItems] = await Promise.all([
+            labRepository.findAll(),
+            itemRepository.findAll('active'),
+        ]);
+
+        const standardLabIds = new Set(labs.filter(l => l.type === 'standard').map(l => l.id));
+        const totals: Record<string, { cards: number; units: number }> = {};
+
+        for (const item of activeItems) {
+            if (!standardLabIds.has(item.labId)) continue;
+            if (!totals[item.labId]) totals[item.labId] = { cards: 0, units: 0 };
+            totals[item.labId].cards += 1;
+            totals[item.labId].units += item.quantity;
+        }
+
+        return totals;
+    },
+
+    // Wishlist = status 'wishlist' ET lab.type 'wishlist'. Un seul lab Wishlist existe
+    // dans l'app (système) — pas besoin d'un Record par lab ici.
+    async getWishlistSummary(): Promise<{ cards: number; units: number }> {
+        const [wishlistLab, wishlistItems] = await Promise.all([
+            labRepository.findByType('wishlist'),
+            itemRepository.findAll('wishlist'),
+        ]);
+
+        const items = wishlistLab ? wishlistItems.filter(i => i.labId === wishlistLab.id) : [];
+        return {
+            cards: items.length,
+            units: items.reduce((sum, i) => sum + i.quantity, 0),
+        };
+    },
+
+    // Sold history = status 'sold' ET hors Trash. Trash prime sur tout : un item vendu
+    // déplacé vers Trash disparaît de cet agrégat (visible seulement dans Trash).
+    // proceeds/costBasis restent séparés par devise — la conversion vers la devise
+    // d'affichage se fait à l'affichage (cf. calcRealizedPnL + sumByCurrency).
+    async getSoldSummary(): Promise<{
+        cards: number;
+        units: number;
+        proceedsByCurrency: Record<string, number>;
+        costBasisByCurrency: Record<string, number>;
+    }> {
+        const [trashLab, soldItems] = await Promise.all([
+            labRepository.findByType('trash'),
+            itemRepository.findAll('sold'),
+        ]);
+
+        const nonTrashItems = trashLab
+            ? soldItems.filter(i => i.labId !== trashLab.id)
+            : soldItems;
+
+        const summary = {
+            cards: 0,
+            units: 0,
+            proceedsByCurrency: {} as Record<string, number>,
+            costBasisByCurrency: {} as Record<string, number>,
+        };
+
+        for (const item of nonTrashItems) {
+            summary.cards += 1;
+            summary.units += item.quantity;
+            if (item.soldPrice !== null) {
+                const cur = item.soldCurrency ?? 'USD';
+                summary.proceedsByCurrency[cur] = (summary.proceedsByCurrency[cur] ?? 0) + item.soldPrice;
+            }
+            if (item.purchasePrice !== null) {
+                const cur = item.purchaseCurrency ?? 'USD';
+                summary.costBasisByCurrency[cur] = (summary.costBasisByCurrency[cur] ?? 0) + item.purchasePrice;
+            }
+        }
+
+        return summary;
+    },
+
+    // Trash prime sur tout : un item y conserve son status d'origine (active/sold/wishlist)
+    // mais n'est compté nulle part ailleurs. Ce compteur est le seul endroit où on l'agrège.
+    async getTrashSummary(): Promise<{ cards: number; units: number }> {
+        const trashLab = await labRepository.findByType('trash');
+        if (!trashLab) return { cards: 0, units: 0 };
+
+        const items = await itemRepository.findByLabId(trashLab.id);
+        return {
+            cards: items.length,
+            units: items.reduce((sum, i) => sum + i.quantity, 0),
+        };
     },
 
     async getInvestedTotalsByLab(): Promise<Record<string, Record<string, number>>> {
@@ -66,7 +164,8 @@ export const labService = {
             if (item.purchasePrice === null) continue;
             const cur = item.purchaseCurrency ?? 'USD';
             if (!totals[item.labId]) totals[item.labId] = {};
-            totals[item.labId][cur] = (totals[item.labId][cur] ?? 0) + item.purchasePrice * item.quantity;
+            // purchasePrice est déjà le coût total du row pour sa quantity — ne jamais remultiplier.
+            totals[item.labId][cur] = (totals[item.labId][cur] ?? 0) + item.purchasePrice;
         }
 
         return totals;
@@ -118,9 +217,7 @@ export const labService = {
     },
 
     async deleteWithContent(id: string): Promise<void> {
-        const lab = await labRepository.findById(id);
-        if (!lab) throw new Error('LAB_NOT_FOUND');
-        if (lab.isSystem) throw new Error('CANNOT_DELETE_SYSTEM_LAB');
+        await requireDeletableLab(id);
 
         const trashLab = await labRepository.findByType('trash');
         if (!trashLab) throw new Error('TRASH_LAB_NOT_FOUND');
@@ -138,6 +235,8 @@ export const labService = {
     },
 
     async deleteAndMigrate(id: string, targetLabId: string): Promise<void> {
+        await requireDeletableLab(id);
+
         const items = await itemRepository.findByLabId(id);
 
         await withTransaction(async () => {

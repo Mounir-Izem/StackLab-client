@@ -60,7 +60,8 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#13111A' }}>
       <SafeAreaProvider>
-        {isLocked ? <LockScreen /> : <RootNavigator />}
+        <RootNavigator />
+        {isLocked && <LockScreen />}
         <StatusBar style="light" translucent backgroundColor="transparent" />
       </SafeAreaProvider>
     </GestureHandlerRootView>

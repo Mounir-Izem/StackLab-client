@@ -68,16 +68,44 @@ export function convertSpotPrice(
     return priceUsd / rate;
 }
 
+export function proratePurchasePrice(
+    totalPrice: number | null,
+    takeQty: number,
+    fromQty: number,
+): { extracted: number | null; remaining: number | null } {
+    if (totalPrice === null) return { extracted: null, remaining: null };
+    const totalCents = Math.round(totalPrice * 100);
+    const extractedCents = Math.round((totalCents * takeQty) / fromQty);
+    const remainingCents = totalCents - extractedCents;
+    return { extracted: extractedCents / 100, remaining: remainingCents / 100 };
+}
+
+export function sumByCurrency(
+    amountsByCurrency: Record<string, number>,
+    displayCurrency: string,
+    rates: Record<string, number>,
+): number | null {
+    if (Object.keys(amountsByCurrency).length === 0) return null;
+    const hasNonUsd = Object.keys(amountsByCurrency).some(c => c !== 'USD');
+    if (hasNonUsd && Object.keys(rates).length === 0) return null;
+    const totalUsd = Object.entries(amountsByCurrency).reduce((sum, [cur, amount]) => {
+        return sum + (cur === 'USD' ? amount : amount * (rates[cur] ?? 1));
+    }, 0);
+    return convertSpotPrice(totalUsd, displayCurrency, rates);
+}
+
 export function calcTotalInvested(
     investedByCurrency: Record<string, number>,
     displayCurrency: string,
     rates: Record<string, number>,
 ): number | null {
-    if (Object.keys(investedByCurrency).length === 0) return null;
-    const hasNonUsd = Object.keys(investedByCurrency).some(c => c !== 'USD');
-    if (hasNonUsd && Object.keys(rates).length === 0) return null;
-    const totalUsd = Object.entries(investedByCurrency).reduce((sum, [cur, amount]) => {
-        return sum + (cur === 'USD' ? amount : amount * (rates[cur] ?? 1));
-    }, 0);
-    return convertSpotPrice(totalUsd, displayCurrency, rates);
+    return sumByCurrency(investedByCurrency, displayCurrency, rates);
+}
+
+export function calcRealizedPnL(
+    proceeds: number | null,
+    costBasis: number | null,
+): number | null {
+    if (proceeds === null || costBasis === null) return null;
+    return proceeds - costBasis;
 }

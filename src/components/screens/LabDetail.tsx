@@ -40,7 +40,12 @@ export function LabDetail({ route, navigation }: Props) {
     const isTrash = lab?.type === 'trash';
     const isWishlist = lab?.type === 'wishlist';
     const rootDecks = decks.filter(d => d.parentId === null);
-    const directItems = items.filter(i => i.deckId === null && i.labId === labId);
+    const directItems = items.filter(i => {
+        if (i.deckId !== null || i.labId !== labId) return false;
+        if (isTrash) return true;
+        if (isWishlist) return i.status === 'wishlist';
+        return i.status === 'active';
+    });
 
     const [showNewDeck, setShowNewDeck] = useState(false);
     const [showPaywall, setShowPaywall] = useState(false);
@@ -114,7 +119,7 @@ export function LabDetail({ route, navigation }: Props) {
                                         <DeckCard
                                             key={d.id}
                                             deck={d}
-                                            itemCount={items.filter(i => i.deckId === d.id).length}
+                                            itemCount={items.filter(i => i.deckId === d.id && i.status === 'active').length}
                                             subDeckCount={decks.filter(s => s.parentId === d.id).length}
                                             totalValue={totalValue}
                                             onPress={() => navigation.navigate('DeckDetail', { deckId: d.id, labId })}

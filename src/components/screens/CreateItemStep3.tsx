@@ -1,7 +1,7 @@
 import React from 'react';
 import {
     View, Text, TextInput, Pressable,
-    ScrollView, StyleSheet, ActivityIndicator,
+    ScrollView, StyleSheet,
 } from 'react-native';
 import { calcFineWeightOz, toTroyOz } from '../../utils/calculations';
 import { formatWeight } from '../../utils/formatters';
@@ -12,9 +12,7 @@ import type { ItemWeightUnit } from '../../types/item.types';
 type Props = {
     state: FlowState;
     update: (patch: Partial<FlowState>) => void;
-    onCreate: () => void;
-    submitting: boolean;
-    error: string | null;
+    onNext: () => void;
 };
 
 const PURITIES: { label: string; value: number }[] = [
@@ -59,13 +57,13 @@ const PURITIES: { label: string; value: number }[] = [
 
 const UNITS: ItemWeightUnit[] = ['oz', 'g', 'kg'];
 
-export function CreateItemStep3({ state, update, onCreate, submitting, error }: Props) {
+export function CreateItemStep3({ state, update, onNext }: Props) {
     const weightNum = parseFloat(state.weightInput) || 0;
     const weightOz = toTroyOz(weightNum, state.weightUnit);
     const fineOz = calcFineWeightOz(weightOz, state.purity);
     const totalWeightOz = weightOz * state.quantity;
     const totalFineOz = fineOz * state.quantity;
-    const canCreate = weightNum > 0;
+    const canNext = weightNum > 0;
 
     function handleWeightChange(text: string) {
         const cleaned = text.replace(/[^0-9.]/g, '');
@@ -116,7 +114,7 @@ export function CreateItemStep3({ state, update, onCreate, submitting, error }: 
             <View style={styles.fineRow}>
                 <Text style={styles.fineLabel}>Fine weight (auto)</Text>
                 <Text style={styles.fineValue}>
-                    {canCreate ? formatWeight(fineOz, 'oz', true) + ' fine' : '— oz fine'}
+                    {canNext ? formatWeight(fineOz, state.weightUnit, true) + ' fine' : '— fine'}
                 </Text>
             </View>
 
@@ -142,24 +140,15 @@ export function CreateItemStep3({ state, update, onCreate, submitting, error }: 
                 <Text style={styles.recapTitle}>Summary</Text>
                 <RecapRow label="Series"   value={`${state.seriesName} · ${state.metal} · ${state.shape}`} />
                 <RecapRow label="Quantity" value={`${recapQty} item${recapQty !== 1 ? 's' : ''}`} />
-                <RecapRow label="Total wt" value={formatWeight(totalWeightOz, 'oz')} />
-                <RecapRow label="Fine oz"  value={canCreate ? formatWeight(totalFineOz, 'oz', true) + ' fine' : '—'} highlight />
+                <RecapRow label="Total wt" value={formatWeight(totalWeightOz, state.weightUnit)} />
+                <RecapRow label="Fine wt"  value={canNext ? formatWeight(totalFineOz, state.weightUnit, true) + ' fine' : '—'} highlight />
             </View>
 
-            {error && (
-                <View style={styles.errorBanner}>
-                    <Text style={styles.errorText}>{error}</Text>
-                </View>
-            )}
-
             <Pressable
-                style={[styles.btnCreate, (!canCreate || submitting) && styles.btnDisabled]}
-                onPress={canCreate && !submitting ? onCreate : undefined}
+                style={[styles.btnCreate, !canNext && styles.btnDisabled]}
+                onPress={canNext ? onNext : undefined}
             >
-                {submitting
-                    ? <ActivityIndicator color={colors.text} />
-                    : <Text style={styles.btnCreateText}>Create</Text>
-                }
+                <Text style={styles.btnCreateText}>Next →</Text>
             </Pressable>
         </ScrollView>
     );
@@ -201,8 +190,6 @@ const styles = StyleSheet.create({
     recapRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     recapLabel: { fontFamily: fonts.outfit, fontSize: 13, color: colors.text2 },
     recapValue: { fontFamily: fonts.dmMono, fontSize: 13, color: colors.text },
-    errorBanner: { backgroundColor: 'rgba(180,30,30,0.15)', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: 'rgba(180,30,30,0.30)' },
-    errorText: { fontFamily: fonts.outfit, fontSize: 13, color: colors.crimson },
     btnCreate: { marginTop: 16, backgroundColor: colors.violet, borderRadius: 12, paddingVertical: 16, alignItems: 'center' },
     btnCreateText: { fontFamily: fonts.outfitSemiBold, fontSize: 16, color: colors.text },
     btnDisabled: { opacity: 0.4 },

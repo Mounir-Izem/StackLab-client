@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, Modal, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLockStore } from '../../stores/lockStore';
 import { lockService } from '../../services/lockService';
@@ -66,25 +66,27 @@ export function LockScreen() {
     }
 
     return (
-        <View style={styles.screen}>
-            <Ionicons name="lock-closed-outline" size={40} color={colors.violet} style={styles.icon} />
-            <Text style={styles.title}>Enter your PIN</Text>
+        <Modal visible animationType="none" statusBarTranslucent>
+            <View style={styles.screen}>
+                <Ionicons name="lock-closed-outline" size={40} color={colors.violet} style={styles.icon} />
+                <Text style={styles.title}>Enter your PIN</Text>
 
-            {isLockedOut ? (
-                <Text style={styles.lockedText}>
-                    Too many attempts. Try again in {formatLockTime(remainingLockMs)}.
-                </Text>
-            ) : (
-                <PinKeypad
-                    pin={pin}
-                    error={error}
-                    onDigit={handleDigit}
-                    onBackspace={handleBackspace}
-                    biometricIcon={biometricAvailable ? 'finger-print-outline' : undefined}
-                    onBiometricPress={biometricAvailable ? () => unlockWithBiometric() : undefined}
-                />
-            )}
-        </View>
+                {isLockedOut ? (
+                    <Text style={styles.lockedText}>
+                        Too many attempts. Try again in {formatLockTime(remainingLockMs)}.
+                    </Text>
+                ) : (
+                    <PinKeypad
+                        pin={pin}
+                        error={error}
+                        onDigit={handleDigit}
+                        onBackspace={handleBackspace}
+                        biometricIcon={biometricAvailable ? 'finger-print-outline' : undefined}
+                        onBiometricPress={biometricAvailable ? () => unlockWithBiometric() : undefined}
+                    />
+                )}
+            </View>
+        </Modal>
     );
 }
 

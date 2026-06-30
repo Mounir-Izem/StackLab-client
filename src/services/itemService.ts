@@ -2,7 +2,7 @@ import * as FileSystem from 'expo-file-system';
 import { itemRepository } from '../repositories/itemRepository';
 import { labRepository } from '../repositories/labRepository';
 import { withTransaction } from '../db/database';
-import { toTroyOz, generateFamilyKey } from '../utils/calculations';
+import { toTroyOz, generateFamilyKey, proratePurchasePrice } from '../utils/calculations';
 import { generateUUID } from '../utils/uuid';
 import type { Item, ItemMetal, ItemShape, ItemStatus, ItemWeightUnit, StrikeFinish, ItemCondition, ItemFeature, ItemPackaging } from '../types/item.types';
 import type { Currency } from '../types/settings.types';
@@ -99,8 +99,21 @@ export const itemService = {
         });
     },
 
-    async update(id: string, data: Partial<Omit<Item, 'id' | 'familyKey' | 'createdAt' | 'updatedAt'>>): Promise<Item> {
+    // purchasePrice est exclu volontairement : il doit toujours passer par updatePurchasePrice()
+    // pour être normalisé (total vs per-unit), jamais écrit brut. Garde runtime en plus du
+    // type, car un objet "data" externe peut contenir le champ sans que TS le détecte.
+    async update(id: string, data: Partial<Omit<Item, 'id' | 'familyKey' | 'createdAt' | 'updatedAt' | 'purchasePrice'>>): Promise<Item> {
+        if ('purchasePrice' in data) throw new Error('USE_UPDATE_PURCHASE_PRICE');
         return itemRepository.update(id, data);
+    },
+
+    async updatePurchasePrice(id: string, purchasePrice: number | null, purchasePriceIsPerUnit: boolean): Promise<Item> {
+        const item = await itemRepository.findById(id);
+        if (!item) throw new Error('ITEM_NOT_FOUND');
+        const normalizedPurchasePrice = purchasePrice != null
+            ? (purchasePriceIsPerUnit ? purchasePrice * item.quantity : purchasePrice)
+            : null;
+        return itemRepository.update(id, { purchasePrice: normalizedPurchasePrice });
     },
 
     async sell(
@@ -124,13 +137,15 @@ export const itemService = {
             return;
         }
 
+        const { extracted, remaining } = proratePurchasePrice(item.purchasePrice, qty, item.quantity);
         const { createdAt: _c, updatedAt: _u, ...base } = item;
         await withTransaction(async () => {
-            await itemRepository.update(id, { quantity: item.quantity - qty });
+            await itemRepository.update(id, { quantity: item.quantity - qty, purchasePrice: remaining });
             await itemRepository.create({
                 ...base,
                 id: generateUUID(),
                 quantity: qty,
+                purchasePrice: extracted,
                 status: 'sold',
                 soldDate,
                 soldPrice: finalSoldPrice,
@@ -176,12 +191,14 @@ export const itemService = {
                         soldCurrency: sell.soldCurrency,
                     });
                 } else {
+                    const { extracted, remaining } = proratePurchasePrice(item.purchasePrice, sell.qty, item.quantity);
                     const { createdAt: _c, updatedAt: _u, ...base } = item;
-                    await itemRepository.update(item.id, { quantity: item.quantity - sell.qty });
+                    await itemRepository.update(item.id, { quantity: item.quantity - sell.qty, purchasePrice: remaining });
                     await itemRepository.create({
                         ...base,
                         id: generateUUID(),
                         quantity: sell.qty,
+                        purchasePrice: extracted,
                         status: 'sold',
                         soldDate: sell.soldDate,
                         soldPrice: finalSoldPrice,
@@ -206,10 +223,11 @@ export const itemService = {
             return;
         }
 
+        const { extracted, remaining } = proratePurchasePrice(item.purchasePrice, qty, item.quantity);
         const { createdAt: _c, updatedAt: _u, ...base } = item;
         await withTransaction(async () => {
-            await itemRepository.update(id, { quantity: item.quantity - qty });
-            await itemRepository.create({ ...base, id: generateUUID(), labId: targetLabId, deckId: targetDeckId, quantity: qty });
+            await itemRepository.update(id, { quantity: item.quantity - qty, purchasePrice: remaining });
+            await itemRepository.create({ ...base, id: generateUUID(), labId: targetLabId, deckId: targetDeckId, quantity: qty, purchasePrice: extracted });
         });
     },
 
@@ -219,10 +237,11 @@ export const itemService = {
         if (qty < 1) throw new Error('INVALID_QTY');
         if (qty >= item.quantity) throw new Error('EXTRACT_REQUIRES_PARTIAL_QTY');
 
+        const { extracted, remaining } = proratePurchasePrice(item.purchasePrice, qty, item.quantity);
         const { createdAt: _c, updatedAt: _u, ...base } = item;
         await withTransaction(async () => {
-            await itemRepository.update(id, { quantity: item.quantity - qty });
-            await itemRepository.create({ ...base, id: generateUUID(), quantity: qty });
+            await itemRepository.update(id, { quantity: item.quantity - qty, purchasePrice: remaining });
+            await itemRepository.create({ ...base, id: generateUUID(), quantity: qty, purchasePrice: extracted });
         });
     },
 
@@ -255,10 +274,14 @@ export const itemService = {
             return;
         }
 
-        // Partial quantity reduction — physical, no trash
+        // Partial quantity reduction — physical, no trash. The cost basis of the
+        // destroyed units is dropped (no row survives to carry it); only the
+        // surviving quantity's prorated purchasePrice is kept.
         if (qty < 1) throw new Error('INVALID_QTY');
         if (qty >= item.quantity) throw new Error('QTY_EXCEEDS_STOCK');
-        await itemRepository.update(id, { quantity: item.quantity - qty });
+        const survivingQty = item.quantity - qty;
+        const { extracted: keptPurchasePrice } = proratePurchasePrice(item.purchasePrice, survivingQty, item.quantity);
+        await itemRepository.update(id, { quantity: survivingQty, purchasePrice: keptPurchasePrice });
     },
 
     async restoreFromTrash(id: string, targetLabId: string, targetDeckId: string | null): Promise<void> {
@@ -276,12 +299,19 @@ export const itemService = {
         targetDeckId: string | null,
         purchasePrice?: number | null,
         purchaseCurrency?: Currency | null,
+        purchasePriceIsPerUnit: boolean = false,
     ): Promise<void> {
         const item = await itemRepository.findById(id);
         if (!item) throw new Error('ITEM_NOT_FOUND');
         if (item.status !== 'wishlist') throw new Error('ITEM_NOT_WISHLIST');
         if (qty < 1) throw new Error('INVALID_QTY');
         if (qty > item.quantity) throw new Error('QTY_EXCEEDS_STOCK');
+
+        // L'acquisition est un nouvel événement d'achat : le prix saisi décrit
+        // toujours la quantité acquise (qty), jamais l'ancienne quantité du wishlist row.
+        const normalizedPurchasePrice = purchasePrice != null
+            ? (purchasePriceIsPerUnit ? purchasePrice * qty : purchasePrice)
+            : null;
 
         if (qty === item.quantity) {
             await itemRepository.update(id, {
@@ -291,7 +321,7 @@ export const itemService = {
                 observedPrice: null,
                 observedCurrency: null,
                 observedPriceDate: null,
-                purchasePrice: purchasePrice ?? null,
+                purchasePrice: normalizedPurchasePrice,
                 purchaseCurrency: purchaseCurrency ?? null,
             });
             return;
@@ -299,7 +329,9 @@ export const itemService = {
 
         const { createdAt: _c, updatedAt: _u, ...base } = item;
         await withTransaction(async () => {
-            await itemRepository.update(id, { quantity: item.quantity - qty });
+            // La part qui reste en Wishlist n'est pas encore achetée : elle ne doit
+            // jamais hériter d'un purchasePrice, même si le row source en avait un.
+            await itemRepository.update(id, { quantity: item.quantity - qty, purchasePrice: null });
             await itemRepository.create({
                 ...base,
                 id: generateUUID(),
@@ -310,7 +342,7 @@ export const itemService = {
                 observedPrice: null,
                 observedCurrency: null,
                 observedPriceDate: null,
-                purchasePrice: purchasePrice ?? null,
+                purchasePrice: normalizedPurchasePrice,
                 purchaseCurrency: purchaseCurrency ?? null,
             });
         });

@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useBackupStore } from '../../stores/backupStore';
 import { useLockStore } from '../../stores/lockStore';
+import { lockService } from '../../services/lockService';
 import { resetToLabsHome } from '../../navigation/navigationRef';
 import { colors, fonts } from '../../utils/theme';
 import { formatDate } from '../../utils/formatters';
@@ -86,9 +87,14 @@ export function SettingsModal() {
         await updateSettings({ weightUnit });
     }
 
-    function handleAppLockToggle(value: boolean) {
+    async function handleAppLockToggle(value: boolean) {
         if (value) {
-            setShowPinSetup(true);
+            const hasPin = await lockService.hasPin();
+            if (hasPin) {
+                updateSettings({ appLockEnabled: true });
+            } else {
+                setShowPinSetup(true);
+            }
         } else {
             setPinVerifyPurpose('disable');
             setShowPinVerify(true);

@@ -15,7 +15,8 @@ const WISHLIST_COVER = require('../../../assets/themes/WishList.png') as number;
 
 type LabCardProps = {
     lab: Lab;
-    itemCount?: number;
+    cards?: number;
+    units?: number;
     totalOzGold?: number;
     totalOzSilver?: number;
     totalValue?: number | null;
@@ -25,7 +26,8 @@ type LabCardProps = {
 
 function LabCardComponent({
     lab,
-    itemCount = 0,
+    cards = 0,
+    units = 0,
     totalOzGold = 0,
     totalOzSilver = 0,
     totalValue,
@@ -45,6 +47,12 @@ function LabCardComponent({
 
     const isWishlist = lab.type === 'wishlist';
 
+    const countLabel = lab.type === 'wishlist'
+        ? `${cards} wishlist item${cards !== 1 ? 's' : ''}`
+        : lab.type === 'trash'
+            ? `${cards} item${cards !== 1 ? 's' : ''}`
+            : `${cards} card${cards !== 1 ? 's' : ''} · ${units} unit${units !== 1 ? 's' : ''}`;
+
     const { cardRef, canvasRef, canvasOpacity, gesture, animatedStyle } = useCardGestures({
         onPress,
         buildShareText: () => {
@@ -52,7 +60,7 @@ function LabCardComponent({
                 totalOzGold > 0 ? `${totalOzGold.toFixed(2)}oz Au` : null,
                 totalOzSilver > 0 ? `${totalOzSilver.toFixed(2)}oz Ag` : null,
             ].filter(Boolean).join(' · ');
-            return `${lab.name} — ${itemCount} item${itemCount !== 1 ? 's' : ''}${parts ? `  ·  ${parts}` : ''}\nTracked with StackLab`;
+            return `${lab.name} — ${countLabel}${parts ? `  ·  ${parts}` : ''}\nTracked with StackLab`;
         },
     });
 
@@ -82,7 +90,7 @@ function LabCardComponent({
                     <Text style={styles.value}>{displayValue}</Text>
                 </View>
                 <Text style={styles.meta} numberOfLines={1}>
-                    {itemCount} item{itemCount !== 1 ? 's' : ''}
+                    {countLabel}
                     {ozParts ? `  ·  ${ozParts}` : ''}
                 </Text>
             </View>
@@ -101,7 +109,7 @@ function LabCardComponent({
                 <View style={styles.content}>
                     <Text style={styles.name} numberOfLines={1}>{lab.name}</Text>
                     <Text style={styles.meta} numberOfLines={1}>
-                        {itemCount} item{itemCount !== 1 ? 's' : ''}{ozParts ? `  ·  ${ozParts}` : ''}
+                        {countLabel}{ozParts ? `  ·  ${ozParts}` : ''}
                     </Text>
                     <Text style={styles.value}>{displayValue}</Text>
                 </View>

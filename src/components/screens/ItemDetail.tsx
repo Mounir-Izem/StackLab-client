@@ -45,6 +45,7 @@ export function ItemDetail({ route, navigation }: Props) {
     const [showAcquireModal, setShowAcquireModal] = useState(false);
     const [acquireQty, setAcquireQty] = useState(1);
     const [acquirePrice, setAcquirePrice] = useState('');
+    const [acquirePerUnit, setAcquirePerUnit] = useState(false);
     const [acquireCurrency, setAcquireCurrency] = useState<Currency>(currency as Currency);
     const [acquireTargetLabId, setAcquireTargetLabId] = useState<string | null>(null);
     const [showAcquireCurrencyPicker, setShowAcquireCurrencyPicker] = useState(false);
@@ -296,7 +297,7 @@ export function ItemDetail({ route, navigation }: Props) {
                     </>
                 ) : isWishlist ? (
                     <>
-                        <ActionBtn icon="bag-check-outline" label="Acquire" onPress={() => { setAcquireQty(item.quantity); setAcquirePrice(''); setAcquireCurrency(currency as Currency); setAcquireTargetLabId(labs.find(l => l.type === 'standard')?.id ?? null); setShowAcquireModal(true); }} />
+                        <ActionBtn icon="bag-check-outline" label="Acquire" onPress={() => { setAcquireQty(item.quantity); setAcquirePrice(''); setAcquirePerUnit(false); setAcquireCurrency(currency as Currency); setAcquireTargetLabId(labs.find(l => l.type === 'standard')?.id ?? null); setShowAcquireModal(true); }} />
                         <ActionBtn icon="close-circle-outline" label="Remove" danger onPress={() => setShowRemoveConfirm(true)} />
                         <ActionBtn icon="create-outline" label="Edit" onPress={() => navigation.navigate('EditItem', { itemId: item.id })} />
                     </>
@@ -457,6 +458,11 @@ export function ItemDetail({ route, navigation }: Props) {
                                 <Pressable style={styles.currencyBtn} onPress={() => setShowAcquireCurrencyPicker(true)}>
                                     <Text style={styles.currencyBtnText}>{acquireCurrency} ▾</Text>
                                 </Pressable>
+                                {acquireQty > 1 && (
+                                    <Pressable style={styles.perUnitBtn} onPress={() => setAcquirePerUnit(p => !p)}>
+                                        <Text style={styles.perUnitText}>{acquirePerUnit ? 'Per unit' : 'Total lot'} ▾</Text>
+                                    </Pressable>
+                                )}
                             </View>
                         </View>
 
@@ -467,7 +473,7 @@ export function ItemDetail({ route, navigation }: Props) {
                                 if (!acquireTargetLabId) return;
                                 setShowAcquireModal(false);
                                 const price = acquirePrice.trim() ? parseFloat(acquirePrice.replace(',', '.')) : null;
-                                await acquireItem(item.id, acquireQty, acquireTargetLabId, null, price, price ? acquireCurrency : null);
+                                await acquireItem(item.id, acquireQty, acquireTargetLabId, null, price, price ? acquireCurrency : null, acquirePerUnit);
                                 navigation.goBack();
                             }}
                         >

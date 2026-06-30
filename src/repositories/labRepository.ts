@@ -102,12 +102,4 @@ export const labRepository = {
         const db = getDatabase();
         await db.runAsync('DELETE FROM labs WHERE id = ?', [id]);
     },
-
-    async getItemCountsByLab(): Promise<Record<string, number>> {
-        const db = getDatabase();
-        const rows = await db.getAllAsync<{ lab_id: string; count: number }>(
-            'SELECT lab_id, SUM(quantity) as count FROM items GROUP BY lab_id'
-        );
-        return Object.fromEntries(rows.map(r => [r.lab_id, r.count]));
-    },
 };
