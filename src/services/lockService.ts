@@ -26,6 +26,10 @@ export const lockService = {
         return pin !== null;
     },
 
+    async getPin(): Promise<string | null> {
+        return SecureStore.getItemAsync(PIN_KEY);
+    },
+
     async setPin(pin: string): Promise<void> {
         await SecureStore.setItemAsync(PIN_KEY, pin);
         await SecureStore.deleteItemAsync(FAILED_ATTEMPTS_KEY);

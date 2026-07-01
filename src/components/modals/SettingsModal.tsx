@@ -14,6 +14,7 @@ import { formatDate } from '../../utils/formatters';
 import { shareAutoBackupForDebug } from '../../utils/backup';
 import { PinSetupModal } from './PinSetupModal';
 import { PinVerifyModal } from './PinVerifyModal';
+import { PinInputModal } from './PinInputModal';
 import type { Currency, WeightUnit } from '../../types/settings.types';
 
 const CURRENCIES: Currency[] = ['USD', 'EUR', 'GBP', 'CAD', 'AUD'];
@@ -39,6 +40,7 @@ export function SettingsModal() {
     const {
         isExporting, exportData, isImporting, importData, isReplacing, replaceData,
         isDeletingData, deleteAllData, deleteBackupFile, error: backupError,
+        pendingImportMode, submitImportPin, cancelImport,
     } = useBackupStore();
     const [showExportConfirm, setShowExportConfirm] = useState(false);
     const [showReplaceConfirm, setShowReplaceConfirm] = useState(false);
@@ -61,6 +63,23 @@ export function SettingsModal() {
         if (didReplace) {
             closeSettings();
             resetToLabsHome();
+        }
+    }
+
+    async function handleSubmitImportPin(pin: string) {
+        const mode = pendingImportMode;
+        const success = await submitImportPin(pin);
+        if (success) {
+            // The file picker briefly backgrounds the app, which triggers App Lock.
+            // Decryption success is cryptographic proof the PIN is correct — unlock
+            // directly rather than re-verifying (avoids incrementing failedAttempts).
+            if (useLockStore.getState().isLocked) {
+                useLockStore.getState().forceUnlock();
+            }
+            if (mode === 'replace') {
+                closeSettings();
+                resetToLabsHome();
+            }
         }
     }
 
@@ -305,13 +324,19 @@ export function SettingsModal() {
                                 <InfoButton onPress={() => setInfoModal('deleteBackupFile')} />
                             </View>
                         </Pressable>
-                        {backupError && (
+                        {backupError && backupError !== 'IMPORT_WRONG_PIN' && (
                             <View style={styles.errorBanner}>
                                 <Text style={styles.errorText}>
                                     {backupError === 'IMPORT_VERSION_MISMATCH'
                                         ? "This file was made with a different version of StackLab and can't be imported."
                                         : backupError === 'IMPORT_INVALID_FILE'
                                         ? "This file couldn't be read — it may be corrupted or not a StackLab export."
+                                        : backupError === 'EXPORT_REQUIRES_APP_LOCK'
+                                        ? "Enable App Lock to create encrypted backups."
+                                        : backupError === 'REPLACE_REQUIRES_APP_LOCK'
+                                        ? "Enable App Lock before using Replace — your data must be encrypted before it can be overwritten."
+                                        : backupError === 'BACKUP_REENCRYPT_FAILED'
+                                        ? "Your PIN was updated, but the backup file couldn't be re-encrypted. It still uses your old PIN."
                                         : 'Something went wrong. Please try again.'}
                                 </Text>
                             </View>
@@ -366,7 +391,7 @@ export function SettingsModal() {
                 <View style={styles.optionSheet}>
                     <Text style={styles.optionTitle}>Export your data?</Text>
                     <Text style={styles.optionSubtitle}>
-                        This file contains your complete stack data in plain text. Store it securely. Do not share it.
+                        Your data is encrypted with your App Lock PIN before export. Only you can open it.
                     </Text>
                     <Pressable style={styles.optionBtn} onPress={async () => {
                         setShowExportConfirm(false);
@@ -397,8 +422,8 @@ export function SettingsModal() {
                     <Text style={styles.optionTitle}>Replace all data?</Text>
                     <Text style={styles.optionSubtitle}>
                         This permanently deletes everything currently on this device and replaces it with the
-                        imported file. Your current data will be backed up automatically first — you'll be asked
-                        where to save it before anything is deleted.
+                        imported file. Requires App Lock. Your current data is encrypted and saved automatically
+                        before anything is deleted.
                     </Text>
                     <View style={styles.replaceInputWrap}>
                         <TextInput
@@ -540,6 +565,7 @@ export function SettingsModal() {
 
         <PinSetupModal
             visible={showPinSetup}
+            purpose={pinVerifyPurpose === 'change' ? 'change' : 'setup'}
             onClose={() => setShowPinSetup(false)}
             onDone={() => setShowPinSetup(false)}
         />
@@ -549,6 +575,15 @@ export function SettingsModal() {
             title={pinVerifyPurpose === 'change' ? 'Enter your current PIN' : 'Confirm PIN to disable App Lock'}
             onVerified={handlePinVerified}
             onClose={() => setShowPinVerify(false)}
+        />
+
+        <PinInputModal
+            visible={pendingImportMode !== null}
+            title={pendingImportMode === 'replace' ? 'Enter PIN to decrypt and replace' : 'Enter PIN to decrypt import'}
+            subtitle="This backup was encrypted with a PIN. Enter it to continue."
+            showError={backupError === 'IMPORT_WRONG_PIN'}
+            onSubmit={handleSubmitImportPin}
+            onClose={cancelImport}
         />
         </>
     );

@@ -74,8 +74,9 @@ Aucun chiffrement applicatif champ par champ n'est implémenté en MVP.
 **Surfaces d'attaque en MVP et mitigation :**
 ```
 Sandbox iOS/Android         → Protégé nativement ✅
-Backup iTunes non chiffré   → Données lisibles ⚠️ — mitigé par le warning export JSON
-Extraction forensique        → Données lisibles ⚠️ — risque accepté en MVP
+Backup iTunes non chiffré   → SQLite lisible ⚠️ — risque accepté en MVP (chiffrement BDD post-bêta)
+Backup/export utilisateur    → Chiffré AES-256-GCM (Phase 8) ✅
+Extraction forensique        → SQLite lisible ⚠️ — risque accepté en MVP
 Jailbreak / Root             → Données lisibles ⚠️ — responsabilité utilisateur
 Attaque serveur Railway      → Holdings non stockés côté serveur ✅
 ```
@@ -107,13 +108,54 @@ AsyncStorage n'est jamais utilisé pour des données sensibles (UUID, passphrase
 - Quand l'utilisateur copie sa passphrase, le clipboard est vidé automatiquement après **30 secondes**.
 - Un timer visible informe l'utilisateur : "Clipboard will be cleared in 30s."
 
-### Export JSON — Avertissement explicite
+### Export / Backup — Chiffrement Phase 8
 
-- Au moment de l'export, un écran d'avertissement obligatoire :
-  *"This file contains your complete stack data in plain text. Store it securely. Do not share it. Do not upload it to unencrypted cloud storage."*
-- L'utilisateur doit confirmer avant l'export.
-- Post-MVP : option d'export chiffré avec mot de passe.
-- **Limite connue (Phase 6.1/6.2) : les photos ne sont pas incluses dans l'export/import.** `photoUrl` n'est qu'un chemin local (`file://...`), pas le fichier image — il devient invalide après réinstallation ou sur un autre appareil. Embarquer les photos en base64 dans le JSON a été écarté : risque réel de crash (out-of-memory) sur une grosse collection photographiée, au moment précis où la fiabilité du backup compte le plus. Une archive (ZIP) serait plus robuste mais nécessite de valider une lib compatible Expo managed sans prebuild — différé à un lot dédié post-6.2.
+**Aucun nouveau backup n'est jamais produit en clair** depuis Phase 8. Règle sans exception.
+
+**Dépendance App Lock :**
+- Export manuel : bloqué si App Lock désactivé. Message : *"Enable App Lock to create encrypted backups."*
+- Backup automatique : skip silencieux si App Lock désactivé. Aucune donnée écrite en clair.
+- Replace/import destructif : bloqué si App Lock désactivé.
+
+**Format `.stacklab` (backup chiffré) :**
+```
+AES-256-GCM         — chiffrement authentifié (mauvais PIN = échec identique à payload modifié)
+PBKDF2-HMAC-SHA256  — itérations lues depuis le fichier (voir "Dette KDF" ci-dessous)
+Salt 16 bytes       — aléatoire via getRandomBytesAsync (CSPRNG natif)
+Nonce 12 bytes      — aléatoire via getRandomBytesAsync (CSPRNG natif)
+Payload             — base64(nonce || ciphertext || GCM_tag)
+Iterations          — lues depuis le fichier, jamais depuis la constante (forward-compatibility)
+```
+
+**Ce que Phase 8 garantit :**
+- Aucun backup n'est jamais produit en clair — sans exception
+- Un mauvais PIN ou un fichier modifié échoue proprement (AES-GCM tag check)
+- Les données actuelles sont sauvegardées chiffrées avant tout Replace destructif
+- L'auto-backup interne est re-chiffré silencieusement au changement de PIN
+
+**⚠️ Dette KDF — résistance au brute-force offline limitée (bêta privée uniquement)**
+
+`BACKUP_KDF_ITERATIONS` est actuellement fixé à **10 000** (cible : 300 000).
+
+Raison technique : `crypto.subtle` n'est pas disponible dans ce build Expo — le polyfill Expo écrase `globalThis.crypto` sans exposer `subtle`. PBKDF2 pur JavaScript à 300 000 itérations = 77–114 secondes sur device réel avec freeze total du thread UI. Réduit à 10 000 pour une UX acceptable (~3–4s).
+
+**Impact sur la sécurité :** un fichier `.stacklab` avec un PIN à 6 chiffres (10⁶ combinaisons) offre une résistance au brute-force offline **limitée** à 10 000 itérations. Un attaquant avec GPU peut tester l'espace entier des PINs en quelques secondes. La protection réelle repose sur l'inaccessibilité du fichier (export manuel, stockage local, pas de cloud automatique).
+
+**Phase 8 n'est pas présentée comme une protection forte contre le brute-force offline tant que `BACKUP_KDF_ITERATIONS` reste à 10 000. Validée bêta privée uniquement.**
+
+Plan : remonter à 300 000 itérations via `react-native-quick-crypto` (PBKDF2 natif OpenSSL, EAS dev build), ou introduire un mot de passe backup séparé plus long que le PIN App Lock.
+
+**Import rétrocompatible :**
+- Les anciens fichiers `.json` (plain-text) sont acceptés à l'import uniquement.
+- Aucun nouveau fichier en clair n'est jamais produit.
+- L'import d'un fichier chiffré demande le PIN ; le mauvais PIN = erreur propre, données intactes.
+
+**Changement de PIN :**
+- L'auto-backup est re-chiffré silencieusement avec le nouveau PIN.
+- Si le re-chiffrement échoue : ancien backup intact, erreur affichée, jamais de succès silencieux.
+- Les fichiers exports précédents (partagés avec l'utilisateur) nécessitent toujours l'ancien PIN.
+
+**Limite connue (Phase 6.1/6.2) : les photos ne sont pas incluses dans l'export/import.** `photoUrl` n'est qu'un chemin local (`file://...`), pas le fichier image — il devient invalide après réinstallation ou sur un autre appareil. Embarquer les photos en base64 dans le JSON a été écarté : risque réel de crash (out-of-memory) sur une grosse collection photographiée, au moment précis où la fiabilité du backup compte le plus. Une archive (ZIP) serait plus robuste mais nécessite de valider une lib compatible Expo managed sans prebuild — différé à un lot dédié post-6.2.
 
 ### Secrets — Jamais dans le code client
 
@@ -194,11 +236,14 @@ Event event = Webhook.constructEvent(payload, sigHeader, endpointSecret);
 
 ---
 
-## Chiffrement — Cloud Sync uniquement (Phase 8)
+## Chiffrement — Cloud Sync E2EE (prévu post-bêta)
+
+> Phase 8 implémentée = backup/export local chiffré (voir section "Export / Backup" ci-dessus).
+> Ce qui suit décrit le Cloud Sync E2EE, prévu dans une phase ultérieure.
 
 ### Principe
 
-Le chiffrement E2EE s'applique uniquement aux données qui quittent le device pour le serveur.
+Le chiffrement E2EE s'applique aux données qui quittent le device pour le serveur.
 Les données locales SQLite sont protégées par le sandbox natif en MVP.
 
 Quand l'utilisateur active le cloud sync, les données sont chiffrées **côté client**
@@ -239,11 +284,12 @@ Passphrase 12 mots (BIP39)
 **Même passphrase → même seed → même clé AES-256 sur n'importe quel device.**
 C'est ce qui permet la restauration cross-device.
 
-**Note implémentation Phase 8 :**
-`crypto.subtle` est disponible via Hermes (RN 0.71+) mais doit être validé
-sur vrai device iOS et Android avant de confirmer cette architecture.
-Si indisponible → alternative : `react-native-quick-crypto` pour PBKDF2.
-Voir TECH_STACK.md Phase 8 pour l'ordre de test.
+**Note implémentation (validée Phase 8) :**
+`crypto.subtle` est **indisponible** dans ce build Expo — le polyfill `expo-crypto`
+écrase `globalThis.crypto` avec uniquement `getRandomValues`, sans `subtle`.
+Confirmé sur device réel (Expo SDK 54 / Hermes). Les backups Phase 8 utilisent
+`@noble/hashes` (pur JS) pour PBKDF2. Pour le Cloud Sync E2EE, la solution
+retenue sera `react-native-quick-crypto` (PBKDF2 natif OpenSSL via EAS dev build).
 
 ### PBKDF2 — Paramètres
 
@@ -375,7 +421,7 @@ Ces mesures sont documentées ici comme intention future :
 
 - **Certificate pinning** — protection contre les attaques man-in-the-middle
 - **Jailbreak / Root detection** — avertissement si device compromis
-- **Export JSON chiffré** — option de chiffrement du fichier avec mot de passe
+- **Chiffrement base SQLite** — chiffrement champ par champ ou SQLCipher avant lancement public
 - **Audit de sécurité externe** — avant lancement public si budget disponible
 - **Conteneurisation Docker** — isolation des couches backend en production
 - **2FA** — second facteur optionnel pour le cloud sync
@@ -419,5 +465,5 @@ StackLab est open source sous AGPL-3.0. Le code de gestion des données et du ch
 
 ---
 
-*Dernière mise à jour : session design avril 2026*
+*Dernière mise à jour : juillet 2026 — Phase 8 backup/export chiffré (bêta privée)*
 *Propriétaire : Mounir*

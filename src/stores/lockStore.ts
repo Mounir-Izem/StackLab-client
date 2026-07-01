@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { lockService } from '../services/lockService';
 import { backupService } from '../services/backupService';
 import { useSettingsStore } from './settingsStore';
+import { useBackupStore } from './backupStore';
 
 const AUTO_WIPE_THRESHOLD = 10;
 
@@ -13,6 +14,7 @@ interface LockStore {
 
     checkInitialLockState: () => Promise<void>;
     lock: () => void;
+    forceUnlock: () => void;
     unlockWithPin: (pin: string) => Promise<boolean>;
     unlockWithBiometric: () => Promise<boolean>;
     verifyCurrentPin: (pin: string) => Promise<boolean>;
@@ -36,6 +38,13 @@ export const useLockStore = create<LockStore>((set) => ({
     lock: () => {
         const { appLockEnabled } = useSettingsStore.getState().settings ?? {};
         if (appLockEnabled) set({ isLocked: true });
+    },
+
+    // Call this only after the PIN has already been verified cryptographically
+    // (e.g., AES-GCM backup decryption succeeded). Skips verifyPin to avoid
+    // counting failed attempts for a PIN that was already proven correct.
+    forceUnlock: () => {
+        set({ isLocked: false, failedAttempts: 0, lockedUntil: null });
     },
 
     unlockWithPin: async (pin) => {
@@ -83,9 +92,15 @@ export const useLockStore = create<LockStore>((set) => ({
     },
 
     setupPin: async (pin) => {
+        const oldPin = await lockService.getPin();
         await lockService.setPin(pin);
         await useSettingsStore.getState().updateSettings({ appLockEnabled: true });
         set({ isLocked: false, failedAttempts: 0, lockedUntil: null });
+        if (oldPin) {
+            // Fire-and-forget: PIN is already saved. Re-encryption runs in background;
+            // backupStore will surface BACKUP_REENCRYPT_FAILED if it fails.
+            void useBackupStore.getState().reEncryptBackup(oldPin, pin);
+        }
     },
 
     changePin: async (pin) => {

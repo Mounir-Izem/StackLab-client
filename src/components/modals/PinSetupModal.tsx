@@ -11,11 +11,12 @@ type Stage = 'warning' | 'create' | 'confirm';
 
 type Props = {
     visible: boolean;
+    purpose?: 'setup' | 'change';
     onClose: () => void;
     onDone: () => void;
 };
 
-export function PinSetupModal({ visible, onClose, onDone }: Props) {
+export function PinSetupModal({ visible, purpose = 'setup', onClose, onDone }: Props) {
     const setupPin = useLockStore(s => s.setupPin);
     const [stage, setStage] = useState<Stage>('warning');
     const [firstPin, setFirstPin] = useState('');
@@ -83,6 +84,11 @@ export function PinSetupModal({ visible, onClose, onDone }: Props) {
                             reinstalling the app, which erases everything on this device. Write it down
                             somewhere safe, the way you would a crypto wallet seed phrase.
                         </Text>
+                        {purpose === 'change' && (
+                            <Text style={styles.warningNote}>
+                                Backup files exported before this change will still require your current PIN.
+                            </Text>
+                        )}
                         <Pressable style={styles.continueBtn} onPress={() => setStage('create')}>
                             <Text style={styles.continueText}>I understand, continue</Text>
                         </Pressable>
@@ -119,4 +125,5 @@ const styles = StyleSheet.create({
     continueText: { fontFamily: fonts.outfitSemiBold, fontSize: 15, color: colors.text },
     pinBox: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 28 },
     title: { fontFamily: fonts.manrope, fontSize: 20, color: colors.text },
+    warningNote: { fontFamily: fonts.outfit, fontSize: 13, color: colors.text2, textAlign: 'center', opacity: 0.8 },
 });
