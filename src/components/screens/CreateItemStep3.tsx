@@ -3,6 +3,7 @@ import {
     View, Text, TextInput, Pressable,
     ScrollView, StyleSheet,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { calcFineWeightOz, toTroyOz } from '../../utils/calculations';
 import { formatWeight } from '../../utils/formatters';
 import { colors, fonts } from '../../utils/theme';
@@ -58,6 +59,7 @@ const PURITIES: { label: string; value: number }[] = [
 const UNITS: ItemWeightUnit[] = ['oz', 'g', 'kg'];
 
 export function CreateItemStep3({ state, update, onNext }: Props) {
+    const { t } = useTranslation();
     const weightNum = parseFloat(state.weightInput) || 0;
     const weightOz = toTroyOz(weightNum, state.weightUnit);
     const fineOz = calcFineWeightOz(weightOz, state.purity);
@@ -81,10 +83,10 @@ export function CreateItemStep3({ state, update, onNext }: Props) {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
         >
-            <Text style={styles.title}>Physical</Text>
+            <Text style={styles.title}>{t('create.titleStep3')}</Text>
 
             {/* Weight */}
-            <Text style={styles.label}>Weight (per item)</Text>
+            <Text style={styles.label}>{t('create.weightPerItem')}</Text>
             <View style={styles.weightRow}>
                 <TextInput
                     style={styles.weightInput}
@@ -112,14 +114,14 @@ export function CreateItemStep3({ state, update, onNext }: Props) {
 
             {/* Fine weight */}
             <View style={styles.fineRow}>
-                <Text style={styles.fineLabel}>Fine weight (auto)</Text>
+                <Text style={styles.fineLabel}>{t('create.fineWeightAuto')}</Text>
                 <Text style={styles.fineValue}>
-                    {canNext ? formatWeight(fineOz, state.weightUnit, true) + ' fine' : '— fine'}
+                    {canNext ? formatWeight(fineOz, state.weightUnit, true) + ' ' + t('create.fineSuffix') : '— ' + t('create.fineSuffix')}
                 </Text>
             </View>
 
             {/* Purity */}
-            <Text style={styles.label}>Purity</Text>
+            <Text style={styles.label}>{t('item.purity')}</Text>
             <View style={styles.purityList}>
                 {PURITIES.map(p => (
                     <Pressable
@@ -137,18 +139,18 @@ export function CreateItemStep3({ state, update, onNext }: Props) {
 
             {/* Recap */}
             <View style={styles.recap}>
-                <Text style={styles.recapTitle}>Summary</Text>
-                <RecapRow label="Series"   value={`${state.seriesName} · ${state.metal} · ${state.shape}`} />
-                <RecapRow label="Quantity" value={`${recapQty} item${recapQty !== 1 ? 's' : ''}`} />
-                <RecapRow label="Total wt" value={formatWeight(totalWeightOz, state.weightUnit)} />
-                <RecapRow label="Fine wt"  value={canNext ? formatWeight(totalFineOz, state.weightUnit, true) + ' fine' : '—'} highlight />
+                <Text style={styles.recapTitle}>{t('create.summaryTitle')}</Text>
+                <RecapRow label={t('item.series')}   value={`${state.seriesName} · ${state.metal} · ${state.shape}`} />
+                <RecapRow label={t('item.quantity')} value={t('common.items', { count: recapQty })} />
+                <RecapRow label={t('create.totalWt')} value={formatWeight(totalWeightOz, state.weightUnit)} />
+                <RecapRow label={t('create.fineWt')}  value={canNext ? formatWeight(totalFineOz, state.weightUnit, true) + ' ' + t('create.fineSuffix') : '—'} highlight />
             </View>
 
             <Pressable
                 style={[styles.btnCreate, !canNext && styles.btnDisabled]}
                 onPress={canNext ? onNext : undefined}
             >
-                <Text style={styles.btnCreateText}>Next →</Text>
+                <Text style={styles.btnCreateText}>{t('common.next')} →</Text>
             </Pressable>
         </ScrollView>
     );

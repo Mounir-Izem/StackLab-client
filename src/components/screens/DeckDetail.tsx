@@ -5,6 +5,7 @@ import {
     StyleSheet, ActivityIndicator, Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useLabStore } from '../../stores/labStore';
 import { useDeckStore } from '../../stores/deckStore';
 import { useItemStore } from '../../stores/itemStore';
@@ -20,6 +21,7 @@ import type { Item } from '../../types/item.types';
 type Props = LabsStackScreenProps<'DeckDetail'>;
 
 export function DeckDetail({ route, navigation }: Props) {
+    const { t } = useTranslation();
     const { deckId, labId } = route.params;
 
     const { labs } = useLabStore();
@@ -103,7 +105,7 @@ export function DeckDetail({ route, navigation }: Props) {
                     <>
                         {subDecks.length > 0 && (
                             <View style={styles.section}>
-                                <Text style={styles.label}>SUB-DECKS</Text>
+                                <Text style={styles.label}>{t('labs.section.subDecks')}</Text>
                                 {subDecks.map(d => {
                                     const subItems = items.filter(i => i.deckId === d.id && i.status === 'active');
                                     const totalValue = spotGold !== null && spotSilver !== null
@@ -125,7 +127,7 @@ export function DeckDetail({ route, navigation }: Props) {
                                 })}
                             </View>
                         )}
-                        {deckItems.length > 0 && <Text style={[styles.label, styles.itemsLabel]}>ITEMS</Text>}
+                        {deckItems.length > 0 && <Text style={[styles.label, styles.itemsLabel]}>{t('labs.section.items')}</Text>}
                     </>
                 }
                 ListEmptyComponent={
@@ -133,8 +135,8 @@ export function DeckDetail({ route, navigation }: Props) {
                         ? (
                             <View style={styles.empty}>
                                 <Ionicons name="cube-outline" size={36} color={colors.text2} />
-                                <Text style={styles.emptyTitle}>No items in this deck</Text>
-                                <Text style={styles.emptyText}>Tap + to add your first piece</Text>
+                                <Text style={styles.emptyTitle}>{t('deck.empty.title')}</Text>
+                                <Text style={styles.emptyText}>{t('deck.empty.hint')}</Text>
                             </View>
                         )
                         : null
@@ -144,7 +146,7 @@ export function DeckDetail({ route, navigation }: Props) {
             <View style={styles.footer}>
                 <Pressable style={styles.btnSecondary} onPress={() => setShowPaywall(true)}>
                     <Ionicons name="add" size={16} color={colors.text2} />
-                    <Text style={styles.btnTextMuted}>Sub-Deck</Text>
+                    <Text style={styles.btnTextMuted}>{t('deck.subDeck')}</Text>
                 </Pressable>
                 <Pressable
                     style={styles.btnSecondary}
@@ -156,20 +158,18 @@ export function DeckDetail({ route, navigation }: Props) {
                     style={[styles.btnSecondary, styles.btnWide]}
                     onPress={() => navigation.navigate('Modifier', { labId, deckId })}
                 >
-                    <Text style={styles.btnText}>Edit</Text>
+                    <Text style={styles.btnText}>{t('common.edit')}</Text>
                 </Pressable>
             </View>
 
             <Modal visible={showPaywall} transparent animationType="fade" onRequestClose={() => setShowPaywall(false)}>
                 <Pressable style={styles.overlay} onPress={() => setShowPaywall(false)}>
                     <View style={styles.sheet}>
-                        <Text style={styles.sheetTitle}>Premium Feature</Text>
-                        <Text style={styles.sheetBody}>
-                            {'Sub-Decks are available in the premium version.\nStackLab is currently in beta.'}
-                        </Text>
+                        <Text style={styles.sheetTitle}>{t('deck.premiumFeature.title')}</Text>
+                        <Text style={styles.sheetBody}>{t('deck.premiumFeature.message')}</Text>
                         <View style={styles.sheetActions}>
                             <Pressable style={styles.btnPrimary} onPress={() => setShowPaywall(false)}>
-                                <Text style={styles.btnText}>Got it</Text>
+                                <Text style={styles.btnText}>{t('common.gotIt')}</Text>
                             </Pressable>
                         </View>
                     </View>
@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
     center: { alignItems: 'center', justifyContent: 'center' },
     content: { padding: 16, paddingBottom: 90 },
     section: { marginBottom: 20, gap: 12 },
-    label: { fontSize: 9, letterSpacing: 2, color: colors.text2, fontFamily: fonts.outfitSemiBold, marginBottom: 8 },
+    label: { fontSize: 9, letterSpacing: 2, color: colors.text2, fontFamily: fonts.outfitSemiBold, marginBottom: 8, textTransform: 'uppercase' },
     itemsLabel: { marginBottom: 10 },
     row: { gap: card.gridGap, marginBottom: card.gridGap },
     col: { flex: 1, maxWidth: '50%' },

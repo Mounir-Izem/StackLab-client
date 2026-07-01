@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useLockStore } from '../../stores/lockStore';
 import { PinKeypad } from '../common/PinKeypad';
 import { triggerLight, triggerMedium } from '../../utils/haptics';
@@ -23,6 +24,7 @@ type Props = {
 };
 
 export function PinVerifyModal({ visible, title, onVerified, onClose }: Props) {
+    const { t } = useTranslation();
     const verifyCurrentPin = useLockStore(s => s.verifyCurrentPin);
     const lockedUntil = useLockStore(s => s.lockedUntil);
     const [pin, setPin] = useState('');
@@ -87,13 +89,13 @@ export function PinVerifyModal({ visible, title, onVerified, onClose }: Props) {
                     {isLockedOut ? (
                         <View style={styles.lockedBox}>
                             <Text style={styles.lockedText}>
-                                Too many attempts. Try again in {formatLockTime(remainingLockMs)}.
+                                {t('applock.cooldown', { duration: formatLockTime(remainingLockMs) })}
                             </Text>
                         </View>
                     ) : (
                         <View style={styles.padBox}>
                             {error && (
-                                <Text style={styles.errorText}>Incorrect PIN</Text>
+                                <Text style={styles.errorText}>{t('applock.incorrectPin')}</Text>
                             )}
                             <PinKeypad
                                 pin={pin}

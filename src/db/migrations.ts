@@ -1,7 +1,7 @@
 import * as SQLite from 'expo-sqlite';
 import { generateUUID } from '../utils/uuid';
 
-export const CURRENT_SCHEMA_VERSION = 5;
+export const CURRENT_SCHEMA_VERSION = 6;
 
 const MIGRATIONS: Record<number, (db: SQLite.SQLiteDatabase) => Promise<void>> = {
     1: migrateV0toV1,
@@ -9,6 +9,7 @@ const MIGRATIONS: Record<number, (db: SQLite.SQLiteDatabase) => Promise<void>> =
     3: migrateV2toV3,
     4: migrateV3toV4,
     5: migrateV4toV5,
+    6: migrateV5toV6,
 };
 
 export async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
@@ -332,4 +333,10 @@ async function migrateV4toV5(db: SQLite.SQLiteDatabase): Promise<void> {
         ALTER TABLE settings ADD COLUMN app_lock_auto_wipe_enabled INTEGER NOT NULL DEFAULT 0;
         ALTER TABLE settings ADD COLUMN app_lock_prompt_shown INTEGER NOT NULL DEFAULT 0;
     `);
+}
+
+async function migrateV5toV6(db: SQLite.SQLiteDatabase): Promise<void> {
+    await db.execAsync(
+        "ALTER TABLE settings ADD COLUMN language TEXT NOT NULL DEFAULT 'system'"
+    );
 }

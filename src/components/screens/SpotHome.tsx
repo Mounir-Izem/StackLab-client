@@ -4,6 +4,7 @@ import {
     ActivityIndicator, ScrollView, RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useSpotStore } from '../../stores/spotStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { convertSpotPrice } from '../../utils/calculations';
@@ -37,14 +38,8 @@ function formatSpotPrice(
     return `${symbol}${converted.toFixed(2)}`;
 }
 
-function minutesAgo(isoString: string): string {
-    const diff = Math.floor((Date.now() - new Date(isoString).getTime()) / 60_000);
-    if (diff < 1) return 'just now';
-    if (diff === 1) return '1 min ago';
-    return `${diff} min ago`;
-}
-
 export function SpotHome() {
+    const { t } = useTranslation();
     const { spot, rates, isLoading, error, refresh } = useSpotStore();
     const defaultCurrency = useSettingsStore(s => s.settings?.currency ?? 'USD');
 
@@ -53,6 +48,12 @@ export function SpotHome() {
 
     const isUnavailable = !isLoading && error !== null && spot === null;
     const isStale = error !== null && spot !== null;
+
+    function minutesAgoText(isoString: string): string {
+        const diff = Math.floor((Date.now() - new Date(isoString).getTime()) / 60_000);
+        if (diff < 1) return t('spot.justNow');
+        return t('spot.minsAgo', { count: diff });
+    }
 
     return (
         <ScrollView
@@ -95,14 +96,14 @@ export function SpotHome() {
             {isUnavailable && (
                 <View style={styles.unavailableBox}>
                     <Ionicons name="cloud-offline-outline" size={32} color={colors.text2} />
-                    <Text style={styles.unavailableTitle}>Spot prices unavailable</Text>
+                    <Text style={styles.unavailableTitle}>{t('spot.unavailableTitle')}</Text>
                     <Text style={styles.unavailableText}>
                         {error === 'TIMEOUT'
-                            ? 'The price service took too long to respond.'
-                            : 'The price service is temporarily unavailable.'}
+                            ? t('spot.errors.timeout')
+                            : t('spot.errors.unavailable')}
                     </Text>
                     <Pressable style={styles.retryBtn} onPress={refresh}>
-                        <Text style={styles.retryText}>Retry</Text>
+                        <Text style={styles.retryText}>{t('spot.retry')}</Text>
                     </Pressable>
                 </View>
             )}
@@ -120,37 +121,37 @@ export function SpotHome() {
                     {isStale && (
                         <View style={styles.staleBanner}>
                             <Ionicons name="warning-outline" size={14} color={colors.orange} />
-                            <Text style={styles.staleText}>Last known price — service unavailable</Text>
+                            <Text style={styles.staleText}>{t('spot.stale')}</Text>
                         </View>
                     )}
 
                     <View style={styles.priceCard}>
                         <View style={styles.metalRow}>
-                            <Text style={styles.metalLabel}>GOLD</Text>
+                            <Text style={styles.metalLabel}>{t('spot.gold')}</Text>
                             <Text style={styles.metalSub}>XAU</Text>
                         </View>
                         <Text style={[styles.price, { color: colors.gold }]}>
                             {formatSpotPrice(spot.gold, unit, currency, rates)}
                         </Text>
-                        <Text style={styles.perUnit}>per troy {unit}</Text>
+                        <Text style={styles.perUnit}>{t('spot.perTroy', { unit })}</Text>
                     </View>
 
                     <View style={styles.priceCard}>
                         <View style={styles.metalRow}>
-                            <Text style={styles.metalLabel}>SILVER</Text>
+                            <Text style={styles.metalLabel}>{t('spot.silver')}</Text>
                             <Text style={styles.metalSub}>XAG</Text>
                         </View>
                         <Text style={[styles.price, { color: colors.silver }]}>
                             {formatSpotPrice(spot.silver, unit, currency, rates)}
                         </Text>
-                        <Text style={styles.perUnit}>per troy {unit}</Text>
+                        <Text style={styles.perUnit}>{t('spot.perTroy', { unit })}</Text>
                     </View>
 
                     <View style={styles.timestampRow}>
                         <Ionicons name="time-outline" size={12} color={colors.text2} />
                         <Text style={styles.timestamp}>
-                            Updated {minutesAgo(spot.updatedAt)}
-                            {spot.cached ? ' · cached' : ''}
+                            {t('spot.updated', { time: minutesAgoText(spot.updatedAt) })}
+                            {spot.cached ? ` · ${t('spot.cached')}` : ''}
                         </Text>
                         <Pressable onPress={refresh} hitSlop={8}>
                             <Ionicons name="refresh-outline" size={14} color={colors.text2} />
@@ -180,7 +181,7 @@ const styles = StyleSheet.create({
     staleText: { fontFamily: fonts.outfit, fontSize: 12, color: colors.orange, flex: 1 },
     priceCard: { backgroundColor: colors.surface, borderRadius: 16, padding: 20, gap: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
     metalRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    metalLabel: { fontFamily: fonts.manrope, fontSize: 13, color: colors.text, letterSpacing: 2 },
+    metalLabel: { fontFamily: fonts.manrope, fontSize: 13, color: colors.text, letterSpacing: 2, textTransform: 'uppercase' },
     metalSub: { fontFamily: fonts.outfit, fontSize: 11, color: colors.text2 },
     price: { fontFamily: fonts.dmMono, fontSize: 36, letterSpacing: -1 },
     perUnit: { fontFamily: fonts.outfit, fontSize: 12, color: colors.text2 },

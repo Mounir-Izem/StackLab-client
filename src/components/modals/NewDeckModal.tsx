@@ -3,6 +3,7 @@ import {
     Modal, View, Text, TextInput, Pressable,
     StyleSheet, KeyboardAvoidingView, Platform,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { DeckCard } from '../cards/DeckCard';
 import { colors, fonts, fontSize } from '../../utils/theme';
 import type { Deck } from '../../types/deck.types';
@@ -10,7 +11,6 @@ import type { Deck } from '../../types/deck.types';
 type Props = {
     labId: string;
     visible: boolean;
-    title?: string;
     onCancel: () => void;
     onCreate: (name: string) => void;
 };
@@ -20,10 +20,11 @@ const DECK_DEFAULTS: Omit<Deck, 'name' | 'labId'> = {
     position: 0, createdAt: '', updatedAt: '',
 };
 
-export function NewDeckModal({ labId, visible, title = 'New Deck', onCancel, onCreate }: Props) {
+export function NewDeckModal({ labId, visible, onCancel, onCreate }: Props) {
+    const { t } = useTranslation();
     const [name, setName] = useState('');
 
-    const preview: Deck = { ...DECK_DEFAULTS, labId, name: name.trim() || 'Deck name...' };
+    const preview: Deck = { ...DECK_DEFAULTS, labId, name: name.trim() || t('deck.newDeckName') };
     const canCreate = name.trim().length > 0;
 
     function handleCreate() {
@@ -43,10 +44,10 @@ export function NewDeckModal({ labId, visible, title = 'New Deck', onCancel, onC
                 <Pressable style={StyleSheet.absoluteFill} onPress={handleCancel} />
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
                     <View style={styles.sheet}>
-                        <Text style={styles.title}>{title}</Text>
+                        <Text style={styles.title}>{t('deck.newDeck')}</Text>
                         <TextInput
                             style={styles.input}
-                            placeholder="Deck name..."
+                            placeholder={t('deck.newDeckName')}
                             placeholderTextColor={colors.text2}
                             value={name}
                             onChangeText={setName}
@@ -60,14 +61,14 @@ export function NewDeckModal({ labId, visible, title = 'New Deck', onCancel, onC
                         </View>
                         <View style={styles.actions}>
                             <Pressable style={styles.btnCancel} onPress={handleCancel}>
-                                <Text style={styles.btnCancelText}>Cancel</Text>
+                                <Text style={styles.btnCancelText}>{t('common.cancel')}</Text>
                             </Pressable>
                             <Pressable
                                 style={[styles.btnCreate, !canCreate && styles.btnDisabled]}
                                 onPress={handleCreate}
                                 disabled={!canCreate}
                             >
-                                <Text style={styles.btnCreateText}>Create</Text>
+                                <Text style={styles.btnCreateText}>{t('common.create')}</Text>
                             </Pressable>
                         </View>
                     </View>

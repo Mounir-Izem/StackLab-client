@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, View, Text, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { PinKeypad } from '../common/PinKeypad';
 import { triggerLight, triggerMedium } from '../../utils/haptics';
 import { colors, fonts } from '../../utils/theme';
@@ -17,6 +18,7 @@ type Props = {
 };
 
 export function PinInputModal({ visible, title, subtitle, showError, onSubmit, onClose }: Props) {
+    const { t } = useTranslation();
     const [pin, setPin] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
@@ -60,13 +62,13 @@ export function PinInputModal({ visible, title, subtitle, showError, onSubmit, o
                     )}
 
                     {showError && !isLoading && (
-                        <Text style={styles.errorText}>Wrong PIN — try again</Text>
+                        <Text style={styles.errorText}>{t('applock.wrongPinRetry')}</Text>
                     )}
 
                     {isLoading ? (
                         <View style={styles.loadingContainer}>
                             <ActivityIndicator size="large" color={colors.violet} />
-                            <Text style={styles.loadingText}>Decrypting…</Text>
+                            <Text style={styles.loadingText}>{t('applock.import.decrypting')}</Text>
                         </View>
                     ) : (
                         <PinKeypad
@@ -79,7 +81,7 @@ export function PinInputModal({ visible, title, subtitle, showError, onSubmit, o
 
                     {!isLoading && (
                         <Pressable style={styles.cancelBtn} onPress={onClose}>
-                            <Text style={styles.cancelText}>Cancel</Text>
+                            <Text style={styles.cancelText}>{t('common.cancel')}</Text>
                         </Pressable>
                     )}
                 </View>

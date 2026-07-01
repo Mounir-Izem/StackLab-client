@@ -3,6 +3,7 @@ import {
     View, Text, TextInput, Pressable,
     ScrollView, StyleSheet, KeyboardAvoidingView, Platform,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { filterSuggestions } from '../../data/suggestions';
 import { colors, fonts, metalTokens } from '../../utils/theme';
 import type { FlowState } from './CreateItemFlow';
@@ -17,6 +18,7 @@ type Props = {
 const SHAPES: ItemShape[] = ['coin', 'bar', 'token', 'bust', 'custom'];
 
 export function CreateItemStep1({ state, update, onNext }: Props) {
+    const { t } = useTranslation();
     const [showError, setShowError] = useState(false);
 
     const suggestions = filterSuggestions(state.seriesName);
@@ -45,13 +47,6 @@ export function CreateItemStep1({ state, update, onNext }: Props) {
         if (showError && state.seriesName.trim()) setShowError(false);
     }
 
-    const errorParts = [];
-    if (!state.metal) errorParts.push('metal');
-    if (!state.seriesName.trim()) errorParts.push('series');
-    const errorMsg = errorParts.length
-        ? `Please select: ${errorParts.join(', ')} before continuing.`
-        : null;
-
     return (
         <KeyboardAvoidingView
             style={{ flex: 1 }}
@@ -63,10 +58,10 @@ export function CreateItemStep1({ state, update, onNext }: Props) {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
         >
-            <Text style={styles.title}>The Object</Text>
+            <Text style={styles.title}>{t('create.titleStep1')}</Text>
 
             {/* Metal */}
-            <Text style={styles.label}>Metal</Text>
+            <Text style={styles.label}>{t('item.metal.label')}</Text>
             <View style={styles.metalRow}>
                 {(['gold', 'silver'] as ItemMetal[]).map(m => {
                     const token = metalTokens[m];
@@ -78,7 +73,7 @@ export function CreateItemStep1({ state, update, onNext }: Props) {
                             onPress={() => handleMetalSelect(m)}
                         >
                             <Text style={[styles.metalLabel, { color: token.color }]}>
-                                {m.toUpperCase()}
+                                {t(`item.metal.${m}`)}
                             </Text>
                             <Text style={styles.metalSub}>{m === 'gold' ? 'XAU' : 'XAG'}</Text>
                         </Pressable>
@@ -87,10 +82,10 @@ export function CreateItemStep1({ state, update, onNext }: Props) {
             </View>
 
             {/* Series */}
-            <Text style={styles.label}>Series</Text>
+            <Text style={styles.label}>{t('item.series')}</Text>
             <TextInput
                 style={styles.input}
-                placeholder="e.g. Maple Leaf, Krugerrand..."
+                placeholder={t('create.seriesPlaceholder')}
                 placeholderTextColor={colors.text2}
                 value={state.seriesName}
                 onChangeText={handleSeriesChange}
@@ -112,7 +107,7 @@ export function CreateItemStep1({ state, update, onNext }: Props) {
             )}
 
             {/* Shape */}
-            <Text style={styles.label}>Type</Text>
+            <Text style={styles.label}>{t('item.shape.label')}</Text>
             <View style={styles.shapeRow}>
                 {SHAPES.map(s => (
                     <Pressable
@@ -121,7 +116,7 @@ export function CreateItemStep1({ state, update, onNext }: Props) {
                         onPress={() => update({ shape: s })}
                     >
                         <Text style={[styles.shapeText, state.shape === s && styles.shapeTextActive]}>
-                            {s.charAt(0).toUpperCase() + s.slice(1)}
+                            {t(`item.shape.${s}`)}
                         </Text>
                     </Pressable>
                 ))}
@@ -129,7 +124,7 @@ export function CreateItemStep1({ state, update, onNext }: Props) {
             {state.shape === 'custom' && (
                 <TextInput
                     style={[styles.input, { marginTop: 8 }]}
-                    placeholder="Skull, irregular ingot, custom shape..."
+                    placeholder={t('create.shapeDescPlaceholder')}
                     placeholderTextColor={colors.text2}
                     value={state.shapeDescription}
                     onChangeText={v => update({ shapeDescription: v })}
@@ -140,14 +135,14 @@ export function CreateItemStep1({ state, update, onNext }: Props) {
             {/* Mint */}
             {!state.mintVisible ? (
                 <Pressable onPress={() => update({ mintVisible: true })} style={styles.mintToggle}>
-                    <Text style={styles.mintToggleText}>+ Add mint (optional)</Text>
+                    <Text style={styles.mintToggleText}>{t('create.addMint')}</Text>
                 </Pressable>
             ) : (
                 <>
-                    <Text style={styles.label}>Mint</Text>
+                    <Text style={styles.label}>{t('item.mint')}</Text>
                     <TextInput
                         style={styles.input}
-                        placeholder="Royal Canadian Mint, Perth Mint..."
+                        placeholder={t('create.mintPlaceholder')}
                         placeholderTextColor={colors.text2}
                         value={state.mintName}
                         onChangeText={v => update({ mintName: v })}
@@ -157,15 +152,15 @@ export function CreateItemStep1({ state, update, onNext }: Props) {
             )}
 
             {/* Error */}
-            {showError && errorMsg && (
+            {showError && (!state.metal || !state.seriesName.trim()) && (
                 <View style={styles.errorBanner}>
-                    <Text style={styles.errorText}>{errorMsg}</Text>
+                    <Text style={styles.errorText}>{t('create.missingFields')}</Text>
                 </View>
             )}
 
             {/* Next */}
             <Pressable style={styles.btnNext} onPress={handleNext}>
-                <Text style={styles.btnNextText}>Next →</Text>
+                <Text style={styles.btnNextText}>{t('common.next')} →</Text>
             </Pressable>
         </ScrollView>
         </KeyboardAvoidingView>
@@ -183,7 +178,7 @@ const styles = StyleSheet.create({
         alignItems: 'center', justifyContent: 'center', gap: 4,
         backgroundColor: colors.surface, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
     },
-    metalLabel: { fontFamily: fonts.manrope, fontSize: 18 },
+    metalLabel: { fontFamily: fonts.manrope, fontSize: 18, textTransform: 'uppercase' },
     metalSub: { fontFamily: fonts.outfit, fontSize: 11, color: colors.text2 },
     input: {
         backgroundColor: colors.surface, borderRadius: 10,

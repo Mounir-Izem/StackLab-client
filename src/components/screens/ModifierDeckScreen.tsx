@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, Pressable, ScrollView, Modal, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useDeckStore } from '../../stores/deckStore';
 import { useItemStore } from '../../stores/itemStore';
 import { colors, fonts } from '../../utils/theme';
@@ -16,6 +17,7 @@ type Props = {
 };
 
 export function ModifierDeckScreen({ decks, labName, labId, onBack, onDone }: Props) {
+    const { t } = useTranslation();
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [showConfirm, setShowConfirm] = useState(false);
     const [deleting, setDeleting] = useState(false);
@@ -48,7 +50,7 @@ export function ModifierDeckScreen({ decks, labName, labId, onBack, onDone }: Pr
         for (const deck of selectedDecks) {
             await deleteDeck(deck.id);
             if (useDeckStore.getState().error) {
-                setDeleteError('Delete failed. Please try again.');
+                setDeleteError(t('modifier.deleteFailed'));
                 setDeleting(false);
                 return;
             }
@@ -58,6 +60,17 @@ export function ModifierDeckScreen({ decks, labName, labId, onBack, onDone }: Pr
         onDone();
     }
 
+    function buildConfirmBody() {
+        const parts: string[] = [];
+        if (totalItems > 0) parts.push(t('common.items', { count: totalItems }));
+        if (totalSubDecks > 0) parts.push(t('deck.subDecks', { count: totalSubDecks }));
+        if (parts.length === 0) return t('modifier.deleteDeckBodyEmpty');
+        return t('modifier.deleteDeckBodyItems', {
+            contents: parts.join(` ${t('common.and')} `),
+            labName,
+        });
+    }
+
     return (
         <View style={styles.screen}>
             <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
@@ -65,24 +78,31 @@ export function ModifierDeckScreen({ decks, labName, labId, onBack, onDone }: Pr
                     <Ionicons name="arrow-back" size={22} color={colors.text} />
                 </Pressable>
                 <Text style={styles.headerTitle}>
-                    {selectedIds.length === 0 ? 'Decks' : `${selectedIds.length} selected`}
+                    {selectedIds.length === 0
+                        ? t('modifier.choiceDecks')
+                        : t('modifier.countSelected', { count: selectedIds.length })
+                    }
                 </Text>
                 <View style={styles.placeholder} />
             </View>
 
             <Text style={styles.breadcrumb}>{labName}</Text>
-            <Text style={styles.subtitle}>Select the decks you want to delete.</Text>
+            <Text style={styles.subtitle}>{t('modifier.selectDecksSubtitle')}</Text>
 
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 {decks.length === 0 && (
                     <View style={styles.empty}>
-                        <Text style={styles.emptyText}>No decks in this lab.</Text>
+                        <Text style={styles.emptyText}>{t('modifier.noDecks')}</Text>
                     </View>
                 )}
                 {decks.map(deck => {
                     const selected = selectedIds.includes(deck.id);
                     const itemCount = getItemCount(deck.id);
                     const subDeckCount = getSubDeckCount(deck.id);
+                    const meta = [
+                        t('common.items', { count: itemCount }),
+                        ...(subDeckCount > 0 ? [t('deck.subDecks', { count: subDeckCount })] : []),
+                    ].join(' · ');
                     return (
                         <Pressable
                             key={deck.id}
@@ -94,10 +114,7 @@ export function ModifierDeckScreen({ decks, labName, labId, onBack, onDone }: Pr
                             </View>
                             <View style={styles.rowInfo}>
                                 <Text style={styles.rowName}>{deck.name}</Text>
-                                <Text style={styles.rowMeta}>
-                                    {itemCount} item{itemCount !== 1 ? 's' : ''}
-                                    {subDeckCount > 0 ? ` · ${subDeckCount} sub-deck${subDeckCount !== 1 ? 's' : ''}` : ''}
-                                </Text>
+                                <Text style={styles.rowMeta}>{meta}</Text>
                             </View>
                         </Pressable>
                     );
@@ -108,7 +125,7 @@ export function ModifierDeckScreen({ decks, labName, labId, onBack, onDone }: Pr
                 <View style={styles.footer}>
                     <Pressable style={styles.btnDelete} onPress={() => setShowConfirm(true)}>
                         <Text style={styles.btnDeleteText}>
-                            Delete {selectedIds.length} deck{selectedIds.length > 1 ? 's' : ''}
+                            {t('modifier.deleteDecks', { count: selectedIds.length })}
                         </Text>
                     </Pressable>
                 </View>
@@ -123,18 +140,9 @@ export function ModifierDeckScreen({ decks, labName, labId, onBack, onDone }: Pr
                 <Pressable style={styles.overlay} onPress={() => !deleting && setShowConfirm(false)}>
                     <View style={styles.sheet}>
                         <Text style={styles.sheetTitle}>
-                            Delete {selectedIds.length} deck{selectedIds.length > 1 ? 's' : ''}?
+                            {t('modifier.deleteDecks', { count: selectedIds.length })}?
                         </Text>
-                        <Text style={styles.sheetBody}>
-                            {(() => {
-                                const parts = [];
-                                if (totalItems > 0) parts.push(`${totalItems} item${totalItems !== 1 ? 's' : ''}`);
-                                if (totalSubDecks > 0) parts.push(`${totalSubDecks} sub-deck${totalSubDecks !== 1 ? 's' : ''}`);
-                                return parts.length > 0
-                                    ? `These decks contain ${parts.join(' and ')}. They will be moved to ${labName}.`
-                                    : 'These decks are empty and will be permanently deleted.';
-                            })()}
-                        </Text>
+                        <Text style={styles.sheetBody}>{buildConfirmBody()}</Text>
                         {deleteError !== null && (
                             <Text style={styles.errorText}>{deleteError}</Text>
                         )}
@@ -144,7 +152,7 @@ export function ModifierDeckScreen({ decks, labName, labId, onBack, onDone }: Pr
                                 onPress={() => setShowConfirm(false)}
                                 disabled={deleting}
                             >
-                                <Text style={styles.btnCancelText}>Cancel</Text>
+                                <Text style={styles.btnCancelText}>{t('common.cancel')}</Text>
                             </Pressable>
                             <Pressable
                                 style={[styles.btnConfirm, deleting && styles.disabled]}
@@ -152,7 +160,7 @@ export function ModifierDeckScreen({ decks, labName, labId, onBack, onDone }: Pr
                                 disabled={deleting}
                             >
                                 <Text style={styles.btnConfirmText}>
-                                    {deleting ? 'Deleting...' : 'Delete'}
+                                    {deleting ? t('modifier.deleting') : t('common.delete')}
                                 </Text>
                             </Pressable>
                         </View>

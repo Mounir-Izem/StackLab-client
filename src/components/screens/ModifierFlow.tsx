@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, Pressable, StyleSheet, Modal, TextInput } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useItemStore } from '../../stores/itemStore';
 import { useLabStore } from '../../stores/labStore';
 import { useDeckStore } from '../../stores/deckStore';
@@ -16,6 +17,7 @@ type Screen = 'A' | 'B' | 'C' | 'D' | 'Decks';
 type Props = LabsStackScreenProps<'Modifier'>;
 
 export function ModifierFlow({ route, navigation }: Props) {
+    const { t } = useTranslation();
     const { labId, deckId } = route.params;
     const [screen, setScreen] = useState<Screen>('A');
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -60,21 +62,21 @@ export function ModifierFlow({ route, navigation }: Props) {
     }
 
     async function handleRename() {
-        const t = renameValue.trim();
-        if (!t) return;
+        const name = renameValue.trim();
+        if (!name) return;
         setRenaming(true);
         setRenameError(null);
         if (deckId) {
-            await renameDeck(deckId, t);
+            await renameDeck(deckId, name);
             if (useDeckStore.getState().error) {
-                setRenameError('Rename failed. Please try again.');
+                setRenameError(t('modifier.renameFailed'));
                 setRenaming(false);
                 return;
             }
         } else {
-            await renameLab(labId, t);
+            await renameLab(labId, name);
             if (useLabStore.getState().error) {
-                setRenameError('Rename failed. Please try again.');
+                setRenameError(t('modifier.renameFailed'));
                 setRenaming(false);
                 return;
             }
@@ -90,7 +92,7 @@ export function ModifierFlow({ route, navigation }: Props) {
         setDeleteDeckError(null);
         await deleteDeck(deckId);
         if (useDeckStore.getState().error) {
-            setDeleteDeckError('Delete failed. Please try again.');
+            setDeleteDeckError(t('modifier.deleteFailed'));
             setDeletingDeck(false);
             return;
         }
@@ -148,33 +150,33 @@ export function ModifierFlow({ route, navigation }: Props) {
         <View style={styles.screen}>
             <Pressable style={styles.backdrop} onPress={handleClose} />
             <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom + 24, 44) }]}>
-                <Text style={styles.title}>What would you like to edit?</Text>
+                <Text style={styles.title}>{t('modifier.what')}</Text>
                 <Text style={styles.context}>{deck?.name ?? lab?.name ?? ''}</Text>
 
                 <View style={styles.choices}>
                     <Pressable style={styles.choice} onPress={() => setScreen('B')}>
                         <Ionicons name="layers-outline" size={26} color={colors.green} />
-                        <Text style={styles.choiceTitle}>Items</Text>
-                        <Text style={styles.choiceDesc}>Select items in this location</Text>
+                        <Text style={styles.choiceTitle}>{t('modifier.choiceItems')}</Text>
+                        <Text style={styles.choiceDesc}>{t('modifier.choiceItemsDesc')}</Text>
                     </Pressable>
                     {deckId === null && rootDecks.length > 0 && (
                         <Pressable style={styles.choice} onPress={() => setScreen('Decks')}>
                             <Ionicons name="albums-outline" size={26} color={colors.violet} />
-                            <Text style={styles.choiceTitle}>Decks</Text>
-                            <Text style={styles.choiceDesc}>Delete a deck in this lab</Text>
+                            <Text style={styles.choiceTitle}>{t('modifier.choiceDecks')}</Text>
+                            <Text style={styles.choiceDesc}>{t('modifier.choiceDecksDesc')}</Text>
                         </Pressable>
                     )}
                     {(deckId !== null || !isSystemLab) && (
                         <Pressable style={styles.choice} onPress={openRename}>
                             <Ionicons name="folder-outline" size={26} color={colors.violet} />
-                            <Text style={styles.choiceTitle}>This {deckId ? 'Deck' : 'Lab'}</Text>
-                            <Text style={styles.choiceDesc}>{deckId ? 'Rename or delete' : 'Rename this lab'}</Text>
+                            <Text style={styles.choiceTitle}>{deckId ? t('modifier.choiceDeck') : t('modifier.choiceLab')}</Text>
+                            <Text style={styles.choiceDesc}>{deckId ? t('modifier.choiceDeckDesc') : t('modifier.choiceLabDesc')}</Text>
                         </Pressable>
                     )}
                 </View>
 
                 <Pressable style={styles.cancelBtn} onPress={handleClose}>
-                    <Text style={styles.cancelText}>Cancel</Text>
+                    <Text style={styles.cancelText}>{t('common.cancel')}</Text>
                 </Pressable>
             </View>
 
@@ -186,7 +188,7 @@ export function ModifierFlow({ route, navigation }: Props) {
             >
                 <Pressable style={styles.overlay} onPress={() => !renaming && setShowRename(false)}>
                     <View style={styles.modalSheet}>
-                        <Text style={styles.modalTitle}>Rename {deckId ? 'Deck' : 'Lab'}</Text>
+                        <Text style={styles.modalTitle}>{deckId ? t('modifier.renameDeck') : t('modifier.renameLab')}</Text>
                         <TextInput
                             style={styles.input}
                             value={renameValue}
@@ -203,7 +205,7 @@ export function ModifierFlow({ route, navigation }: Props) {
                                 style={styles.deleteDeckBtn}
                                 onPress={() => { setShowRename(false); setShowDeleteDeck(true); }}
                             >
-                                <Text style={styles.deleteDeckText}>Delete this Deck</Text>
+                                <Text style={styles.deleteDeckText}>{t('modifier.deleteDeckBtn')}</Text>
                             </Pressable>
                         )}
                         <View style={styles.modalActions}>
@@ -212,14 +214,14 @@ export function ModifierFlow({ route, navigation }: Props) {
                                 onPress={() => setShowRename(false)}
                                 disabled={renaming}
                             >
-                                <Text style={styles.btnCancelText}>Cancel</Text>
+                                <Text style={styles.btnCancelText}>{t('common.cancel')}</Text>
                             </Pressable>
                             <Pressable
                                 style={[styles.btnSave, (!renameValue.trim() || renaming) && styles.disabled]}
                                 onPress={handleRename}
                                 disabled={!renameValue.trim() || renaming}
                             >
-                                <Text style={styles.btnSaveText}>{renaming ? 'Saving...' : 'Save'}</Text>
+                                <Text style={styles.btnSaveText}>{renaming ? t('modifier.saving') : t('common.save')}</Text>
                             </Pressable>
                         </View>
                     </View>
@@ -234,9 +236,9 @@ export function ModifierFlow({ route, navigation }: Props) {
             >
                 <Pressable style={styles.overlay} onPress={() => !deletingDeck && setShowDeleteDeck(false)}>
                     <View style={styles.modalSheet}>
-                        <Text style={styles.modalTitle}>Delete "{deck?.name}"?</Text>
+                        <Text style={styles.modalTitle}>{t('modifier.deleteDeckTitle', { name: deck?.name ?? '' })}</Text>
                         <Text style={styles.modalBody}>
-                            {`Items and sub-decks will be moved to ${lab?.name ?? 'the lab'}.`}
+                            {t('modifier.deleteDeckBody', { labName: lab?.name ?? '' })}
                         </Text>
                         {deleteDeckError !== null && (
                             <Text style={styles.errorText}>{deleteDeckError}</Text>
@@ -247,7 +249,7 @@ export function ModifierFlow({ route, navigation }: Props) {
                                 onPress={() => setShowDeleteDeck(false)}
                                 disabled={deletingDeck}
                             >
-                                <Text style={styles.btnCancelText}>Cancel</Text>
+                                <Text style={styles.btnCancelText}>{t('common.cancel')}</Text>
                             </Pressable>
                             <Pressable
                                 style={[styles.btnDelete, deletingDeck && styles.disabled]}
@@ -255,7 +257,7 @@ export function ModifierFlow({ route, navigation }: Props) {
                                 disabled={deletingDeck}
                             >
                                 <Text style={styles.btnDeleteText}>
-                                    {deletingDeck ? 'Deleting...' : 'Delete'}
+                                    {deletingDeck ? t('modifier.deleting') : t('common.delete')}
                                 </Text>
                             </Pressable>
                         </View>

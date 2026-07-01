@@ -1,6 +1,7 @@
 import React, { memo } from 'react';
 import { Animated, View, Text, Image, StyleSheet } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
+import { useTranslation } from 'react-i18next';
 import { useCardGestures } from '../../hooks/useCardGestures';
 import { ShareCanvas } from './ShareCanvas';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -23,6 +24,7 @@ type ItemCardProps = {
 };
 
 function ItemCardComponent({ item, meltValue, currency = 'USD', weightUnit = 'oz', onPress }: ItemCardProps) {
+    const { t } = useTranslation();
     const metal = metalTokens[item.metal];
     const { rates } = useSpotStore();
 
@@ -110,11 +112,11 @@ function ItemCardComponent({ item, meltValue, currency = 'USD', weightUnit = 'oz
 
             {isSold ? (
                 <View style={[styles.metalBadge, styles.soldBadge]}>
-                    <Text style={[styles.metalBadgeText, { color: colors.crimson }]}>SOLD</Text>
+                    <Text style={[styles.metalBadgeText, { color: colors.crimson }]}>{t('item.status.sold')}</Text>
                 </View>
             ) : (
                 <View style={[styles.metalBadge, { backgroundColor: metal.badgeBg, borderColor: metal.badgeBorder }]}>
-                    <Text style={[styles.metalBadgeText, { color: metal.color }]}>{item.metal.toUpperCase()}</Text>
+                    <Text style={[styles.metalBadgeText, { color: metal.color }]}>{t(`item.metal.${item.metal}`)}</Text>
                 </View>
             )}
 
@@ -138,7 +140,7 @@ function ItemCardComponent({ item, meltValue, currency = 'USD', weightUnit = 'oz
                 ) : (
                     <View style={[styles.coinPlaceholder, { borderColor: metal.frameBorder }]}>
                         <Text style={styles.cameraIcon}>⊕</Text>
-                        <Text style={styles.noPhotoText}>+ Add photo</Text>
+                        <Text style={styles.noPhotoText}>{t('item.card.addPhoto')}</Text>
                     </View>
                 )}
             </View>
@@ -151,16 +153,16 @@ function ItemCardComponent({ item, meltValue, currency = 'USD', weightUnit = 'oz
                 {sub ? <Text style={styles.sub}>{sub}</Text> : null}
                 <View style={styles.statsRow}>
                     <View style={styles.stat}>
-                        <Text style={styles.statLabel}>Wt</Text>
+                        <Text style={styles.statLabel}>{t('item.card.wt')}</Text>
                         <Text style={styles.statVal}>{formatWeight(item.weightOz, weightUnit)}</Text>
                     </View>
                     <View style={styles.stat}>
-                        <Text style={styles.statLabel}>Fine</Text>
+                        <Text style={styles.statLabel}>{t('item.card.fine')}</Text>
                         <Text style={styles.statVal}>{purityStr}</Text>
                     </View>
                     <View style={[styles.stat, { alignItems: 'flex-end' }]}>
                         <Text style={styles.statLabel}>
-                            {isWishlist ? 'Observed' : isSold ? 'Sold' : 'Value'}
+                            {isWishlist ? t('item.card.observed') : isSold ? t('item.card.sold') : t('item.card.value')}
                         </Text>
                         <Text style={[styles.mainVal, { color: valueColor }]}>{displayValue}</Text>
                     </View>
@@ -179,7 +181,7 @@ function ItemCardComponent({ item, meltValue, currency = 'USD', weightUnit = 'oz
                 />
                 <View style={[styles.metalBadge, isSold ? styles.soldBadge : { backgroundColor: metal.badgeBg, borderColor: metal.badgeBorder }]}>
                     <Text style={[styles.metalBadgeText, { color: isSold ? colors.crimson : metal.color }]}>
-                        {isSold ? 'SOLD' : item.metal.toUpperCase()}
+                        {isSold ? t('item.status.sold') : t(`item.metal.${item.metal}`)}
                     </Text>
                 </View>
                 {item.quantity > 1 && (
@@ -197,16 +199,16 @@ function ItemCardComponent({ item, meltValue, currency = 'USD', weightUnit = 'oz
                     {sub ? <Text style={styles.sub}>{sub}</Text> : null}
                     <View style={styles.statsRow}>
                         <View style={styles.stat}>
-                            <Text style={styles.statLabel}>Wt</Text>
+                            <Text style={styles.statLabel}>{t('item.card.wt')}</Text>
                             <Text style={styles.statVal}>{formatWeight(item.weightOz, weightUnit)}</Text>
                         </View>
                         <View style={styles.stat}>
-                            <Text style={styles.statLabel}>Fine</Text>
+                            <Text style={styles.statLabel}>{t('item.card.fine')}</Text>
                             <Text style={styles.statVal}>{purityStr}</Text>
                         </View>
                         <View style={[styles.stat, { alignItems: 'flex-end' }]}>
                             <Text style={styles.statLabel}>
-                                {isWishlist ? 'Observed' : isSold ? 'Sold' : 'Value'}
+                                {isWishlist ? t('item.card.observed') : isSold ? t('item.card.sold') : t('item.card.value')}
                             </Text>
                             <Text style={[styles.mainVal, { color: valueColor }]}>{displayValue}</Text>
                         </View>
@@ -259,6 +261,7 @@ const styles = StyleSheet.create({
         fontSize: fontSize.cardBadge,
         letterSpacing: letterSpacing.badge,
         fontFamily: fonts.outfitSemiBold,
+        textTransform: 'uppercase',
     },
     wishlistIcon: {
         position: 'absolute',

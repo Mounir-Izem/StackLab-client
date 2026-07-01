@@ -1,0 +1,582 @@
+{
+  "common": {
+    "cancel": "Annuler",
+    "save": "Enregistrer",
+    "delete": "Supprimer",
+    "confirm": "Confirmer",
+    "done": "Terminer",
+    "close": "Fermer",
+    "back": "Retour",
+    "add": "Ajouter",
+    "create": "Créer",
+    "next": "Suivant",
+    "skip": "Passer",
+    "edit": "Modifier",
+    "loading": "Chargement…",
+    "error": "Une erreur est survenue. Veuillez réessayer.",
+    "yes": "Oui",
+    "no": "Non",
+    "optional": "optionnel",
+    "items_one": "{{count}} objet",
+    "items_other": "{{count}} objets",
+    "labs_one": "{{count}} lab",
+    "labs_other": "{{count}} labs",
+    "decks_one": "{{count}} deck",
+    "decks_other": "{{count}} decks",
+    "units_one": "{{count}} unité",
+    "units_other": "{{count}} unités",
+    "gotIt": "Compris",
+    "and": "et",
+    "total": "total"
+  },
+  "settings": {
+    "title": "Réglages",
+    "currency": "Devise",
+    "weightUnit": "Unité de poids",
+    "language": {
+      "label": "Langue",
+      "system": "Système",
+      "en": "English",
+      "fr": "Français"
+    },
+    "section": {
+      "security": "Sécurité",
+      "data": "Données"
+    },
+    "appLock": "Verrouillage",
+    "changePin": "Changer le PIN",
+    "autoWipe": "Suppression après 10 tentatives",
+    "autoBackup": "Sauvegarde automatique",
+    "backupReminders": "Rappels de sauvegarde",
+    "exportData": "Exporter les données",
+    "importData": "Importer des données",
+    "replaceData": "Remplacer toutes les données",
+    "deleteAllData": "Supprimer toutes mes données",
+    "deleteBackupFile": "Supprimer le fichier de sauvegarde",
+    "lastBackup": {
+      "label": "Dernière sauvegarde",
+      "never": "Jamais"
+    },
+    "hideValues": "Masquer les valeurs",
+    "version": "StackLab — Bêta",
+    "export": {
+      "title": "Exporter les données ?",
+      "message": "Vos données sont chiffrées avec votre PIN avant l'export. Seul vous pouvez les ouvrir.",
+      "button": "Exporter"
+    },
+    "replace": {
+      "title": "Remplacer toutes les données ?",
+      "message": "Cela efface définitivement tout ce qui se trouve sur cet appareil et le remplace par le fichier importé. Requiert le verrouillage. Vos données actuelles sont chiffrées et sauvegardées automatiquement avant toute suppression.",
+      "placeholder": "Tapez REPLACE pour confirmer",
+      "button": "Remplacer"
+    },
+    "deleteData": {
+      "title": "Supprimer toutes vos données ?",
+      "description": "Cela efface définitivement chaque lab, deck, objet et instantané de valeur sur cet appareil. Cette action est irréversible et aucune sauvegarde n'est effectuée automatiquement avant.",
+      "placeholder": "Tapez DELETE pour confirmer",
+      "button": "Tout supprimer"
+    },
+    "deleteBackup": {
+      "title": "Supprimer le fichier de sauvegarde ?",
+      "description": "Supprime la sauvegarde automatique stockée sur cet appareil. Vos labs, decks et objets ne sont pas affectés — seule la copie de sauvegarde est supprimée.",
+      "button": "Supprimer la sauvegarde"
+    },
+    "disableLock": {
+      "title": "Désactiver le verrouillage ?",
+      "message": "Votre PIN sera conservé au cas où vous réactivez le verrouillage.",
+      "button": "Désactiver",
+      "pin": "Confirmez le PIN pour désactiver le verrouillage"
+    },
+    "enableAutoWipe": {
+      "title": "Suppression après 10 tentatives ?",
+      "button": "Activer"
+    },
+    "info": {
+      "title": "À quoi ça sert ?",
+      "ok": "Compris",
+      "replace": "Efface tout ce qui se trouve actuellement sur cet appareil et le remplace par le fichier choisi. Tout ce qui a été ajouté depuis la création de ce fichier sera perdu. Vos données actuelles sont sauvegardées automatiquement en premier, avant toute suppression.",
+      "deleteData": "Efface définitivement tout dans cette app — labs, decks, objets et historique de valeur. Cela ne supprime PAS les copies déjà sauvegardées ailleurs : exports manuels partagés, ou sauvegardes déjà stockées dans iCloud/Google Drive.",
+      "deleteBackup": "Supprime le fichier de sauvegarde automatique stocké sur cet appareil. Cela ne supprime PAS les copies plus anciennes qu'iCloud ou Google Drive ont pu sauvegarder — gérez-les depuis les réglages de votre téléphone.",
+      "autoWipe": "Si quelqu'un entre le mauvais PIN 10 fois de suite, tout sur cet appareil est définitivement supprimé — labs, decks, objets, instantanés — sans sauvegarde automatique préalable. Désactivé par défaut ; activez uniquement si vous comprenez et acceptez ce risque."
+    }
+  },
+  "dashboard": {
+    "title": "Tableau de bord",
+    "totalValue": "Valeur totale",
+    "empty": {
+      "title": "Votre stack est vide",
+      "hint": "Ajoutez des objets pour voir la valeur de votre portefeuille"
+    },
+    "spotUnavailableHint": "Spot indisponible · estimation impossible",
+    "basedOnSpot": "Prix spot · {{currency}} · mis à jour {{time}}",
+    "addPricesHint": "ajoutez des prix d'achat aux objets",
+    "fineUnit": "fin {{unit}}",
+    "activeHoldings": "En portefeuille",
+    "cards_one": "{{count}} fiche",
+    "cards_other": "{{count}} fiches",
+    "wishlistLabel": "Liste de souhaits",
+    "soldHistory": "Historique des ventes",
+    "realized": "réalisé {{value}}",
+    "refreshSpot": "Actualiser les prix",
+    "invested": "Investi",
+    "unrealizedPnl": "P&L non réalisé",
+    "totalOz": "Total oz fin",
+    "gold": "Or",
+    "silver": "Argent",
+    "noData": "Aucune donnée",
+    "noDataHint": "Ajoutez des objets à vos labs pour voir la valeur de votre portfolio.",
+    "spotUnavailable": "Prix spot indisponible",
+    "hideValues": "Valeurs masquées"
+  },
+  "labs": {
+    "title": "Mes Labs",
+    "myStack": "Mon Stack",
+    "wishlist": "Liste de souhaits",
+    "wishlistBadge": "Souhaits",
+    "trash": "Corbeille",
+    "newLab": "Nouveau lab",
+    "labType": {
+      "standard": "Standard",
+      "wishlist": "Souhaits",
+      "trash": "Corbeille"
+    },
+    "empty": {
+      "title": "Aucun lab",
+      "hint": "Créez votre premier lab pour commencer à suivre votre collection."
+    },
+    "deleteLab": {
+      "title": "Supprimer le lab ?",
+      "message": "Tous les objets de ce lab seront déplacés vers la corbeille.",
+      "button": "Supprimer"
+    },
+    "backupReminder": {
+      "title": "Sauvegardez vos données",
+      "message": "Vous n'avez pas sauvegardé depuis un moment.",
+      "cta": "Sauvegarder",
+      "dismiss": "Ignorer",
+      "overdue": "Votre dernière sauvegarde date de plus d'une semaine. Exportez dans Réglages.",
+      "never": "Vous n'avez pas encore sauvegardé votre stack. Exportez dans Réglages."
+    },
+    "section": {
+      "decks": "Decks",
+      "items": "Objets",
+      "subDecks": "Sous-Decks"
+    },
+    "emptyWishlist": {
+      "title": "Votre liste est vide",
+      "hint": "Appuyez sur + pour ajouter des objets à acquérir"
+    },
+    "emptyLab": {
+      "title": "Ce lab est vide",
+      "hint": "Appuyez sur + pour ajouter votre première pièce"
+    },
+    "emptyTrash": {
+      "title": "La corbeille est vide",
+      "hint": "Les objets supprimés apparaissent ici. Restaurez-les ou supprimez-les définitivement."
+    },
+    "deckHint": "Utilisez les Decks pour regrouper vos pièces par thème, année ou origine.",
+    "addToWishlist": "Ajouter à la liste",
+    "backupBanner": "Sauvegardez votre stack pour protéger vos données.",
+    "betaFeature": {
+      "title": "Fonctionnalité bêta",
+      "message": "StackLab est en bêta.\nCette fonctionnalité sera disponible dans la version premium."
+    }
+  },
+  "deck": {
+    "newDeck": "Nouveau deck",
+    "newDeckName": "Nom du deck",
+    "newDeckPlaceholder": "ex. Souverains",
+    "empty": {
+      "title": "Aucun objet dans ce deck",
+      "hint": "Appuyez sur + pour ajouter votre première pièce"
+    },
+    "deleteDeck": {
+      "title": "Supprimer le deck ?",
+      "message": "Tous les objets de ce deck seront déplacés dans le lab parent.",
+      "button": "Supprimer"
+    },
+    "subDeck": "Sous-Deck",
+    "premiumFeature": {
+      "title": "Fonctionnalité premium",
+      "message": "Les Sous-Decks sont disponibles dans la version premium.\nStackLab est en bêta."
+    },
+    "subDecks_one": "{{count}} sous-deck",
+    "subDecks_other": "{{count}} sous-decks"
+  },
+  "item": {
+    "addPhoto": "Ajouter une photo",
+    "changePhoto": "Changer la photo",
+    "purchasePrice": "Prix d'achat",
+    "purchaseTotal": "Total payé",
+    "purchasePerUnit": "Par unité",
+    "observedPrice": "Prix observé",
+    "quantity": "Quantité",
+    "metal": {
+      "label": "Métal",
+      "gold": "Or",
+      "silver": "Argent"
+    },
+    "shape": {
+      "label": "Type",
+      "coin": "Pièce",
+      "bar": "Lingot",
+      "token": "Jeton",
+      "bust": "Buste",
+      "custom": "Personnalisé"
+    },
+    "weight": "Poids",
+    "purity": "Pureté",
+    "fineWeight": "Poids fin",
+    "fineWeightLabel": "Pds fin",
+    "year": "Année",
+    "series": "Série",
+    "mint": "Monnaie",
+    "strikeFinish": "Frappe / Finition",
+    "condition": {
+      "label": "État",
+      "uncirculated": "Non circulé",
+      "circulated": "Circulé",
+      "damaged": "Endommagé",
+      "unknown": "Inconnu"
+    },
+    "features": "Caractéristiques",
+    "packaging": "Emballage",
+    "grade": "Grade",
+    "notes": "Notes",
+    "location": "Emplacement",
+    "status": {
+      "active": "Actif",
+      "sold": "Vendu",
+      "wishlist": "Souhaits"
+    },
+    "currentValue": "Valeur actuelle",
+    "meltValue": "Valeur fonte",
+    "pnl": "P&L non réalisé",
+    "soldPrice": "Vendu pour",
+    "soldDate": "Vendu le",
+    "actions": {
+      "sell": "Vendre",
+      "acquire": "Acquis",
+      "move": "Déplacer",
+      "duplicate": "Dupliquer",
+      "edit": "Modifier",
+      "delete": "Supprimer",
+      "restore": "Restaurer",
+      "acquireBtn": "Acquérir",
+      "remove": "Retirer",
+      "deleteForever": "Supprimer définitivement",
+      "extract": "Extraire",
+      "moveToTrash": "Déplacer vers la corbeille"
+    },
+    "empty": {
+      "title": "Aucun objet",
+      "hint": "Appuyez sur + pour ajouter votre premier objet.",
+      "wishlist": "Votre liste de souhaits est vide.",
+      "trash": "La corbeille est vide."
+    },
+    "fineWeightUnit": "Fin {{unit}}",
+    "purchasedLabel": "Acheté",
+    "observedLabel": "Observé",
+    "dateLabel": "Date",
+    "photoHint": "Appuyez pour prendre ou choisir une photo",
+    "takePhoto": "Prendre une photo",
+    "chooseFromLibrary": "Choisir depuis la galerie",
+    "addPhotoTitle": "Ajouter une photo",
+    "deleteForeverTitle": "Supprimer définitivement ?",
+    "deleteForeverMsg": "Cette action est irréversible.",
+    "restoreTitle": "Restaurer vers...",
+    "removeFromWishlistTitle": "Retirer de la liste ?",
+    "moveToTrashTitle": "Déplacer vers la corbeille ?",
+    "moveQtyRange": "Quantité (1 – {{max}})",
+    "moveWithinLab": "Dans ce lab",
+    "moveNoDeck": "Sans deck (racine du lab)",
+    "moveNoDecks": "Aucun deck dans ce lab",
+    "moveAnotherLab": "Un autre lab",
+    "movePremiumNote": "Créez un second lab pour déplacer des objets entre labs — Premium",
+    "acquirePriceLabel": "Prix d'achat (optionnel)",
+    "totalLot": "Total lot",
+    "perLot": "Par lot",
+    "salePriceLabel": "Prix de vente (optionnel)",
+    "saleCurrencyLabel": "Devise de vente",
+    "purchaseCurrencyLabel": "Devise d'achat",
+    "card": {
+      "wt": "Pds",
+      "fine": "Fin",
+      "observed": "Observé",
+      "sold": "Vendu",
+      "value": "Valeur",
+      "addPhoto": "+ Photo"
+    }
+  },
+  "create": {
+    "title": "Nouvel objet",
+    "step1": "Qu'est-ce que c'est ?",
+    "step2": "Combien ?",
+    "step3": "Caractéristiques",
+    "step4": "Prix & Date",
+    "step4Wishlist": "Prix observé",
+    "purchaseDate": "Date d'achat",
+    "observedDate": "Date d'observation",
+    "priceLabel": "Libellé",
+    "priceLabelPlaceholder": "ex. Acheté en bourse",
+    "recap": "Récapitulatif",
+    "button": "Créer l'objet",
+    "loading": "Ajout en cours…",
+    "titleStep1": "L'objet",
+    "titleStep2": "Le lot",
+    "titleStep3": "Physique",
+    "addMint": "+ Ajouter la monnaie (optionnel)",
+    "missingFields": "Veuillez compléter tous les champs requis.",
+    "itemsFallback": "objets",
+    "lotTip": "Vous pouvez ajouter plusieurs {{name}} à la fois.\nUtilisez le tableau ci-dessous pour répartir par année et finition.",
+    "distribution": "Répartition",
+    "modeSimple": "Tous identiques",
+    "modeMix": "Mélange années / finition",
+    "yearOptional": "Année (optionnel)",
+    "finishOptional": "Finition (optionnel)",
+    "colFinish": "Finition",
+    "colQty": "Qté",
+    "addCombination": "+ Ajouter une combinaison",
+    "allAssigned": "✓ {{count}} objets assignés",
+    "remaining": "⚠ {{count}} restant",
+    "overBy": "⚠ Surplus de {{count}}",
+    "weightPerItem": "Poids (par objet)",
+    "fineWeightAuto": "Poids fin (auto)",
+    "fineSuffix": "fin",
+    "summaryTitle": "Récapitulatif",
+    "totalWt": "Poids total",
+    "fineWt": "Poids fin",
+    "step4Subtitle": "Optionnel — ignorez si vous ne souhaitez pas suivre votre coût.",
+    "step4SubtitleWishlist": "Optionnel — le prix auquel vous avez vu cet objet listé.",
+    "priceHeading": "Prix",
+    "observedPriceLabel": "Prix observé pour cet objet",
+    "paidPriceLabel": "Prix payé pour cet objet",
+    "creationFailed": "La création a échoué. Veuillez réessayer.",
+    "creationFailedRows": "La création a échoué sur une ou plusieurs lignes. Veuillez réessayer.",
+    "updateFailed": "La mise à jour a échoué. Veuillez réessayer.",
+    "unexpectedError": "Erreur inattendue. Veuillez réessayer.",
+    "sectionBasic": "Infos de base",
+    "sectionPhysical": "Physique",
+    "sectionFinancial": "Financier",
+    "sectionMetadata": "Métadonnées",
+    "fieldName": "Nom",
+    "shapeDesc": "Description de la forme",
+    "namePlaceholder": "ex. Maple Leaf 1 oz",
+    "seriesPlaceholder": "ex. Maple Leaf, Krugerrand...",
+    "shapeDescPlaceholder": "ex. Pépite",
+    "mintPlaceholder": "ex. Monnaie Royale Canadienne",
+    "locationPlaceholder": "ex. Coffre-fort, Banque",
+    "notesPlaceholder": "Notes sur cet objet..."
+  },
+  "edit": {
+    "title": "Modifier l'objet",
+    "button": "Enregistrer les modifications",
+    "loading": "Enregistrement…"
+  },
+  "sell": {
+    "title": "Vendre",
+    "quantity": "Quantité à vendre",
+    "price": "Prix de vente",
+    "priceTotal": "Total reçu",
+    "pricePerUnit": "Par unité",
+    "date": "Date de vente",
+    "confirm": "Confirmer la vente"
+  },
+  "acquire": {
+    "title": "Marquer comme acquis",
+    "price": "Prix d'achat",
+    "date": "Date d'achat",
+    "confirm": "Confirmer"
+  },
+  "move": {
+    "title": "Déplacer vers",
+    "confirm": "Déplacer"
+  },
+  "applock": {
+    "locked": "App verrouillée",
+    "enterPin": "Entrez votre PIN",
+    "useBiometrics": "Face ID / Empreinte",
+    "wrongPin": "PIN incorrect",
+    "wrongPinRetry": "PIN incorrect — réessayez",
+    "incorrectPin": "PIN incorrect",
+    "attemptsLeft_one": "{{count}} tentative restante",
+    "attemptsLeft_other": "{{count}} tentatives restantes",
+    "cooldown": "Trop de tentatives. Réessayez dans {{duration}}.",
+    "setup": {
+      "title": "Configurer le verrouillage",
+      "createPin": "Créez un PIN à 6 chiffres",
+      "confirmPin": "Confirmez votre PIN",
+      "warning": "⚠️ Si vous oubliez votre PIN, il n'y a aucune récupération possible. Conservez-le précieusement, comme une seed phrase.",
+      "mismatch": "Les PINs ne correspondent pas. Réessayez.",
+      "success": "Verrouillage activé",
+      "warningTitle": "Ce PIN est irrécupérable",
+      "warningBody": "Il n'y a pas de compte et pas de \"PIN oublié\" — si vous le perdez, le seul moyen de revenir est de réinstaller l'app, ce qui efface tout sur cet appareil. Notez-le quelque part de sûr, comme une phrase de récupération crypto.",
+      "warningChangeNote": "Les sauvegardes exportées avant ce changement nécessiteront toujours votre PIN actuel.",
+      "continue": "Je comprends, continuer"
+    },
+    "change": {
+      "currentPin": "Entrez le PIN actuel",
+      "newPin": "Entrez le nouveau PIN",
+      "confirmPin": "Confirmez le nouveau PIN",
+      "success": "PIN modifié"
+    },
+    "disable": {
+      "title": "Désactiver le verrouillage",
+      "enterPin": "Entrez votre PIN pour désactiver le verrouillage"
+    },
+    "prompt": {
+      "title": "Activer le verrouillage ?",
+      "message": "Protégez votre stack avec un PIN et Face ID / empreinte.",
+      "enable": "Activer le verrouillage",
+      "skip": "Plus tard",
+      "heading": "Verrouillez votre stack",
+      "sub": "Ajoutez un PIN pour que personne d'autre ne puisse ouvrir StackLab — même avec votre téléphone déjà déverrouillé.",
+      "setupBtn": "Configurer le verrouillage"
+    },
+    "import": {
+      "title": "PIN pour déchiffrer",
+      "titleReplace": "PIN pour déchiffrer et remplacer",
+      "hint": "Entrez le PIN utilisé lors de la création de cette sauvegarde.",
+      "decrypting": "Déchiffrement…",
+      "wrongPin": "PIN incorrect — le fichier n'a pas pu être déchiffré."
+    }
+  },
+  "backup": {
+    "errors": {
+      "exportRequiresLock": "Activez le verrouillage pour créer des sauvegardes chiffrées.",
+      "replaceRequiresLock": "Activez le verrouillage avant d'utiliser Remplacer — vos données doivent être chiffrées avant d'être écrasées.",
+      "exportFailed": "Échec de l'export. Veuillez réessayer.",
+      "importInvalidFile": "Ce fichier n'a pas pu être lu — il est peut-être corrompu ou n'est pas un export StackLab.",
+      "importVersionMismatch": "Ce fichier a été créé avec une version différente de StackLab et ne peut pas être importé.",
+      "importWrongPin": "PIN incorrect — le fichier n'a pas pu être déchiffré.",
+      "decryptionFailed": "Échec du déchiffrement.",
+      "reencryptFailed": "Votre PIN a été mis à jour, mais le fichier de sauvegarde n'a pas pu être re-chiffré. Il utilise toujours votre ancien PIN.",
+      "deleteDataFailed": "Échec de la suppression des données.",
+      "deleteBackupFailed": "Échec de la suppression du fichier de sauvegarde."
+    }
+  },
+  "onboarding": {
+    "step1": {
+      "title": "Votre premier objet",
+      "subtitle": "Ajoutez votre première pièce ou lingot d'or ou d'argent pour commencer.",
+      "addItem": "Ajouter mon premier objet",
+      "skip": "Passer pour l'instant"
+    },
+    "backup": {
+      "title": "Sauvegardez votre stack",
+      "subtitle": "Nous sauvegarderons automatiquement vos données sur votre {{cloud}} — rien ne quitte votre téléphone, sauf vers votre propre {{cloud}}.",
+      "enable": "Activer la sauvegarde automatique",
+      "manual": "Je préfère exporter manuellement",
+      "hint": "Vous pouvez activer ou désactiver ceci à tout moment dans Réglages.",
+      "gotIt": "Compris"
+    }
+  },
+  "spot": {
+    "title": "Prix Spot",
+    "gold": "Or",
+    "silver": "Argent",
+    "updated": "Mis à jour {{time}}",
+    "updating": "Mise à jour…",
+    "offline": "Hors ligne — affichage du cache",
+    "unavailable": "Prix indisponibles",
+    "retry": "Réessayer",
+    "perOz": "/ oz",
+    "perG": "/ g",
+    "perKg": "/ kg",
+    "unavailableTitle": "Prix spot indisponibles",
+    "errors": {
+      "timeout": "Le service de cotation a mis trop de temps à répondre.",
+      "unavailable": "Le service de cotation est temporairement indisponible."
+    },
+    "stale": "Dernier prix connu — service indisponible",
+    "perTroy": "par troy {{unit}}",
+    "justNow": "à l'instant",
+    "minsAgo_one": "il y a {{count}} min",
+    "minsAgo_other": "il y a {{count}} min",
+    "cached": "en cache"
+  },
+  "modifier": {
+    "title": "Modifier",
+    "selectItems": "Sélectionner des objets",
+    "selectAll": "Tout sélectionner",
+    "deselectAll": "Tout désélectionner",
+    "sell": "Vendre la sélection",
+    "move": "Déplacer la sélection",
+    "editField": "Modifier un champ",
+    "delete": "Supprimer la sélection",
+    "restore": "Restaurer la sélection",
+    "deleteConfirm": {
+      "title_one": "Supprimer {{count}} objet ?",
+      "title_other": "Supprimer {{count}} objets ?",
+      "message": "Ces objets seront déplacés vers la corbeille.",
+      "button": "Supprimer"
+    },
+    "restoreConfirm": {
+      "title_one": "Restaurer {{count}} objet ?",
+      "title_other": "Restaurer {{count}} objets ?",
+      "button": "Restaurer"
+    },
+    "what": "Que souhaitez-vous modifier ?",
+    "choiceItems": "Objets",
+    "choiceItemsDesc": "Sélectionner des objets dans cet emplacement",
+    "choiceDecks": "Decks",
+    "choiceDecksDesc": "Supprimer un deck dans ce lab",
+    "choiceDeck": "Ce Deck",
+    "choiceDeckDesc": "Renommer ou supprimer",
+    "choiceLab": "Ce Lab",
+    "choiceLabDesc": "Renommer ce lab",
+    "renameDeck": "Renommer le Deck",
+    "renameLab": "Renommer le Lab",
+    "renameFailed": "Échec du renommage. Veuillez réessayer.",
+    "saving": "Enregistrement…",
+    "deleteDeckBtn": "Supprimer ce Deck",
+    "deleting": "Suppression…",
+    "deleteFailed": "Échec de la suppression. Veuillez réessayer.",
+    "deleteDeckTitle": "Supprimer « {{name}} » ?",
+    "deleteDeckBody": "Les objets et sous-decks seront déplacés vers {{labName}}.",
+    "soon": "Bientôt",
+    "sellDesc": "Définir la quantité et le prix de vente",
+    "acquire": "Acquérir",
+    "acquireDesc": "Déplacer vers Ma collection comme acheté",
+    "moveTitle": "Déplacer",
+    "moveDesc": "Choisir un autre Lab ou Deck",
+    "editFieldDesc": "Finition, poids, pureté…",
+    "reassign": "Réassigner les années",
+    "reassignDesc": "Redistribuer les unités par année",
+    "removeWishlist": "Retirer de la Wishlist",
+    "moveToTrashWarning": "⚠ Vous êtes sur le point de déplacer {{items}} ({{units}}) vers la Corbeille.",
+    "partialMoveError": "{{moved}} sur {{total}} objets déplacés vers la Corbeille. Veuillez réessayer le reste.",
+    "sellSubtitle": "Définissez la quantité à vendre. Les unités restantes resteront actives.",
+    "availableCount": "× {{count}} disponible(s)",
+    "noSale": "Aucune vente configurée.",
+    "saleInfo": "Vente : {{sell}} sur {{total}} sélectionnés.",
+    "saleFailed": "Échec de la vente. Veuillez réessayer.",
+    "processing": "Traitement…",
+    "back": "← Retour",
+    "noItems": "Aucun objet dans cet emplacement",
+    "noneSelected": "Aucun objet sélectionné",
+    "selected_one": "{{count}} objet sélectionné",
+    "selected_other": "{{count}} objets sélectionnés",
+    "continue": "Continuer →",
+    "selectDecksSubtitle": "Sélectionnez les decks à supprimer.",
+    "noDecks": "Aucun deck dans ce lab.",
+    "deleteDecks_one": "Supprimer {{count}} deck",
+    "deleteDecks_other": "Supprimer {{count}} decks",
+    "countSelected_one": "{{count}} sélectionné",
+    "countSelected_other": "{{count}} sélectionnés",
+    "deleteDeckBodyEmpty": "Ces decks sont vides et seront définitivement supprimés.",
+    "deleteDeckBodyItems": "Ces decks contiennent {{contents}}. Ils seront déplacés vers {{labName}}.",
+    "restoreDesc": "Remettre les objets dans un Lab",
+    "chooseDestLab": "Choisir le Lab de destination",
+    "mixedError": "Vous ne pouvez pas restaurer des objets wishlist et actifs ensemble. Sélectionnez des objets du même type.",
+    "restoreFailed": "Échec de la restauration. Veuillez réessayer.",
+    "restoring": "Restauration…",
+    "confirmRestore": "Confirmer la restauration",
+    "deletePermTitle": "Supprimer définitivement",
+    "cannotUndo": "Cette action est irréversible",
+    "deletePermWarn": "⚠ Vous êtes sur le point de supprimer définitivement {{items}} ({{units}}).\nCette action est irréversible.",
+    "deletePermBtn_one": "Supprimer {{count}} objet définitivement",
+    "deletePermBtn_other": "Supprimer {{count}} objets définitivement",
+    "editSelection": "Modifier la sélection"
+  }
+}

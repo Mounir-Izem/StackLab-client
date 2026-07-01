@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useItemStore } from '../../stores/itemStore';
 import { useLabStore } from '../../stores/labStore';
 import { triggerSuccess } from '../../utils/haptics';
@@ -59,6 +60,7 @@ type Props = {
 };
 
 export function CreateItemFlow({ route, navigation }: Props) {
+    const { t } = useTranslation();
     const { labId, deckId } = route.params;
     const { createItem } = useItemStore();
     const lab = useLabStore(s => s.labs.find(l => l.id === labId));
@@ -132,7 +134,7 @@ export function CreateItemFlow({ route, navigation }: Props) {
                     strikeFinish: state.strikeFinish,
                 });
                 if (useItemStore.getState().error) {
-                    setSubmitError('Creation failed. Please try again.');
+                    setSubmitError(t('create.creationFailed'));
                     return;
                 }
             } else {
@@ -144,7 +146,7 @@ export function CreateItemFlow({ route, navigation }: Props) {
                         strikeFinish: row.strikeFinish,
                     });
                     if (useItemStore.getState().error) {
-                        setSubmitError('Creation failed on one or more rows. Please try again.');
+                        setSubmitError(t('create.creationFailedRows'));
                         return;
                     }
                 }
@@ -152,7 +154,7 @@ export function CreateItemFlow({ route, navigation }: Props) {
             triggerSuccess();
             navigation.goBack();
         } catch {
-            setSubmitError('Unexpected error. Please try again.');
+            setSubmitError(t('create.unexpectedError'));
         } finally {
             setSubmitting(false);
         }

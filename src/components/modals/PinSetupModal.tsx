@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Modal, View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useLockStore } from '../../stores/lockStore';
 import { PinKeypad } from '../common/PinKeypad';
 import { triggerLight, triggerMedium, triggerSuccess } from '../../utils/haptics';
@@ -17,6 +18,7 @@ type Props = {
 };
 
 export function PinSetupModal({ visible, purpose = 'setup', onClose, onDone }: Props) {
+    const { t } = useTranslation();
     const setupPin = useLockStore(s => s.setupPin);
     const [stage, setStage] = useState<Stage>('warning');
     const [firstPin, setFirstPin] = useState('');
@@ -78,26 +80,20 @@ export function PinSetupModal({ visible, purpose = 'setup', onClose, onDone }: P
                 {stage === 'warning' ? (
                     <View style={styles.warningBox}>
                         <Ionicons name="warning-outline" size={40} color={colors.orange} />
-                        <Text style={styles.warningTitle}>This PIN can't be recovered</Text>
-                        <Text style={styles.warningText}>
-                            There's no account and no "forgot PIN" — if you lose it, the only way back in is
-                            reinstalling the app, which erases everything on this device. Write it down
-                            somewhere safe, the way you would a crypto wallet seed phrase.
-                        </Text>
+                        <Text style={styles.warningTitle}>{t('applock.setup.warningTitle')}</Text>
+                        <Text style={styles.warningText}>{t('applock.setup.warningBody')}</Text>
                         {purpose === 'change' && (
-                            <Text style={styles.warningNote}>
-                                Backup files exported before this change will still require your current PIN.
-                            </Text>
+                            <Text style={styles.warningNote}>{t('applock.setup.warningChangeNote')}</Text>
                         )}
                         <Pressable style={styles.continueBtn} onPress={() => setStage('create')}>
-                            <Text style={styles.continueText}>I understand, continue</Text>
+                            <Text style={styles.continueText}>{t('applock.setup.continue')}</Text>
                         </Pressable>
                     </View>
                 ) : (
                     <View style={styles.pinBox}>
                         <Ionicons name="lock-closed-outline" size={36} color={colors.violet} />
                         <Text style={styles.title}>
-                            {stage === 'create' ? 'Create a PIN' : 'Confirm your PIN'}
+                            {t(stage === 'create' ? 'applock.setup.createPin' : 'applock.setup.confirmPin')}
                         </Text>
                         <PinKeypad
                             pin={pin}

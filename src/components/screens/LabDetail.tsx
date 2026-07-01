@@ -5,6 +5,7 @@ import {
     StyleSheet, ActivityIndicator, Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useLabStore } from '../../stores/labStore';
 import { useDeckStore } from '../../stores/deckStore';
 import { useItemStore } from '../../stores/itemStore';
@@ -24,6 +25,7 @@ type Props = LabsStackScreenProps<'LabDetail'>;
 const MAX_FREE_DECKS = 3;
 
 export function LabDetail({ route, navigation }: Props) {
+    const { t } = useTranslation();
     const { labId } = route.params;
 
     const { labs } = useLabStore();
@@ -101,12 +103,12 @@ export function LabDetail({ route, navigation }: Props) {
                                 onPress={() => navigation.navigate('TrashModifier', { labId })}
                             >
                                 <Ionicons name="create-outline" size={15} color={colors.crimson} />
-                                <Text style={styles.trashBtnText}>Edit</Text>
+                                <Text style={styles.trashBtnText}>{t('common.edit')}</Text>
                             </Pressable>
                         )}
                         {rootDecks.length > 0 && !isTrash && (
                             <View style={styles.section}>
-                                <Text style={styles.label}>DECKS</Text>
+                                <Text style={styles.label}>{t('labs.section.decks')}</Text>
                                 {rootDecks.map(d => {
                                     const deckItems = items.filter(i => i.deckId === d.id && i.status === 'active');
                                     const totalValue = spotGold !== null && spotSilver !== null
@@ -128,24 +130,28 @@ export function LabDetail({ route, navigation }: Props) {
                                 })}
                             </View>
                         )}
-                        {directItems.length > 0 && <Text style={[styles.label, styles.itemsLabel]}>ITEMS</Text>}
+                        {directItems.length > 0 && <Text style={[styles.label, styles.itemsLabel]}>{t('labs.section.items')}</Text>}
                     </>
                 }
                 ListEmptyComponent={
                     rootDecks.length === 0
                         ? (
                             <View style={styles.empty}>
-                                <Ionicons name={isWishlist ? 'cloud-outline' : 'cube-outline'} size={36} color={colors.text2} />
+                                <Ionicons
+                                    name={isTrash ? 'trash-outline' : isWishlist ? 'cloud-outline' : 'cube-outline'}
+                                    size={36}
+                                    color={colors.text2}
+                                />
                                 <Text style={styles.emptyTitle}>
-                                    {isWishlist ? 'Nothing on your wishlist' : 'This lab is empty'}
+                                    {isTrash ? t('labs.emptyTrash.title') : isWishlist ? t('labs.emptyWishlist.title') : t('labs.emptyLab.title')}
                                 </Text>
                                 <Text style={styles.emptyText}>
-                                    {isWishlist ? 'Tap + to add items you want to acquire' : 'Tap + to add your first piece'}
+                                    {isTrash ? t('labs.emptyTrash.hint') : isWishlist ? t('labs.emptyWishlist.hint') : t('labs.emptyLab.hint')}
                                 </Text>
                                 {!isWishlist && !isTrash && (
                                     <View style={styles.deckHint}>
                                         <Ionicons name="layers-outline" size={14} color={colors.violet} />
-                                        <Text style={styles.deckHintText}>Use Decks to group your pieces by theme, year, or origin.</Text>
+                                        <Text style={styles.deckHintText}>{t('labs.deckHint')}</Text>
                                     </View>
                                 )}
                             </View>
@@ -163,13 +169,13 @@ export function LabDetail({ route, navigation }: Props) {
                                 onPress={() => navigation.navigate('CreateItem', { labId, deckId: null })}
                             >
                                 <Ionicons name="add" size={16} color={colors.text} />
-                                <Text style={styles.btnText}>Add to Wishlist</Text>
+                                <Text style={styles.btnText}>{t('labs.addToWishlist')}</Text>
                             </Pressable>
                             <Pressable
                                 style={[styles.btnSecondary, styles.btnWide]}
                                 onPress={() => navigation.navigate('Modifier', { labId, deckId: null })}
                             >
-                                <Text style={styles.btnText}>Edit</Text>
+                                <Text style={styles.btnText}>{t('common.edit')}</Text>
                             </Pressable>
                         </>
                     ) : (
@@ -179,7 +185,7 @@ export function LabDetail({ route, navigation }: Props) {
                                 onPress={() => rootDecks.length >= MAX_FREE_DECKS ? setShowPaywall(true) : setShowNewDeck(true)}
                             >
                                 <Ionicons name="add" size={16} color={colors.text} />
-                                <Text style={styles.btnText}>New Deck</Text>
+                                <Text style={styles.btnText}>{t('deck.newDeck')}</Text>
                             </Pressable>
                             <Pressable
                                 style={styles.btnSecondary}
@@ -191,14 +197,12 @@ export function LabDetail({ route, navigation }: Props) {
                                 style={[styles.btnSecondary, styles.btnWide]}
                                 onPress={() => navigation.navigate('Modifier', { labId, deckId: null })}
                             >
-                                <Text style={styles.btnText}>Edit</Text>
+                                <Text style={styles.btnText}>{t('common.edit')}</Text>
                             </Pressable>
                         </>
                     )}
                 </View>
             )}
-
-
 
             <NewDeckModal
                 labId={labId}
@@ -210,13 +214,11 @@ export function LabDetail({ route, navigation }: Props) {
             <Modal visible={showPaywall} transparent animationType="fade" onRequestClose={() => setShowPaywall(false)}>
                 <Pressable style={styles.overlay} onPress={() => setShowPaywall(false)}>
                     <View style={styles.sheet}>
-                        <Text style={styles.sheetTitle}>Beta Feature</Text>
-                        <Text style={styles.sheetBody}>
-                            {'StackLab is currently in beta.\nThis feature will be available in the premium version.'}
-                        </Text>
+                        <Text style={styles.sheetTitle}>{t('labs.betaFeature.title')}</Text>
+                        <Text style={styles.sheetBody}>{t('labs.betaFeature.message')}</Text>
                         <View style={styles.sheetActions}>
                             <Pressable style={styles.btnPrimary} onPress={() => setShowPaywall(false)}>
-                                <Text style={styles.btnText}>Got it</Text>
+                                <Text style={styles.btnText}>{t('common.gotIt')}</Text>
                             </Pressable>
                         </View>
                     </View>
@@ -232,7 +234,7 @@ const styles = StyleSheet.create({
     content: { padding: 16, paddingBottom: 90 },
     contentNoFooter: { paddingBottom: 24 },
     section: { marginBottom: 20, gap: 12 },
-    label: { fontSize: 9, letterSpacing: 2, color: colors.text2, fontFamily: fonts.outfitSemiBold, marginBottom: 8 },
+    label: { fontSize: 9, letterSpacing: 2, color: colors.text2, fontFamily: fonts.outfitSemiBold, marginBottom: 8, textTransform: 'uppercase' },
     itemsLabel: { marginBottom: 10 },
     row: { gap: card.gridGap, marginBottom: card.gridGap },
     col: { flex: 1, maxWidth: '50%' },

@@ -3,6 +3,7 @@ import {
     View, Text, TextInput, Pressable,
     ScrollView, StyleSheet, ActivityIndicator,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { PurchasePriceField } from '../common/PurchasePriceField';
 import { colors, fonts } from '../../utils/theme';
 import type { FlowState } from './CreateItemFlow';
@@ -20,6 +21,7 @@ type Props = {
 const CURRENCIES: Currency[] = ['USD', 'EUR', 'GBP', 'CAD', 'AUD'];
 
 export function CreateItemStep4({ state, update, itemStatus, onCreate, submitting, error }: Props) {
+    const { t } = useTranslation();
     const isWishlist = itemStatus === 'wishlist';
     const recapQty = state.mode === 'simple'
         ? state.quantity
@@ -32,14 +34,12 @@ export function CreateItemStep4({ state, update, itemStatus, onCreate, submittin
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
         >
-            <Text style={styles.title}>{isWishlist ? 'Observed price' : 'Purchase price'}</Text>
+            <Text style={styles.title}>{t(isWishlist ? 'item.observedPrice' : 'item.purchasePrice')}</Text>
             <Text style={styles.subtitle}>
-                {isWishlist
-                    ? "Optional — the price you've seen this item listed for."
-                    : "Optional — skip if you don't want to track cost basis."}
+                {t(isWishlist ? 'create.step4SubtitleWishlist' : 'create.step4Subtitle')}
             </Text>
 
-            <Text style={styles.label}>Price</Text>
+            <Text style={styles.label}>{t('create.priceHeading')}</Text>
             {isWishlist ? (
                 <PurchasePriceField
                     quantity={recapQty}
@@ -47,7 +47,7 @@ export function CreateItemStep4({ state, update, itemStatus, onCreate, submittin
                     onPriceTextChange={v => update({ observedPrice: v.replace(/[^0-9.,]/g, '') })}
                     isPerUnit={state.observedPriceIsPerUnit}
                     onIsPerUnitChange={v => update({ observedPriceIsPerUnit: v })}
-                    label="Price observed for this item"
+                    label={t('create.observedPriceLabel')}
                 />
             ) : (
                 <PurchasePriceField
@@ -56,11 +56,11 @@ export function CreateItemStep4({ state, update, itemStatus, onCreate, submittin
                     onPriceTextChange={v => update({ purchasePrice: v.replace(/[^0-9.,]/g, '') })}
                     isPerUnit={state.purchasePriceIsPerUnit}
                     onIsPerUnitChange={v => update({ purchasePriceIsPerUnit: v })}
-                    label="Price paid for this item"
+                    label={t('create.paidPriceLabel')}
                 />
             )}
 
-            <Text style={styles.label}>Currency</Text>
+            <Text style={styles.label}>{t('settings.currency')}</Text>
             <View style={styles.chipRow}>
                 {CURRENCIES.map(c => (
                     <Pressable
@@ -75,7 +75,9 @@ export function CreateItemStep4({ state, update, itemStatus, onCreate, submittin
                 ))}
             </View>
 
-            <Text style={styles.label}>{isWishlist ? 'Date observed (optional)' : 'Purchase date (optional)'}</Text>
+            <Text style={styles.label}>
+                {`${t(isWishlist ? 'create.observedDate' : 'create.purchaseDate')} (${t('common.optional')})`}
+            </Text>
             <TextInput
                 style={[styles.input, styles.inputNarrow]}
                 value={isWishlist ? state.observedPriceDate : state.purchaseDate}
@@ -98,7 +100,7 @@ export function CreateItemStep4({ state, update, itemStatus, onCreate, submittin
             >
                 {submitting
                     ? <ActivityIndicator color={colors.text} />
-                    : <Text style={styles.btnCreateText}>Create</Text>
+                    : <Text style={styles.btnCreateText}>{t('common.create')}</Text>
                 }
             </Pressable>
         </ScrollView>

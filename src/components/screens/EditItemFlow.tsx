@@ -4,6 +4,7 @@ import {
     ScrollView, TextInput, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useItemStore } from '../../stores/itemStore';
 import { PurchasePriceField } from '../common/PurchasePriceField';
 import { colors, fonts } from '../../utils/theme';
@@ -117,6 +118,7 @@ function weightOzToInput(weightOz: number, unit: ItemWeightUnit): string {
 }
 
 export function EditItemFlow({ route, navigation }: Props) {
+    const { t } = useTranslation();
     const { itemId } = route.params;
     const { items, updateItem, updatePurchasePrice } = useItemStore();
     const item = items.find(i => i.id === itemId);
@@ -208,7 +210,7 @@ export function EditItemFlow({ route, navigation }: Props) {
                 notes: state.notes.trim() || null,
             });
             if (useItemStore.getState().error) {
-                setSubmitError('Update failed. Please try again.');
+                setSubmitError(t('create.updateFailed'));
                 return;
             }
 
@@ -220,12 +222,12 @@ export function EditItemFlow({ route, navigation }: Props) {
                 state.purchasePriceIsPerUnit,
             );
             if (useItemStore.getState().error) {
-                setSubmitError('Update failed. Please try again.');
+                setSubmitError(t('create.updateFailed'));
                 return;
             }
             navigation.goBack();
         } catch {
-            setSubmitError('Unexpected error. Please try again.');
+            setSubmitError(t('create.unexpectedError'));
         } finally {
             setSubmitting(false);
         }
@@ -247,7 +249,7 @@ export function EditItemFlow({ route, navigation }: Props) {
                 <Pressable onPress={() => navigation.goBack()} hitSlop={8} style={styles.headerSide}>
                     <Ionicons name="close" size={22} color={colors.text} />
                 </Pressable>
-                <Text style={styles.headerTitle}>Edit Item</Text>
+                <Text style={styles.headerTitle}>{t('edit.title')}</Text>
                 <View style={styles.headerSide}>
                     <Pressable
                         onPress={handleSave}
@@ -257,7 +259,7 @@ export function EditItemFlow({ route, navigation }: Props) {
                     >
                         {submitting
                             ? <ActivityIndicator size="small" color={colors.violet} />
-                            : <Text style={[styles.saveBtnText, (!canSave || submitting) && styles.saveBtnTextDisabled]}>Save</Text>
+                            : <Text style={[styles.saveBtnText, (!canSave || submitting) && styles.saveBtnTextDisabled]}>{t('common.save')}</Text>
                         }
                     </Pressable>
                 </View>
@@ -280,36 +282,36 @@ export function EditItemFlow({ route, navigation }: Props) {
                     showsVerticalScrollIndicator={false}
                 >
                     {/* ── BASIC ─────────────────────────────────────── */}
-                    <SectionHeader label="BASIC" />
+                    <SectionHeader label={t('create.sectionBasic')} />
 
-                    <FieldLabel label="Name" />
+                    <FieldLabel label={t('create.fieldName')} />
                     <TextInput
                         style={styles.input}
                         value={state.name}
                         onChangeText={v => patch({ name: v })}
-                        placeholder="e.g. Maple Leaf 1 oz"
+                        placeholder={t('create.namePlaceholder')}
                         placeholderTextColor={colors.text3}
                         autoCapitalize="words"
                     />
 
-                    <FieldLabel label="Metal" />
+                    <FieldLabel label={t('item.metal.label')} />
                     <ChipRow>
                         {(['gold', 'silver'] as ItemMetal[]).map(m => (
                             <Chip
                                 key={m}
-                                label={m.charAt(0).toUpperCase() + m.slice(1)}
+                                label={t(`item.metal.${m}`)}
                                 active={state.metal === m}
                                 onPress={() => patch({ metal: m })}
                             />
                         ))}
                     </ChipRow>
 
-                    <FieldLabel label="Shape" />
+                    <FieldLabel label={t('item.shape.label')} />
                     <ChipRow>
                         {(['coin', 'bar', 'token', 'bust', 'custom'] as ItemShape[]).map(s => (
                             <Chip
                                 key={s}
-                                label={s.charAt(0).toUpperCase() + s.slice(1)}
+                                label={t(`item.shape.${s}`)}
                                 active={state.shape === s}
                                 onPress={() => patch({ shape: s })}
                             />
@@ -318,27 +320,27 @@ export function EditItemFlow({ route, navigation }: Props) {
 
                     {state.shape === 'custom' && (
                         <>
-                            <FieldLabel label="Shape description" />
+                            <FieldLabel label={t('create.shapeDesc')} />
                             <TextInput
                                 style={styles.input}
                                 value={state.shapeDescription}
                                 onChangeText={v => patch({ shapeDescription: v })}
-                                placeholder="e.g. Nugget"
+                                placeholder={t('create.shapeDescPlaceholder')}
                                 placeholderTextColor={colors.text3}
                             />
                         </>
                     )}
 
-                    <FieldLabel label="Mint" optional />
+                    <FieldLabel label={t('item.mint')} optional />
                     <TextInput
                         style={styles.input}
                         value={state.mintName}
                         onChangeText={v => patch({ mintName: v })}
-                        placeholder="e.g. Royal Canadian Mint"
+                        placeholder={t('create.mintPlaceholder')}
                         placeholderTextColor={colors.text3}
                     />
 
-                    <FieldLabel label="Year" optional />
+                    <FieldLabel label={t('item.year')} optional />
                     <TextInput
                         style={[styles.input, styles.inputNarrow]}
                         value={state.year}
@@ -349,7 +351,7 @@ export function EditItemFlow({ route, navigation }: Props) {
                         maxLength={4}
                     />
 
-                    <FieldLabel label="Strike / Finish" optional />
+                    <FieldLabel label={t('item.strikeFinish')} optional />
                     <ChipRow wrap>
                         {STRIKES.map(s => (
                             <Chip
@@ -362,9 +364,9 @@ export function EditItemFlow({ route, navigation }: Props) {
                     </ChipRow>
 
                     {/* ── PHYSICAL ──────────────────────────────────── */}
-                    <SectionHeader label="PHYSICAL" />
+                    <SectionHeader label={t('create.sectionPhysical')} />
 
-                    <FieldLabel label="Weight" />
+                    <FieldLabel label={t('item.weight')} />
                     <View style={styles.weightRow}>
                         <TextInput
                             style={[styles.input, { flex: 1 }]}
@@ -381,7 +383,7 @@ export function EditItemFlow({ route, navigation }: Props) {
                         </ChipRow>
                     </View>
 
-                    <FieldLabel label="Purity" />
+                    <FieldLabel label={t('item.purity')} />
                     <ChipRow wrap>
                         {PURITIES.map(p => (
                             <Chip
@@ -393,7 +395,7 @@ export function EditItemFlow({ route, navigation }: Props) {
                         ))}
                     </ChipRow>
 
-                    <FieldLabel label="Quantity" />
+                    <FieldLabel label={t('item.quantity')} />
                     <View style={styles.qtyRow}>
                         <Pressable
                             style={[styles.qtyBtn, state.quantity <= 1 && styles.qtyBtnDisabled]}
@@ -406,7 +408,7 @@ export function EditItemFlow({ route, navigation }: Props) {
                             style={styles.qtyInput}
                             value={String(state.quantity)}
                             keyboardType="number-pad"
-                            onChangeText={t => patch({ quantity: Math.max(1, parseInt(t, 10) || 1) })}
+                            onChangeText={val => patch({ quantity: Math.max(1, parseInt(val, 10) || 1) })}
                             selectTextOnFocus
                         />
                         <Pressable
@@ -418,9 +420,9 @@ export function EditItemFlow({ route, navigation }: Props) {
                     </View>
 
                     {/* ── FINANCIAL ─────────────────────────────────── */}
-                    <SectionHeader label="FINANCIAL" />
+                    <SectionHeader label={t('create.sectionFinancial')} />
 
-                    <FieldLabel label="Purchase price" optional />
+                    <FieldLabel label={t('item.purchasePrice')} optional />
                     <PurchasePriceField
                         quantity={state.quantity}
                         priceText={state.purchasePrice}
@@ -429,7 +431,7 @@ export function EditItemFlow({ route, navigation }: Props) {
                         onIsPerUnitChange={v => patch({ purchasePriceIsPerUnit: v })}
                     />
 
-                    <FieldLabel label="Currency" />
+                    <FieldLabel label={t('settings.currency')} />
                     <ChipRow>
                         {CURRENCIES.map(c => (
                             <Chip
@@ -441,7 +443,7 @@ export function EditItemFlow({ route, navigation }: Props) {
                         ))}
                     </ChipRow>
 
-                    <FieldLabel label="Purchase date" optional />
+                    <FieldLabel label={t('create.purchaseDate')} optional />
                     <TextInput
                         style={[styles.input, styles.inputNarrow]}
                         value={state.purchaseDate}
@@ -453,30 +455,30 @@ export function EditItemFlow({ route, navigation }: Props) {
                     />
 
                     {/* ── METADATA ──────────────────────────────────── */}
-                    <SectionHeader label="METADATA" />
+                    <SectionHeader label={t('create.sectionMetadata')} />
 
-                    <FieldLabel label="Condition" optional />
+                    <FieldLabel label={t('item.condition.label')} optional />
                     <ChipRow wrap>
                         {CONDITIONS.map(c => (
                             <Chip
                                 key={c.value}
-                                label={c.label}
+                                label={t(`item.condition.${c.value}`)}
                                 active={state.condition === c.value}
                                 onPress={() => patch({ condition: state.condition === c.value ? null : c.value })}
                             />
                         ))}
                     </ChipRow>
 
-                    <FieldLabel label="Location" optional />
+                    <FieldLabel label={t('item.location')} optional />
                     <TextInput
                         style={styles.input}
                         value={state.location}
                         onChangeText={v => patch({ location: v })}
-                        placeholder="e.g. Safe, Bank vault"
+                        placeholder={t('create.locationPlaceholder')}
                         placeholderTextColor={colors.text3}
                     />
 
-                    <FieldLabel label="Features" optional />
+                    <FieldLabel label={t('item.features')} optional />
                     <ChipRow wrap>
                         {FEATURES.map(f => (
                             <Chip
@@ -488,12 +490,12 @@ export function EditItemFlow({ route, navigation }: Props) {
                         ))}
                     </ChipRow>
 
-                    <FieldLabel label="Notes" optional />
+                    <FieldLabel label={t('item.notes')} optional />
                     <TextInput
                         style={[styles.input, styles.inputMultiline]}
                         value={state.notes}
                         onChangeText={v => patch({ notes: v })}
-                        placeholder="Any notes about this item..."
+                        placeholder={t('create.notesPlaceholder')}
                         placeholderTextColor={colors.text3}
                         multiline
                         numberOfLines={4}
@@ -512,10 +514,11 @@ function SectionHeader({ label }: { label: string }) {
 }
 
 function FieldLabel({ label, optional }: { label: string; optional?: boolean }) {
+    const { t } = useTranslation();
     return (
         <View style={styles.fieldLabelRow}>
             <Text style={styles.fieldLabel}>{label}</Text>
-            {optional && <Text style={styles.fieldLabelOptional}>optional</Text>}
+            {optional && <Text style={styles.fieldLabelOptional}>{t('common.optional')}</Text>}
         </View>
     );
 }
@@ -567,6 +570,7 @@ const styles = StyleSheet.create({
     sectionHeader: {
         fontFamily: fonts.outfitSemiBold, fontSize: 10, letterSpacing: 2,
         color: colors.text2, marginTop: 20, marginBottom: 2,
+        textTransform: 'uppercase',
     },
     fieldLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
     fieldLabel: { fontSize: 9, letterSpacing: 1.5, color: colors.text2, fontFamily: fonts.outfitSemiBold },

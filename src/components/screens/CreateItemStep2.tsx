@@ -4,6 +4,7 @@ import {
     ScrollView, StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { generateUUID } from '../../utils/uuid';
 import { colors, fonts } from '../../utils/theme';
 import type { FlowState, MixRow } from './CreateItemFlow';
@@ -22,6 +23,7 @@ const FINISH_LABELS: Record<StrikeFinish, string> = {
 };
 
 export function CreateItemStep2({ state, update, onNext }: Props) {
+    const { t } = useTranslation();
     const assigned = state.rows.reduce((s, r) => s + r.qty, 0);
     const remaining = state.quantity - assigned;
     const mixValid = state.mode === 'mix' ? assigned === state.quantity && state.rows.length > 0 : true;
@@ -51,17 +53,16 @@ export function CreateItemStep2({ state, update, onNext }: Props) {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
         >
-            <Text style={styles.title}>The Lot</Text>
+            <Text style={styles.title}>{t('create.titleStep2')}</Text>
 
             <View style={styles.tipBanner}>
                 <Text style={styles.tipText}>
-                    💡 You can add multiple {state.seriesName || 'items'} at once.{'\n'}
-                    Use the table below to distribute by year and strike finish.
+                    💡 {t('create.lotTip', { name: state.seriesName || t('create.itemsFallback') })}
                 </Text>
             </View>
 
             {/* Quantity */}
-            <Text style={styles.label}>Quantity</Text>
+            <Text style={styles.label}>{t('item.quantity')}</Text>
             <View style={styles.qtyRow}>
                 <Pressable
                     style={styles.qtyBtn}
@@ -85,7 +86,7 @@ export function CreateItemStep2({ state, update, onNext }: Props) {
             </View>
 
             {/* Mode toggle */}
-            <Text style={styles.label}>Distribution</Text>
+            <Text style={styles.label}>{t('create.distribution')}</Text>
             <View style={styles.modeRow}>
                 {(['simple', 'mix'] as const).map(m => (
                     <Pressable
@@ -94,7 +95,7 @@ export function CreateItemStep2({ state, update, onNext }: Props) {
                         onPress={() => update({ mode: m })}
                     >
                         <Text style={[styles.modeText, state.mode === m && styles.modeTextActive]}>
-                            {m === 'simple' ? 'All identical' : 'Mix years / finish'}
+                            {m === 'simple' ? t('create.modeSimple') : t('create.modeMix')}
                         </Text>
                     </Pressable>
                 ))}
@@ -104,7 +105,7 @@ export function CreateItemStep2({ state, update, onNext }: Props) {
             {state.mode === 'simple' && (
                 <View style={styles.simpleRow}>
                     <View style={styles.simpleField}>
-                        <Text style={styles.label}>Year (optional)</Text>
+                        <Text style={styles.label}>{t('create.yearOptional')}</Text>
                         <TextInput
                             style={styles.input}
                             placeholder="2024"
@@ -116,7 +117,7 @@ export function CreateItemStep2({ state, update, onNext }: Props) {
                         />
                     </View>
                     <View style={styles.simpleField}>
-                        <Text style={styles.label}>Finish (optional)</Text>
+                        <Text style={styles.label}>{t('create.finishOptional')}</Text>
                         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                             <View style={styles.finishRow}>
                                 {FINISHES.map(f => (
@@ -140,16 +141,16 @@ export function CreateItemStep2({ state, update, onNext }: Props) {
             {state.mode === 'mix' && (
                 <View style={styles.matrix}>
                     <View style={styles.matrixHeader}>
-                        <Text style={[styles.matrixCol, { flex: 2 }]}>Year</Text>
-                        <Text style={[styles.matrixCol, { flex: 2 }]}>Finish</Text>
-                        <Text style={[styles.matrixCol, { flex: 1 }]}>Qty</Text>
+                        <Text style={[styles.matrixCol, { flex: 2 }]}>{t('item.year')}</Text>
+                        <Text style={[styles.matrixCol, { flex: 2 }]}>{t('create.colFinish')}</Text>
+                        <Text style={[styles.matrixCol, { flex: 1 }]}>{t('create.colQty')}</Text>
                         <View style={{ width: 24 }} />
                     </View>
                     {state.rows.map(row => (
                         <View key={row.id} style={styles.matrixRow}>
                             <TextInput
                                 style={[styles.matrixInput, { flex: 2 }]}
-                                placeholder="Year"
+                                placeholder={t('item.year')}
                                 placeholderTextColor={colors.text2}
                                 value={row.year}
                                 onChangeText={v => patchRow(row.id, { year: v.replace(/\D/g, '').slice(0, 4) })}
@@ -185,16 +186,16 @@ export function CreateItemStep2({ state, update, onNext }: Props) {
                         </View>
                     ))}
                     <Pressable style={styles.addRow} onPress={addRow}>
-                        <Text style={styles.addRowText}>+ Add combination</Text>
+                        <Text style={styles.addRowText}>{t('create.addCombination')}</Text>
                     </Pressable>
 
                     <View style={[styles.counter, remaining === 0 && styles.counterOk, remaining !== 0 && styles.counterWarn]}>
                         <Text style={styles.counterText}>
                             {remaining === 0
-                                ? `✓ All ${state.quantity} items assigned`
+                                ? t('create.allAssigned', { count: state.quantity })
                                 : remaining > 0
-                                    ? `⚠ ${remaining} remaining`
-                                    : `⚠ Over by ${Math.abs(remaining)}`
+                                    ? t('create.remaining', { count: remaining })
+                                    : t('create.overBy', { count: Math.abs(remaining) })
                             }
                         </Text>
                     </View>
@@ -205,7 +206,7 @@ export function CreateItemStep2({ state, update, onNext }: Props) {
                 style={[styles.btnNext, !canNext && styles.btnDisabled]}
                 onPress={canNext ? onNext : undefined}
             >
-                <Text style={styles.btnNextText}>Next →</Text>
+                <Text style={styles.btnNextText}>{t('common.next')} →</Text>
             </Pressable>
         </ScrollView>
     );

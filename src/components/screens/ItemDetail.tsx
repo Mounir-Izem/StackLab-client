@@ -6,6 +6,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useLabStore } from '../../stores/labStore';
 import { useDeckStore } from '../../stores/deckStore';
 import { useItemStore } from '../../stores/itemStore';
@@ -23,6 +24,7 @@ import type { Currency } from '../../types/settings.types';
 type Props = LabsStackScreenProps<'ItemDetail'>;
 
 export function ItemDetail({ route, navigation }: Props) {
+    const { t } = useTranslation();
     const { itemId } = route.params;
 
     const { labs } = useLabStore();
@@ -172,16 +174,16 @@ export function ItemDetail({ route, navigation }: Props) {
                     ) : (
                         <View style={styles.photoPlaceholder}>
                             <Ionicons name="camera-outline" size={32} color={colors.text3} />
-                            <Text style={styles.photoPlaceholderText}>Add your photo</Text>
-                            <Text style={styles.photoHintText}>Tap to shoot or pick from library</Text>
+                            <Text style={styles.photoPlaceholderText}>{t('item.addPhoto')}</Text>
+                            <Text style={styles.photoHintText}>{t('item.photoHint')}</Text>
                         </View>
                     )}
                     <View style={[styles.metalBadge, { backgroundColor: metal.badgeBg, borderColor: metal.badgeBorder }]}>
-                        <Text style={[styles.metalBadgeText, { color: metal.color }]}>{item.metal.toUpperCase()}</Text>
+                        <Text style={[styles.metalBadgeText, { color: metal.color }]}>{t(`item.metal.${item.metal}`)}</Text>
                     </View>
                     {isSold && (
                         <View style={styles.soldBadge}>
-                            <Text style={styles.soldBadgeText}>SOLD</Text>
+                            <Text style={styles.soldBadgeText}>{t('item.status.sold')}</Text>
                         </View>
                     )}
                 </Pressable>
@@ -200,15 +202,15 @@ export function ItemDetail({ route, navigation }: Props) {
                 {/* Physical */}
                 <View style={styles.row3}>
                     <View style={styles.stat}>
-                        <Text style={styles.statLabel}>Weight</Text>
+                        <Text style={styles.statLabel}>{t('item.weight')}</Text>
                         <Text style={styles.statVal}>{formatWeight(item.weightOz, weightUnit)}</Text>
                     </View>
                     <View style={styles.stat}>
-                        <Text style={styles.statLabel}>Purity</Text>
+                        <Text style={styles.statLabel}>{t('item.purity')}</Text>
                         <Text style={styles.statVal}>{formatPurity(item.purity)}</Text>
                     </View>
                     <View style={styles.stat}>
-                        <Text style={styles.statLabel}>Fine {weightUnit}</Text>
+                        <Text style={styles.statLabel}>{t('item.fineWeightUnit', { unit: weightUnit })}</Text>
                         <Text style={[styles.statVal, { color: colors.text }]}>{formatWeight(fineOz, weightUnit, true)}</Text>
                     </View>
                 </View>
@@ -216,7 +218,7 @@ export function ItemDetail({ route, navigation }: Props) {
                 {/* Melt value */}
                 <View style={styles.row2}>
                     <View style={styles.stat}>
-                        <Text style={styles.statLabel}>Melt value</Text>
+                        <Text style={styles.statLabel}>{t('item.meltValue')}</Text>
                         <Text style={[styles.statVal, { color: meltColor }]}>
                             {meltValue !== null ? formatCurrency(meltValue, currency as Currency) : '—'}
                         </Text>
@@ -227,12 +229,12 @@ export function ItemDetail({ route, navigation }: Props) {
                 {!isWishlist && item.purchasePrice !== null && (
                     <View style={styles.row2}>
                         <View style={styles.stat}>
-                            <Text style={styles.statLabel}>Purchased</Text>
+                            <Text style={styles.statLabel}>{t('item.purchasedLabel')}</Text>
                             <Text style={styles.statVal}>{formatCurrency(item.purchasePrice, item.purchaseCurrency ?? currency)}</Text>
                         </View>
                         {item.purchaseDate && (
                             <View style={styles.stat}>
-                                <Text style={styles.statLabel}>Date</Text>
+                                <Text style={styles.statLabel}>{t('item.dateLabel')}</Text>
                                 <Text style={styles.statVal}>{formatDate(item.purchaseDate)}</Text>
                             </View>
                         )}
@@ -241,12 +243,12 @@ export function ItemDetail({ route, navigation }: Props) {
                 {isWishlist && item.observedPrice !== null && (
                     <View style={styles.row2}>
                         <View style={styles.stat}>
-                            <Text style={styles.statLabel}>Observed</Text>
+                            <Text style={styles.statLabel}>{t('item.observedLabel')}</Text>
                             <Text style={styles.statVal}>{formatCurrency(item.observedPrice, item.observedCurrency ?? currency)}</Text>
                         </View>
                         {item.observedPriceDate && (
                             <View style={styles.stat}>
-                                <Text style={styles.statLabel}>Date</Text>
+                                <Text style={styles.statLabel}>{t('item.dateLabel')}</Text>
                                 <Text style={styles.statVal}>{formatDate(item.observedPriceDate)}</Text>
                             </View>
                         )}
@@ -255,12 +257,12 @@ export function ItemDetail({ route, navigation }: Props) {
                 {isSold && item.soldPrice !== null && (
                     <View style={styles.row2}>
                         <View style={styles.stat}>
-                            <Text style={styles.statLabel}>Sold for</Text>
+                            <Text style={styles.statLabel}>{t('item.soldPrice')}</Text>
                             <Text style={[styles.statVal, { color: soldColor }]}>{formatCurrency(item.soldPrice, item.soldCurrency ?? currency)}</Text>
                         </View>
                         {item.soldDate && (
                             <View style={styles.stat}>
-                                <Text style={styles.statLabel}>Date</Text>
+                                <Text style={styles.statLabel}>{t('item.dateLabel')}</Text>
                                 <Text style={styles.statVal}>{formatDate(item.soldDate)}</Text>
                             </View>
                         )}
@@ -270,9 +272,9 @@ export function ItemDetail({ route, navigation }: Props) {
                 {/* Details */}
                 {(item.mintName || item.condition || item.location) && (
                     <View style={styles.detailsRow}>
-                        {item.mintName && <DetailChip label="Mint" value={item.mintName} />}
-                        {item.condition && <DetailChip label="Condition" value={item.condition.charAt(0).toUpperCase() + item.condition.slice(1)} />}
-                        {item.location && <DetailChip label="Location" value={item.location} />}
+                        {item.mintName && <DetailChip label={t('item.mint')} value={item.mintName} />}
+                        {item.condition && <DetailChip label={t('item.condition.label')} value={t(`item.condition.${item.condition}`)} />}
+                        {item.location && <DetailChip label={t('item.location')} value={item.location} />}
                     </View>
                 )}
                 {item.features.length > 0 && (
@@ -282,7 +284,7 @@ export function ItemDetail({ route, navigation }: Props) {
                 )}
                 {item.notes && (
                     <View style={styles.notesBox}>
-                        <Text style={styles.statLabel}>Notes</Text>
+                        <Text style={styles.statLabel}>{t('item.notes')}</Text>
                         <Text style={styles.notesText}>{item.notes}</Text>
                     </View>
                 )}
@@ -292,30 +294,30 @@ export function ItemDetail({ route, navigation }: Props) {
             <View style={styles.footer}>
                 {isTrash ? (
                     <>
-                        <ActionBtn icon="arrow-undo-outline" label="Restore" onPress={() => setShowRestorePicker(true)} />
-                        <ActionBtn icon="trash-outline" label="Delete forever" danger onPress={() => setShowDeleteForeverConfirm(true)} />
+                        <ActionBtn icon="arrow-undo-outline" label={t('item.actions.restore')} onPress={() => setShowRestorePicker(true)} />
+                        <ActionBtn icon="trash-outline" label={t('item.actions.deleteForever')} danger onPress={() => setShowDeleteForeverConfirm(true)} />
                     </>
                 ) : isWishlist ? (
                     <>
-                        <ActionBtn icon="bag-check-outline" label="Acquire" onPress={() => { setAcquireQty(item.quantity); setAcquirePrice(''); setAcquirePerUnit(false); setAcquireCurrency(currency as Currency); setAcquireTargetLabId(labs.find(l => l.type === 'standard')?.id ?? null); setShowAcquireModal(true); }} />
-                        <ActionBtn icon="close-circle-outline" label="Remove" danger onPress={() => setShowRemoveConfirm(true)} />
-                        <ActionBtn icon="create-outline" label="Edit" onPress={() => navigation.navigate('EditItem', { itemId: item.id })} />
+                        <ActionBtn icon="bag-check-outline" label={t('item.actions.acquireBtn')} onPress={() => { setAcquireQty(item.quantity); setAcquirePrice(''); setAcquirePerUnit(false); setAcquireCurrency(currency as Currency); setAcquireTargetLabId(labs.find(l => l.type === 'standard')?.id ?? null); setShowAcquireModal(true); }} />
+                        <ActionBtn icon="close-circle-outline" label={t('item.actions.remove')} danger onPress={() => setShowRemoveConfirm(true)} />
+                        <ActionBtn icon="create-outline" label={t('item.actions.edit')} onPress={() => navigation.navigate('EditItem', { itemId: item.id })} />
                     </>
                 ) : isSold ? (
                     <>
-                        <ActionBtn icon="create-outline" label="Edit" onPress={() => navigation.navigate('EditItem', { itemId: item.id })} />
-                        <ActionBtn icon="copy-outline" label="Duplicate" disabled />
-                        <ActionBtn icon="arrow-forward-outline" label="Move" onPress={() => { setMoveQty(1); setMoveDestLabId(null); setMoveDestDeckId(null); setShowMoveModal(true); }} />
-                        <ActionBtn icon="trash-outline" label="Delete" danger onPress={() => setShowDeleteConfirm(true)} />
+                        <ActionBtn icon="create-outline" label={t('item.actions.edit')} onPress={() => navigation.navigate('EditItem', { itemId: item.id })} />
+                        <ActionBtn icon="copy-outline" label={t('item.actions.duplicate')} disabled />
+                        <ActionBtn icon="arrow-forward-outline" label={t('item.actions.move')} onPress={() => { setMoveQty(1); setMoveDestLabId(null); setMoveDestDeckId(null); setShowMoveModal(true); }} />
+                        <ActionBtn icon="trash-outline" label={t('item.actions.delete')} danger onPress={() => setShowDeleteConfirm(true)} />
                     </>
                 ) : (
                     <>
-                        <ActionBtn icon="create-outline" label="Edit" onPress={() => navigation.navigate('EditItem', { itemId: item.id })} />
-                        <ActionBtn icon="cash-outline" label="Sell" onPress={() => { setSellQty(item.quantity); setSellPrice(''); setSellPerUnit(true); setSellCurrency(currency as Currency); setShowSellModal(true); }} />
-                        <ActionBtn icon="copy-outline" label="Duplicate" disabled />
-                        <ActionBtn icon="git-branch-outline" label="Extract" disabled />
-                        <ActionBtn icon="arrow-forward-outline" label="Move" onPress={() => { setMoveQty(1); setMoveDestLabId(null); setMoveDestDeckId(null); setShowMoveModal(true); }} />
-                        <ActionBtn icon="trash-outline" label="Delete" danger onPress={() => setShowDeleteConfirm(true)} />
+                        <ActionBtn icon="create-outline" label={t('item.actions.edit')} onPress={() => navigation.navigate('EditItem', { itemId: item.id })} />
+                        <ActionBtn icon="cash-outline" label={t('item.actions.sell')} onPress={() => { setSellQty(item.quantity); setSellPrice(''); setSellPerUnit(true); setSellCurrency(currency as Currency); setShowSellModal(true); }} />
+                        <ActionBtn icon="copy-outline" label={t('item.actions.duplicate')} disabled />
+                        <ActionBtn icon="git-branch-outline" label={t('item.actions.extract')} disabled />
+                        <ActionBtn icon="arrow-forward-outline" label={t('item.actions.move')} onPress={() => { setMoveQty(1); setMoveDestLabId(null); setMoveDestDeckId(null); setShowMoveModal(true); }} />
+                        <ActionBtn icon="trash-outline" label={t('item.actions.delete')} danger onPress={() => setShowDeleteConfirm(true)} />
                     </>
                 )}
             </View>
@@ -324,12 +326,12 @@ export function ItemDetail({ route, navigation }: Props) {
             <Modal visible={showMoveModal} transparent animationType="slide" onRequestClose={() => setShowMoveModal(false)}>
                 <Pressable style={styles.overlay} onPress={() => setShowMoveModal(false)}>
                     <Pressable style={styles.sellSheet} onPress={e => e.stopPropagation()}>
-                        <Text style={styles.optionTitle}>Move to</Text>
+                        <Text style={styles.optionTitle}>{t('move.title')}</Text>
 
                         <View style={styles.sellBody}>
                             {item.quantity > 1 && (
                                 <>
-                                    <Text style={styles.sellLabel}>Quantity (1 – {item.quantity})</Text>
+                                    <Text style={styles.sellLabel}>{t('item.moveQtyRange', { max: item.quantity })}</Text>
                                     <View style={styles.qtyRow}>
                                         <Pressable style={styles.qtyBtn} onPress={() => setMoveQty(q => Math.max(1, q - 1))} disabled={moveQty <= 1}>
                                             <Ionicons name="remove" size={18} color={moveQty > 1 ? colors.text : colors.text2} />
@@ -338,7 +340,7 @@ export function ItemDetail({ route, navigation }: Props) {
                                             style={styles.qtyInput}
                                             value={String(moveQty)}
                                             keyboardType="number-pad"
-                                            onChangeText={t => setMoveQty(Math.min(item.quantity, Math.max(1, parseInt(t, 10) || 1)))}
+                                            onChangeText={val => setMoveQty(Math.min(item.quantity, Math.max(1, parseInt(val, 10) || 1)))}
                                             selectTextOnFocus
                                         />
                                         <Pressable style={styles.qtyBtn} onPress={() => setMoveQty(q => Math.min(item.quantity, q + 1))} disabled={moveQty >= item.quantity}>
@@ -349,14 +351,14 @@ export function ItemDetail({ route, navigation }: Props) {
                                 </>
                             )}
 
-                            <Text style={styles.sellLabel}>Within this lab</Text>
+                            <Text style={styles.sellLabel}>{t('item.moveWithinLab')}</Text>
                             <View style={styles.labChips}>
                                 {item.deckId !== null && (
                                     <Pressable
                                         style={[styles.labChip, moveDestLabId === item.labId && moveDestDeckId === null && styles.labChipActive]}
                                         onPress={() => { setMoveDestLabId(item.labId); setMoveDestDeckId(null); }}
                                     >
-                                        <Text style={[styles.labChipText, moveDestLabId === item.labId && moveDestDeckId === null && styles.labChipTextActive]}>No deck (lab root)</Text>
+                                        <Text style={[styles.labChipText, moveDestLabId === item.labId && moveDestDeckId === null && styles.labChipTextActive]}>{t('item.moveNoDeck')}</Text>
                                     </Pressable>
                                 )}
                                 {decks.filter(d => d.parentId === null && d.id !== item.deckId).map(d => (
@@ -369,11 +371,11 @@ export function ItemDetail({ route, navigation }: Props) {
                                     </Pressable>
                                 ))}
                                 {item.deckId === null && decks.filter(d => d.parentId === null).length === 0 && (
-                                    <Text style={styles.moveEmptyText}>No decks in this lab</Text>
+                                    <Text style={styles.moveEmptyText}>{t('item.moveNoDecks')}</Text>
                                 )}
                             </View>
 
-                            <Text style={styles.sellLabel}>Another lab</Text>
+                            <Text style={styles.sellLabel}>{t('item.moveAnotherLab')}</Text>
                             <View style={styles.labChips}>
                                 {labs.filter(l => l.type === 'standard' && l.id !== item.labId).length > 0
                                     ? labs.filter(l => l.type === 'standard' && l.id !== item.labId).map(l => (
@@ -384,7 +386,7 @@ export function ItemDetail({ route, navigation }: Props) {
                                     : (
                                         <View style={styles.premiumNote}>
                                             <Ionicons name="lock-closed-outline" size={13} color={colors.text2} />
-                                            <Text style={styles.premiumNoteText}>Create a second lab to move items between labs — Premium</Text>
+                                            <Text style={styles.premiumNoteText}>{t('item.movePremiumNote')}</Text>
                                         </View>
                                     )
                                 }
@@ -401,7 +403,7 @@ export function ItemDetail({ route, navigation }: Props) {
                                 navigation.goBack();
                             }}
                         >
-                            <Text style={styles.sellConfirmText}>Confirm move</Text>
+                            <Text style={styles.sellConfirmText}>{t('move.confirm')}</Text>
                         </Pressable>
                     </Pressable>
                 </Pressable>
@@ -411,10 +413,10 @@ export function ItemDetail({ route, navigation }: Props) {
             <Modal visible={showAcquireModal} transparent animationType="slide" onRequestClose={() => setShowAcquireModal(false)}>
                 <Pressable style={styles.overlay} onPress={() => setShowAcquireModal(false)}>
                     <View style={styles.sellSheet}>
-                        <Text style={styles.optionTitle}>Acquire</Text>
+                        <Text style={styles.optionTitle}>{t('acquire.title')}</Text>
 
                         <View style={styles.sellBody}>
-                            <Text style={styles.sellLabel}>Quantity</Text>
+                            <Text style={styles.sellLabel}>{t('item.quantity')}</Text>
                             <View style={styles.qtyRow}>
                                 <Pressable style={styles.qtyBtn} onPress={() => setAcquireQty(q => Math.max(1, q - 1))} disabled={acquireQty <= 1}>
                                     <Ionicons name="remove" size={18} color={acquireQty > 1 ? colors.text : colors.text2} />
@@ -423,7 +425,7 @@ export function ItemDetail({ route, navigation }: Props) {
                                     style={styles.qtyInput}
                                     value={String(acquireQty)}
                                     keyboardType="number-pad"
-                                    onChangeText={t => setAcquireQty(Math.min(item.quantity, Math.max(1, parseInt(t, 10) || 1)))}
+                                    onChangeText={val => setAcquireQty(Math.min(item.quantity, Math.max(1, parseInt(val, 10) || 1)))}
                                     selectTextOnFocus
                                 />
                                 <Pressable style={styles.qtyBtn} onPress={() => setAcquireQty(q => Math.min(item.quantity, q + 1))} disabled={acquireQty >= item.quantity}>
@@ -432,7 +434,7 @@ export function ItemDetail({ route, navigation }: Props) {
                                 <Text style={styles.qtyMax}>/ {item.quantity}</Text>
                             </View>
 
-                            <Text style={styles.sellLabel}>Move to</Text>
+                            <Text style={styles.sellLabel}>{t('move.title')}</Text>
                             <View style={styles.labChips}>
                                 {labs.filter(l => l.type === 'standard').map(l => (
                                     <Pressable
@@ -445,7 +447,7 @@ export function ItemDetail({ route, navigation }: Props) {
                                 ))}
                             </View>
 
-                            <Text style={styles.sellLabel}>Purchase price (optional)</Text>
+                            <Text style={styles.sellLabel}>{t('item.acquirePriceLabel')}</Text>
                             <View style={styles.priceRow}>
                                 <TextInput
                                     style={styles.priceInput}
@@ -460,7 +462,7 @@ export function ItemDetail({ route, navigation }: Props) {
                                 </Pressable>
                                 {acquireQty > 1 && (
                                     <Pressable style={styles.perUnitBtn} onPress={() => setAcquirePerUnit(p => !p)}>
-                                        <Text style={styles.perUnitText}>{acquirePerUnit ? 'Per unit' : 'Total lot'} ▾</Text>
+                                        <Text style={styles.perUnitText}>{acquirePerUnit ? t('item.purchasePerUnit') : t('item.totalLot')} ▾</Text>
                                     </Pressable>
                                 )}
                             </View>
@@ -477,7 +479,7 @@ export function ItemDetail({ route, navigation }: Props) {
                                 navigation.goBack();
                             }}
                         >
-                            <Text style={styles.sellConfirmText}>Confirm acquisition</Text>
+                            <Text style={styles.sellConfirmText}>{t('acquire.confirm')}</Text>
                         </Pressable>
                     </View>
                 </Pressable>
@@ -487,7 +489,7 @@ export function ItemDetail({ route, navigation }: Props) {
             <Modal visible={showAcquireCurrencyPicker} transparent animationType="fade" onRequestClose={() => setShowAcquireCurrencyPicker(false)}>
                 <Pressable style={styles.overlay} onPress={() => setShowAcquireCurrencyPicker(false)}>
                     <View style={styles.optionSheet}>
-                        <Text style={styles.optionTitle}>Purchase currency</Text>
+                        <Text style={styles.optionTitle}>{t('item.purchaseCurrencyLabel')}</Text>
                         {(['USD', 'EUR', 'GBP', 'CAD', 'AUD'] as Currency[]).map(c => (
                             <Pressable key={c} style={styles.optionBtn} onPress={() => { setAcquireCurrency(c); setShowAcquireCurrencyPicker(false); }}>
                                 <Text style={[styles.optionBtnText, acquireCurrency === c && { color: colors.violet }]}>{c}</Text>
@@ -502,10 +504,10 @@ export function ItemDetail({ route, navigation }: Props) {
             <Modal visible={showSellModal} transparent animationType="slide" onRequestClose={() => setShowSellModal(false)}>
                 <Pressable style={styles.overlay} onPress={() => setShowSellModal(false)}>
                     <View style={styles.sellSheet}>
-                        <Text style={styles.optionTitle}>Sell</Text>
+                        <Text style={styles.optionTitle}>{t('sell.title')}</Text>
 
                         <View style={styles.sellBody}>
-                            <Text style={styles.sellLabel}>Quantity</Text>
+                            <Text style={styles.sellLabel}>{t('item.quantity')}</Text>
                             <View style={styles.qtyRow}>
                                 <Pressable style={styles.qtyBtn} onPress={() => setSellQty(q => Math.max(1, q - 1))} disabled={sellQty <= 1}>
                                     <Ionicons name="remove" size={18} color={sellQty > 1 ? colors.text : colors.text2} />
@@ -514,7 +516,7 @@ export function ItemDetail({ route, navigation }: Props) {
                                     style={styles.qtyInput}
                                     value={String(sellQty)}
                                     keyboardType="number-pad"
-                                    onChangeText={t => setSellQty(Math.min(item.quantity, Math.max(1, parseInt(t, 10) || 1)))}
+                                    onChangeText={val => setSellQty(Math.min(item.quantity, Math.max(1, parseInt(val, 10) || 1)))}
                                     selectTextOnFocus
                                 />
                                 <Pressable style={styles.qtyBtn} onPress={() => setSellQty(q => Math.min(item.quantity, q + 1))} disabled={sellQty >= item.quantity}>
@@ -523,7 +525,7 @@ export function ItemDetail({ route, navigation }: Props) {
                                 <Text style={styles.qtyMax}>/ {item.quantity}</Text>
                             </View>
 
-                            <Text style={styles.sellLabel}>Sale price (optional)</Text>
+                            <Text style={styles.sellLabel}>{t('item.salePriceLabel')}</Text>
                             <View style={styles.priceRow}>
                                 <TextInput
                                     style={styles.priceInput}
@@ -537,7 +539,7 @@ export function ItemDetail({ route, navigation }: Props) {
                                     <Text style={styles.currencyBtnText}>{sellCurrency} ▾</Text>
                                 </Pressable>
                                 <Pressable style={styles.perUnitBtn} onPress={() => setSellPerUnit(p => !p)}>
-                                    <Text style={styles.perUnitText}>{sellPerUnit ? 'Per unit' : 'Per lot'} ▾</Text>
+                                    <Text style={styles.perUnitText}>{sellPerUnit ? t('item.purchasePerUnit') : t('item.perLot')} ▾</Text>
                                 </Pressable>
                             </View>
                         </View>
@@ -548,7 +550,7 @@ export function ItemDetail({ route, navigation }: Props) {
                             await sellItem(item.id, sellQty, price, sellPerUnit, sellCurrency, new Date().toISOString());
                             navigation.goBack();
                         }}>
-                            <Text style={styles.sellConfirmText}>Confirm sale</Text>
+                            <Text style={styles.sellConfirmText}>{t('sell.confirm')}</Text>
                         </Pressable>
                     </View>
                 </Pressable>
@@ -558,7 +560,7 @@ export function ItemDetail({ route, navigation }: Props) {
             <Modal visible={showSellCurrencyPicker} transparent animationType="fade" onRequestClose={() => setShowSellCurrencyPicker(false)}>
                 <Pressable style={styles.overlay} onPress={() => setShowSellCurrencyPicker(false)}>
                     <View style={styles.optionSheet}>
-                        <Text style={styles.optionTitle}>Sale currency</Text>
+                        <Text style={styles.optionTitle}>{t('item.saleCurrencyLabel')}</Text>
                         {(['USD', 'EUR', 'GBP', 'CAD', 'AUD'] as Currency[]).map(c => (
                             <Pressable key={c} style={styles.optionBtn} onPress={() => { setSellCurrency(c); setShowSellCurrencyPicker(false); }}>
                                 <Text style={[styles.optionBtnText, sellCurrency === c && { color: colors.violet }]}>{c}</Text>
@@ -573,18 +575,18 @@ export function ItemDetail({ route, navigation }: Props) {
             <Modal visible={showDeleteForeverConfirm} transparent animationType="fade" onRequestClose={() => setShowDeleteForeverConfirm(false)}>
                 <Pressable style={styles.overlay} onPress={() => setShowDeleteForeverConfirm(false)}>
                     <View style={styles.optionSheet}>
-                        <Text style={styles.optionTitle}>Delete permanently?</Text>
-                        <Text style={styles.optionSubtitle}>This cannot be undone.</Text>
+                        <Text style={styles.optionTitle}>{t('item.deleteForeverTitle')}</Text>
+                        <Text style={styles.optionSubtitle}>{t('item.deleteForeverMsg')}</Text>
                         <Pressable style={styles.optionBtn} onPress={async () => {
                             setShowDeleteForeverConfirm(false);
                             await deleteItem(item.id);
                             navigation.goBack();
                         }}>
                             <Ionicons name="trash-outline" size={20} color={colors.crimson} />
-                            <Text style={[styles.optionBtnText, { color: colors.crimson }]}>Delete forever</Text>
+                            <Text style={[styles.optionBtnText, { color: colors.crimson }]}>{t('item.actions.deleteForever')}</Text>
                         </Pressable>
                         <Pressable style={styles.optionBtn} onPress={() => setShowDeleteForeverConfirm(false)}>
-                            <Text style={styles.optionBtnText}>Cancel</Text>
+                            <Text style={styles.optionBtnText}>{t('common.cancel')}</Text>
                         </Pressable>
                     </View>
                 </Pressable>
@@ -594,7 +596,7 @@ export function ItemDetail({ route, navigation }: Props) {
             <Modal visible={showRestorePicker} transparent animationType="fade" onRequestClose={() => setShowRestorePicker(false)}>
                 <Pressable style={styles.overlay} onPress={() => setShowRestorePicker(false)}>
                     <View style={styles.optionSheet}>
-                        <Text style={styles.optionTitle}>Restore to...</Text>
+                        <Text style={styles.optionTitle}>{t('item.restoreTitle')}</Text>
                         {labs.filter(l => item.status === 'wishlist' ? l.type === 'wishlist' : l.type === 'standard').map(l => (
                             <Pressable key={l.id} style={styles.optionBtn} onPress={async () => {
                                 setShowRestorePicker(false);
@@ -606,7 +608,7 @@ export function ItemDetail({ route, navigation }: Props) {
                             </Pressable>
                         ))}
                         <Pressable style={styles.optionBtn} onPress={() => setShowRestorePicker(false)}>
-                            <Text style={styles.optionBtnText}>Cancel</Text>
+                            <Text style={styles.optionBtnText}>{t('common.cancel')}</Text>
                         </Pressable>
                     </View>
                 </Pressable>
@@ -616,17 +618,17 @@ export function ItemDetail({ route, navigation }: Props) {
             <Modal visible={showRemoveConfirm} transparent animationType="fade" onRequestClose={() => setShowRemoveConfirm(false)}>
                 <Pressable style={styles.overlay} onPress={() => setShowRemoveConfirm(false)}>
                     <View style={styles.optionSheet}>
-                        <Text style={styles.optionTitle}>Remove from Wishlist?</Text>
+                        <Text style={styles.optionTitle}>{t('item.removeFromWishlistTitle')}</Text>
                         <Pressable style={styles.optionBtn} onPress={async () => {
                             setShowRemoveConfirm(false);
                             await deleteItem(item.id);
                             navigation.goBack();
                         }}>
                             <Ionicons name="close-circle-outline" size={20} color={colors.crimson} />
-                            <Text style={[styles.optionBtnText, { color: colors.crimson }]}>Remove</Text>
+                            <Text style={[styles.optionBtnText, { color: colors.crimson }]}>{t('item.actions.remove')}</Text>
                         </Pressable>
                         <Pressable style={styles.optionBtn} onPress={() => setShowRemoveConfirm(false)}>
-                            <Text style={styles.optionBtnText}>Cancel</Text>
+                            <Text style={styles.optionBtnText}>{t('common.cancel')}</Text>
                         </Pressable>
                     </View>
                 </Pressable>
@@ -636,17 +638,17 @@ export function ItemDetail({ route, navigation }: Props) {
             <Modal visible={showDeleteConfirm} transparent animationType="fade" onRequestClose={() => setShowDeleteConfirm(false)}>
                 <Pressable style={styles.overlay} onPress={() => setShowDeleteConfirm(false)}>
                     <View style={styles.optionSheet}>
-                        <Text style={styles.optionTitle}>Move to Trash?</Text>
+                        <Text style={styles.optionTitle}>{t('item.moveToTrashTitle')}</Text>
                         <Pressable style={styles.optionBtn} onPress={async () => {
                             setShowDeleteConfirm(false);
                             await deleteItem(item.id);
                             navigation.goBack();
                         }}>
                             <Ionicons name="trash-outline" size={20} color={colors.crimson} />
-                            <Text style={[styles.optionBtnText, { color: colors.crimson }]}>Move to Trash</Text>
+                            <Text style={[styles.optionBtnText, { color: colors.crimson }]}>{t('item.actions.moveToTrash')}</Text>
                         </Pressable>
                         <Pressable style={styles.optionBtn} onPress={() => setShowDeleteConfirm(false)}>
-                            <Text style={styles.optionBtnText}>Cancel</Text>
+                            <Text style={styles.optionBtnText}>{t('common.cancel')}</Text>
                         </Pressable>
                     </View>
                 </Pressable>
@@ -656,14 +658,14 @@ export function ItemDetail({ route, navigation }: Props) {
             <Modal visible={showPhotoOptions} transparent animationType="fade" onRequestClose={() => setShowPhotoOptions(false)}>
                 <Pressable style={styles.overlay} onPress={() => setShowPhotoOptions(false)}>
                     <View style={styles.optionSheet}>
-                        <Text style={styles.optionTitle}>Add photo</Text>
+                        <Text style={styles.optionTitle}>{t('item.addPhotoTitle')}</Text>
                         <Pressable style={styles.optionBtn} onPress={() => handlePickPhoto('camera')}>
                             <Ionicons name="camera-outline" size={20} color={colors.text} />
-                            <Text style={styles.optionBtnText}>Take photo</Text>
+                            <Text style={styles.optionBtnText}>{t('item.takePhoto')}</Text>
                         </Pressable>
                         <Pressable style={styles.optionBtn} onPress={() => handlePickPhoto('library')}>
                             <Ionicons name="image-outline" size={20} color={colors.text} />
-                            <Text style={styles.optionBtnText}>Choose from library</Text>
+                            <Text style={styles.optionBtnText}>{t('item.chooseFromLibrary')}</Text>
                         </Pressable>
                     </View>
                 </Pressable>
@@ -726,14 +728,14 @@ const styles = StyleSheet.create({
         paddingHorizontal: 8, paddingVertical: 3,
         borderRadius: 10, borderWidth: 0.5,
     },
-    metalBadgeText: { fontSize: fontSize.cardBadge, fontFamily: fonts.outfitSemiBold, letterSpacing: 1.5 },
+    metalBadgeText: { fontSize: fontSize.cardBadge, fontFamily: fonts.outfitSemiBold, letterSpacing: 1.5, textTransform: 'uppercase' },
     soldBadge: {
         position: 'absolute', top: 12, right: 12,
         paddingHorizontal: 8, paddingVertical: 3,
         borderRadius: 10, backgroundColor: 'rgba(180,30,30,0.22)',
         borderWidth: 0.5, borderColor: 'rgba(180,30,30,0.45)',
     },
-    soldBadgeText: { fontSize: fontSize.cardBadge, fontFamily: fonts.outfitSemiBold, color: colors.crimson, letterSpacing: 1.5 },
+    soldBadgeText: { fontSize: fontSize.cardBadge, fontFamily: fonts.outfitSemiBold, color: colors.crimson, letterSpacing: 1.5, textTransform: 'uppercase' },
     section: { gap: 4 },
     nameRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
     name: { fontFamily: fonts.manrope, fontSize: 22, color: colors.text, flex: 1 },

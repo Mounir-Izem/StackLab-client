@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { View, Text, Pressable, FlatList, ActivityIndicator, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useLabStore } from '../../stores/labStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useSpotStore } from '../../stores/spotStore';
@@ -14,6 +15,7 @@ import type { Lab } from '../../types/lab.types';
 type Props = LabsStackScreenProps<'LabsHome'>;
 
 export function LabsHome({ navigation }: Props) {
+    const { t } = useTranslation();
     const { labs, labActiveSummaries, wishlistSummary, soldSummary, trashSummary, labOzTotals, loadLabs, isLoading } = useLabStore();
     const { settings, updateSettings } = useSettingsStore();
     const { spot, rates } = useSpotStore();
@@ -86,8 +88,8 @@ export function LabsHome({ navigation }: Props) {
             <Ionicons name="time-outline" size={18} color={colors.violet} style={styles.bannerIcon} />
             <Text style={styles.bannerText}>
                 {settings?.lastBackupAt
-                    ? "It's been over a week since your last backup."
-                    : "You haven't backed up your stack yet."} Export it in Settings.
+                    ? t('labs.backupReminder.overdue')
+                    : t('labs.backupReminder.never')}
             </Text>
             <Pressable onPress={() => setReminderDismissed(true)} hitSlop={8}>
                 <Ionicons name="close" size={16} color={colors.text2} />
@@ -98,7 +100,7 @@ export function LabsHome({ navigation }: Props) {
     const backupBanner = showBackupBanner ? (
         <View style={styles.banner}>
             <Ionicons name="shield-outline" size={18} color={colors.violet} style={styles.bannerIcon} />
-            <Text style={styles.bannerText}>Back up your stack to keep your data safe.</Text>
+            <Text style={styles.bannerText}>{t('labs.backupBanner')}</Text>
             <Pressable onPress={() => updateSettings({ backupBannerDismissed: true })} hitSlop={8}>
                 <Ionicons name="close" size={16} color={colors.text2} />
             </Pressable>

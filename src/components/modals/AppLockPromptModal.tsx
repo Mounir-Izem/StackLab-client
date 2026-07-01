@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { Modal, View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { PinSetupModal } from './PinSetupModal';
 import { colors, fonts } from '../../utils/theme';
 
 export function AppLockPromptModal() {
+    const { t } = useTranslation();
     const { settings, updateSettings } = useSettingsStore();
     const [showPinSetup, setShowPinSetup] = useState(false);
 
@@ -24,17 +26,15 @@ export function AppLockPromptModal() {
                 <View style={styles.screen}>
                     <View style={styles.content}>
                         <Ionicons name="lock-closed-outline" size={52} color={colors.violet} style={styles.icon} />
-                        <Text style={styles.heading}>Lock your stack</Text>
-                        <Text style={styles.sub}>
-                            Add a PIN so no one else can open StackLab — even with your phone already unlocked.
-                        </Text>
+                        <Text style={styles.heading}>{t('applock.prompt.heading')}</Text>
+                        <Text style={styles.sub}>{t('applock.prompt.sub')}</Text>
                     </View>
                     <View style={styles.actions}>
                         <Pressable style={styles.primary} onPress={() => setShowPinSetup(true)}>
-                            <Text style={styles.primaryText}>Set up App Lock</Text>
+                            <Text style={styles.primaryText}>{t('applock.prompt.setupBtn')}</Text>
                         </Pressable>
                         <Pressable onPress={dismiss} hitSlop={8}>
-                            <Text style={styles.skip}>Not now</Text>
+                            <Text style={styles.skip}>{t('applock.prompt.skip')}</Text>
                         </Pressable>
                     </View>
                 </View>

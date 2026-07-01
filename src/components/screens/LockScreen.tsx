@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Modal, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useLockStore } from '../../stores/lockStore';
 import { lockService } from '../../services/lockService';
 import { PinKeypad } from '../common/PinKeypad';
@@ -17,6 +18,7 @@ function formatLockTime(ms: number): string {
 }
 
 export function LockScreen() {
+    const { t } = useTranslation();
     const { unlockWithPin, unlockWithBiometric, lockedUntil } = useLockStore();
     const [pin, setPin] = useState('');
     const [error, setError] = useState(false);
@@ -69,11 +71,11 @@ export function LockScreen() {
         <Modal visible animationType="none" statusBarTranslucent>
             <View style={styles.screen}>
                 <Ionicons name="lock-closed-outline" size={40} color={colors.violet} style={styles.icon} />
-                <Text style={styles.title}>Enter your PIN</Text>
+                <Text style={styles.title}>{t('applock.enterPin')}</Text>
 
                 {isLockedOut ? (
                     <Text style={styles.lockedText}>
-                        Too many attempts. Try again in {formatLockTime(remainingLockMs)}.
+                        {t('applock.cooldown', { duration: formatLockTime(remainingLockMs) })}
                     </Text>
                 ) : (
                     <PinKeypad

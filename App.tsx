@@ -15,6 +15,7 @@ import { useSpotPrice } from './src/hooks/useSpotPrice';
 import { useAutoBackup } from './src/hooks/useAutoBackup';
 import { useAppLock } from './src/hooks/useAppLock';
 import { useLockStore } from './src/stores/lockStore';
+import { initI18n } from './src/i18n';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { LockScreen } from './src/components/screens/LockScreen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -44,6 +45,7 @@ export default function App() {
     initDatabase()
       .then(() => labService.ensureSystemLabs())
       .then(() => useSettingsStore.getState().loadSettings())
+      .then(() => initI18n(useSettingsStore.getState().settings?.language ?? 'system'))
       .then(() => useLockStore.getState().checkInitialLockState())
       .then(() => setDbReady(true))
       .catch((e: unknown) => console.error('[DB INIT ERROR]', e));

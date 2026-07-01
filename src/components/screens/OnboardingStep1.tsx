@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 import { useLabStore } from '../../stores/labStore';
 import { useItemStore } from '../../stores/itemStore';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -10,6 +11,7 @@ import type { OnboardingStackScreenProps } from '../../navigation/types';
 type Props = OnboardingStackScreenProps<'OnboardingStep1'>;
 
 export function OnboardingStep1({ navigation }: Props) {
+    const { t } = useTranslation();
     const labs = useLabStore(s => s.labs);
     const loadLabs = useLabStore(s => s.loadLabs);
     const items = useItemStore(s => s.items);
@@ -53,15 +55,15 @@ export function OnboardingStep1({ navigation }: Props) {
     return (
         <View style={styles.screen}>
             <View style={styles.content}>
-                <Text style={styles.heading}>Add your{'\n'}first item</Text>
-                <Text style={styles.sub}>Start tracking your stack — one piece at a time.</Text>
+                <Text style={styles.heading}>{t('onboarding.step1.title')}</Text>
+                <Text style={styles.sub}>{t('onboarding.step1.subtitle')}</Text>
             </View>
             <View style={styles.actions}>
                 <Pressable style={styles.primary} onPress={handleAddItem}>
-                    <Text style={styles.primaryText}>Add your first item</Text>
+                    <Text style={styles.primaryText}>{t('onboarding.step1.addItem')}</Text>
                 </Pressable>
                 <Pressable onPress={handleSkip} hitSlop={8}>
-                    <Text style={styles.skip}>Skip for now</Text>
+                    <Text style={styles.skip}>{t('onboarding.step1.skip')}</Text>
                 </Pressable>
             </View>
         </View>

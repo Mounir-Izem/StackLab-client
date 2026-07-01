@@ -4,6 +4,7 @@ import {
     StyleSheet, ScrollView, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useBackupStore } from '../../stores/backupStore';
 import { useLockStore } from '../../stores/lockStore';
@@ -12,20 +13,17 @@ import { resetToLabsHome } from '../../navigation/navigationRef';
 import { colors, fonts } from '../../utils/theme';
 import { formatDate } from '../../utils/formatters';
 import { shareAutoBackupForDebug } from '../../utils/backup';
+import { applyLanguage } from '../../i18n';
 import { PinSetupModal } from './PinSetupModal';
 import { PinVerifyModal } from './PinVerifyModal';
 import { PinInputModal } from './PinInputModal';
-import type { Currency, WeightUnit } from '../../types/settings.types';
+import type { Currency, WeightUnit, AppLanguage } from '../../types/settings.types';
 
 const CURRENCIES: Currency[] = ['USD', 'EUR', 'GBP', 'CAD', 'AUD'];
 const WEIGHT_UNITS: WeightUnit[] = ['oz', 'g', 'kg'];
+const LANGUAGES: AppLanguage[] = ['system', 'en', 'fr'];
 
-const INFO_TEXT = {
-    replace: "Erases everything currently on this device and replaces it with the file you choose. Anything added since that file was made will be lost. Your current data is backed up automatically first, before anything is deleted.",
-    deleteAllData: "Permanently erases everything in this app — labs, decks, items, and value history. This does NOT delete copies you've already saved elsewhere: manual exports you've shared, or backups already stored in iCloud/Google Drive.",
-    deleteBackupFile: "Removes the automatic backup file stored on this device. This does NOT delete older copies iCloud or Google Drive may have already saved on their own — manage those from your phone's own settings.",
-    autoWipe: "If someone enters the wrong PIN 10 times in a row, everything on this device is permanently deleted — labs, decks, items, snapshots — with no automatic backup beforehand. Off by default; only enable this if you understand and want that risk.",
-};
+type InfoKey = 'replace' | 'deleteData' | 'deleteBackup' | 'autoWipe';
 
 function InfoButton({ onPress }: { onPress: () => void }) {
     return (
@@ -36,6 +34,7 @@ function InfoButton({ onPress }: { onPress: () => void }) {
 }
 
 export function SettingsModal() {
+    const { t } = useTranslation();
     const { settings, showSettings, closeSettings, updateSettings } = useSettingsStore();
     const {
         isExporting, exportData, isImporting, importData, isReplacing, replaceData,
@@ -48,7 +47,7 @@ export function SettingsModal() {
     const [showDeleteDataConfirm, setShowDeleteDataConfirm] = useState(false);
     const [deleteDataConfirmText, setDeleteDataConfirmText] = useState('');
     const [showDeleteBackupConfirm, setShowDeleteBackupConfirm] = useState(false);
-    const [infoModal, setInfoModal] = useState<string | null>(null);
+    const [infoModal, setInfoModal] = useState<InfoKey | null>(null);
     const [debugMsg, setDebugMsg] = useState<string | null>(null);
     const [showPinSetup, setShowPinSetup] = useState(false);
     const [showAutoWipeConfirm, setShowAutoWipeConfirm] = useState(false);
@@ -106,6 +105,11 @@ export function SettingsModal() {
         await updateSettings({ weightUnit });
     }
 
+    async function handleLanguageChange(language: AppLanguage) {
+        await updateSettings({ language });
+        applyLanguage(language);
+    }
+
     async function handleAppLockToggle(value: boolean) {
         if (value) {
             const hasPin = await lockService.hasPin();
@@ -147,6 +151,24 @@ export function SettingsModal() {
         if (value) Linking.openSettings();
     }
 
+    function langLabel(lang: AppLanguage): string {
+        if (lang === 'fr') return t('settings.language.fr');
+        if (lang === 'en') return t('settings.language.en');
+        return t('settings.language.system');
+    }
+
+    function backupErrorMessage(): string {
+        if (backupError === 'IMPORT_VERSION_MISMATCH') return t('backup.errors.importVersionMismatch');
+        if (backupError === 'IMPORT_INVALID_FILE') return t('backup.errors.importInvalidFile');
+        if (backupError === 'EXPORT_REQUIRES_APP_LOCK') return t('backup.errors.exportRequiresLock');
+        if (backupError === 'REPLACE_REQUIRES_APP_LOCK') return t('backup.errors.replaceRequiresLock');
+        if (backupError === 'BACKUP_REENCRYPT_FAILED') return t('backup.errors.reencryptFailed');
+        if (backupError === 'EXPORT_ERROR') return t('backup.errors.exportFailed');
+        if (backupError === 'DELETE_DATA_ERROR') return t('backup.errors.deleteDataFailed');
+        if (backupError === 'DELETE_BACKUP_ERROR') return t('backup.errors.deleteBackupFailed');
+        return t('common.error');
+    }
+
     return (
         <>
         <Modal
@@ -160,7 +182,7 @@ export function SettingsModal() {
                 <View style={styles.handle} />
 
                 <View style={styles.header}>
-                    <Text style={styles.title}>Settings</Text>
+                    <Text style={styles.title}>{t('settings.title')}</Text>
                     <Pressable onPress={closeSettings} hitSlop={8}>
                         <Ionicons name="close" size={22} color={colors.text2} />
                     </Pressable>
@@ -173,7 +195,7 @@ export function SettingsModal() {
                 ) : (
                     <ScrollView showsVerticalScrollIndicator={false}>
                         {/* Currency */}
-                        <Text style={styles.sectionLabel}>CURRENCY</Text>
+                        <Text style={styles.sectionLabel}>{t('settings.currency')}</Text>
                         <View style={styles.chipRow}>
                             {CURRENCIES.map(c => (
                                 <Pressable
@@ -189,7 +211,7 @@ export function SettingsModal() {
                         </View>
 
                         {/* Weight unit */}
-                        <Text style={styles.sectionLabel}>WEIGHT UNIT</Text>
+                        <Text style={styles.sectionLabel}>{t('settings.weightUnit')}</Text>
                         <View style={styles.chipRow}>
                             {WEIGHT_UNITS.map(u => (
                                 <Pressable
@@ -204,12 +226,28 @@ export function SettingsModal() {
                             ))}
                         </View>
 
+                        {/* Language */}
+                        <Text style={styles.sectionLabel}>{t('settings.language.label')}</Text>
+                        <View style={styles.chipRow}>
+                            {LANGUAGES.map(lang => (
+                                <Pressable
+                                    key={lang}
+                                    style={[styles.chip, (settings.language ?? 'system') === lang && styles.chipActive]}
+                                    onPress={() => handleLanguageChange(lang)}
+                                >
+                                    <Text style={[styles.chipText, (settings.language ?? 'system') === lang && styles.chipTextActive]}>
+                                        {langLabel(lang)}
+                                    </Text>
+                                </Pressable>
+                            ))}
+                        </View>
+
                         {/* Security */}
-                        <Text style={styles.sectionLabel}>SECURITY</Text>
+                        <Text style={styles.sectionLabel}>{t('settings.section.security')}</Text>
                         <View style={styles.row}>
                             <View style={styles.rowLeft}>
                                 <Ionicons name="lock-closed-outline" size={18} color={colors.text2} />
-                                <Text style={styles.rowLabel}>App Lock</Text>
+                                <Text style={styles.rowLabel}>{t('settings.appLock')}</Text>
                             </View>
                             <Switch
                                 value={settings.appLockEnabled}
@@ -222,14 +260,14 @@ export function SettingsModal() {
                                 <Pressable style={styles.row} onPress={handleChangePinPress}>
                                     <View style={styles.rowLeft}>
                                         <Ionicons name="keypad-outline" size={18} color={colors.text2} />
-                                        <Text style={styles.rowLabel}>Change PIN</Text>
+                                        <Text style={styles.rowLabel}>{t('settings.changePin')}</Text>
                                     </View>
                                 </Pressable>
                                 <View style={styles.row}>
                                     <View style={styles.rowLeft}>
                                         <Ionicons name="skull-outline" size={18} color={colors.crimson} />
                                         <Text style={[styles.rowLabel, { color: colors.crimson }]}>
-                                            Erase after 10 failed attempts
+                                            {t('settings.autoWipe')}
                                         </Text>
                                         <InfoButton onPress={() => setInfoModal('autoWipe')} />
                                     </View>
@@ -243,11 +281,11 @@ export function SettingsModal() {
                         )}
 
                         {/* Data */}
-                        <Text style={styles.sectionLabel}>DATA</Text>
+                        <Text style={styles.sectionLabel}>{t('settings.section.data')}</Text>
                         <View style={styles.row}>
                             <View style={styles.rowLeft}>
                                 <Ionicons name="cloud-done-outline" size={18} color={colors.text2} />
-                                <Text style={styles.rowLabel}>Auto-backup</Text>
+                                <Text style={styles.rowLabel}>{t('settings.autoBackup')}</Text>
                             </View>
                             <Switch
                                 value={settings.autoBackupEnabled}
@@ -259,7 +297,7 @@ export function SettingsModal() {
                             <View style={styles.row}>
                                 <View style={styles.rowLeft}>
                                     <Ionicons name="notifications-outline" size={18} color={colors.text2} />
-                                    <Text style={styles.rowLabel}>Backup reminders</Text>
+                                    <Text style={styles.rowLabel}>{t('settings.backupReminders')}</Text>
                                 </View>
                                 <Switch
                                     value={settings.backupReminder}
@@ -275,7 +313,7 @@ export function SettingsModal() {
                         >
                             <View style={styles.rowLeft}>
                                 <Ionicons name="download-outline" size={18} color={colors.text2} />
-                                <Text style={styles.rowLabel}>Export data</Text>
+                                <Text style={styles.rowLabel}>{t('settings.exportData')}</Text>
                             </View>
                             {isExporting && <ActivityIndicator size="small" color={colors.text2} />}
                         </Pressable>
@@ -286,7 +324,7 @@ export function SettingsModal() {
                         >
                             <View style={styles.rowLeft}>
                                 <Ionicons name="cloud-upload-outline" size={18} color={colors.text2} />
-                                <Text style={styles.rowLabel}>Import data</Text>
+                                <Text style={styles.rowLabel}>{t('settings.importData')}</Text>
                             </View>
                             {isImporting && <ActivityIndicator size="small" color={colors.text2} />}
                         </Pressable>
@@ -297,7 +335,7 @@ export function SettingsModal() {
                         >
                             <View style={styles.rowLeft}>
                                 <Ionicons name="warning-outline" size={18} color={colors.crimson} />
-                                <Text style={[styles.rowLabel, { color: colors.crimson }]}>Replace all data</Text>
+                                <Text style={[styles.rowLabel, { color: colors.crimson }]}>{t('settings.replaceData')}</Text>
                                 <InfoButton onPress={() => setInfoModal('replace')} />
                             </View>
                             {isReplacing && <ActivityIndicator size="small" color={colors.text2} />}
@@ -309,8 +347,8 @@ export function SettingsModal() {
                         >
                             <View style={styles.rowLeft}>
                                 <Ionicons name="trash-outline" size={18} color={colors.crimson} />
-                                <Text style={[styles.rowLabel, { color: colors.crimson }]}>Delete all my data</Text>
-                                <InfoButton onPress={() => setInfoModal('deleteAllData')} />
+                                <Text style={[styles.rowLabel, { color: colors.crimson }]}>{t('settings.deleteAllData')}</Text>
+                                <InfoButton onPress={() => setInfoModal('deleteData')} />
                             </View>
                             {isDeletingData && <ActivityIndicator size="small" color={colors.text2} />}
                         </Pressable>
@@ -320,39 +358,27 @@ export function SettingsModal() {
                         >
                             <View style={styles.rowLeft}>
                                 <Ionicons name="close-circle-outline" size={18} color={colors.text2} />
-                                <Text style={styles.rowLabel}>Delete backup file</Text>
-                                <InfoButton onPress={() => setInfoModal('deleteBackupFile')} />
+                                <Text style={styles.rowLabel}>{t('settings.deleteBackupFile')}</Text>
+                                <InfoButton onPress={() => setInfoModal('deleteBackup')} />
                             </View>
                         </Pressable>
                         {backupError && backupError !== 'IMPORT_WRONG_PIN' && (
                             <View style={styles.errorBanner}>
-                                <Text style={styles.errorText}>
-                                    {backupError === 'IMPORT_VERSION_MISMATCH'
-                                        ? "This file was made with a different version of StackLab and can't be imported."
-                                        : backupError === 'IMPORT_INVALID_FILE'
-                                        ? "This file couldn't be read — it may be corrupted or not a StackLab export."
-                                        : backupError === 'EXPORT_REQUIRES_APP_LOCK'
-                                        ? "Enable App Lock to create encrypted backups."
-                                        : backupError === 'REPLACE_REQUIRES_APP_LOCK'
-                                        ? "Enable App Lock before using Replace — your data must be encrypted before it can be overwritten."
-                                        : backupError === 'BACKUP_REENCRYPT_FAILED'
-                                        ? "Your PIN was updated, but the backup file couldn't be re-encrypted. It still uses your old PIN."
-                                        : 'Something went wrong. Please try again.'}
-                                </Text>
+                                <Text style={styles.errorText}>{backupErrorMessage()}</Text>
                             </View>
                         )}
                         <View style={styles.row}>
                             <View style={styles.rowLeft}>
                                 <Ionicons name="time-outline" size={18} color={colors.text2} />
-                                <Text style={styles.rowLabel}>Last backup</Text>
+                                <Text style={styles.rowLabel}>{t('settings.lastBackup.label')}</Text>
                             </View>
                             <Text style={styles.rowValue}>
-                                {settings.lastBackupAt ? formatDate(settings.lastBackupAt) : 'Never'}
+                                {settings.lastBackupAt ? formatDate(settings.lastBackupAt) : t('settings.lastBackup.never')}
                             </Text>
                         </View>
 
                         {/* Version */}
-                        <Text style={styles.version}>StackLab — Beta</Text>
+                        <Text style={styles.version}>{t('settings.version')}</Text>
 
                         {__DEV__ && (
                             <>
@@ -389,19 +415,17 @@ export function SettingsModal() {
         <Modal visible={showExportConfirm} transparent animationType="fade" onRequestClose={() => setShowExportConfirm(false)}>
             <Pressable style={styles.overlay} onPress={() => setShowExportConfirm(false)}>
                 <View style={styles.optionSheet}>
-                    <Text style={styles.optionTitle}>Export your data?</Text>
-                    <Text style={styles.optionSubtitle}>
-                        Your data is encrypted with your App Lock PIN before export. Only you can open it.
-                    </Text>
+                    <Text style={styles.optionTitle}>{t('settings.export.title')}</Text>
+                    <Text style={styles.optionSubtitle}>{t('settings.export.message')}</Text>
                     <Pressable style={styles.optionBtn} onPress={async () => {
                         setShowExportConfirm(false);
                         await exportData();
                     }}>
                         <Ionicons name="download-outline" size={20} color={colors.violet} />
-                        <Text style={[styles.optionBtnText, { color: colors.violet }]}>Export</Text>
+                        <Text style={[styles.optionBtnText, { color: colors.violet }]}>{t('settings.export.button')}</Text>
                     </Pressable>
                     <Pressable style={styles.optionBtn} onPress={() => setShowExportConfirm(false)}>
-                        <Text style={styles.optionBtnText}>Cancel</Text>
+                        <Text style={styles.optionBtnText}>{t('common.cancel')}</Text>
                     </Pressable>
                 </View>
             </Pressable>
@@ -419,18 +443,14 @@ export function SettingsModal() {
                 onPress={() => { setShowReplaceConfirm(false); setReplaceConfirmText(''); }}
             >
                 <View style={styles.optionSheet}>
-                    <Text style={styles.optionTitle}>Replace all data?</Text>
-                    <Text style={styles.optionSubtitle}>
-                        This permanently deletes everything currently on this device and replaces it with the
-                        imported file. Requires App Lock. Your current data is encrypted and saved automatically
-                        before anything is deleted.
-                    </Text>
+                    <Text style={styles.optionTitle}>{t('settings.replace.title')}</Text>
+                    <Text style={styles.optionSubtitle}>{t('settings.replace.message')}</Text>
                     <View style={styles.replaceInputWrap}>
                         <TextInput
                             style={styles.replaceInput}
                             value={replaceConfirmText}
                             onChangeText={setReplaceConfirmText}
-                            placeholder="Type REPLACE to confirm"
+                            placeholder={t('settings.replace.placeholder')}
                             placeholderTextColor={colors.text2}
                             autoCapitalize="characters"
                             autoCorrect={false}
@@ -442,13 +462,13 @@ export function SettingsModal() {
                         onPress={handleReplace}
                     >
                         <Ionicons name="warning-outline" size={20} color={colors.crimson} />
-                        <Text style={[styles.optionBtnText, { color: colors.crimson }]}>Replace</Text>
+                        <Text style={[styles.optionBtnText, { color: colors.crimson }]}>{t('settings.replace.button')}</Text>
                     </Pressable>
                     <Pressable
                         style={styles.optionBtn}
                         onPress={() => { setShowReplaceConfirm(false); setReplaceConfirmText(''); }}
                     >
-                        <Text style={styles.optionBtnText}>Cancel</Text>
+                        <Text style={styles.optionBtnText}>{t('common.cancel')}</Text>
                     </Pressable>
                 </View>
             </Pressable>
@@ -466,17 +486,14 @@ export function SettingsModal() {
                 onPress={() => { setShowDeleteDataConfirm(false); setDeleteDataConfirmText(''); }}
             >
                 <View style={styles.optionSheet}>
-                    <Text style={styles.optionTitle}>Delete all your data?</Text>
-                    <Text style={styles.optionSubtitle}>
-                        This permanently erases every lab, deck, item, and value snapshot on this device.
-                        This cannot be undone, and no backup is made automatically before this action.
-                    </Text>
+                    <Text style={styles.optionTitle}>{t('settings.deleteData.title')}</Text>
+                    <Text style={styles.optionSubtitle}>{t('settings.deleteData.description')}</Text>
                     <View style={styles.replaceInputWrap}>
                         <TextInput
                             style={styles.replaceInput}
                             value={deleteDataConfirmText}
                             onChangeText={setDeleteDataConfirmText}
-                            placeholder="Type DELETE to confirm"
+                            placeholder={t('settings.deleteData.placeholder')}
                             placeholderTextColor={colors.text2}
                             autoCapitalize="characters"
                             autoCorrect={false}
@@ -488,13 +505,13 @@ export function SettingsModal() {
                         onPress={handleDeleteAllData}
                     >
                         <Ionicons name="trash-outline" size={20} color={colors.crimson} />
-                        <Text style={[styles.optionBtnText, { color: colors.crimson }]}>Delete everything</Text>
+                        <Text style={[styles.optionBtnText, { color: colors.crimson }]}>{t('settings.deleteData.button')}</Text>
                     </Pressable>
                     <Pressable
                         style={styles.optionBtn}
                         onPress={() => { setShowDeleteDataConfirm(false); setDeleteDataConfirmText(''); }}
                     >
-                        <Text style={styles.optionBtnText}>Cancel</Text>
+                        <Text style={styles.optionBtnText}>{t('common.cancel')}</Text>
                     </Pressable>
                 </View>
             </Pressable>
@@ -509,32 +526,29 @@ export function SettingsModal() {
         >
             <Pressable style={styles.overlay} onPress={() => setShowDeleteBackupConfirm(false)}>
                 <View style={styles.optionSheet}>
-                    <Text style={styles.optionTitle}>Delete the backup file?</Text>
-                    <Text style={styles.optionSubtitle}>
-                        Removes the automatic backup stored on this device. Your labs, decks, and items are
-                        not affected — only the backup copy is deleted.
-                    </Text>
+                    <Text style={styles.optionTitle}>{t('settings.deleteBackup.title')}</Text>
+                    <Text style={styles.optionSubtitle}>{t('settings.deleteBackup.description')}</Text>
                     <Pressable style={styles.optionBtn} onPress={handleDeleteBackupFile}>
                         <Ionicons name="close-circle-outline" size={20} color={colors.crimson} />
-                        <Text style={[styles.optionBtnText, { color: colors.crimson }]}>Delete backup</Text>
+                        <Text style={[styles.optionBtnText, { color: colors.crimson }]}>{t('settings.deleteBackup.button')}</Text>
                     </Pressable>
                     <Pressable style={styles.optionBtn} onPress={() => setShowDeleteBackupConfirm(false)}>
-                        <Text style={styles.optionBtnText}>Cancel</Text>
+                        <Text style={styles.optionBtnText}>{t('common.cancel')}</Text>
                     </Pressable>
                 </View>
             </Pressable>
         </Modal>
 
-        {/* Info modal — shared by Replace / Delete all data / Delete backup file */}
+        {/* Info modal — shared by Replace / Delete all data / Delete backup file / Auto-wipe */}
         <Modal visible={infoModal !== null} transparent animationType="fade" onRequestClose={() => setInfoModal(null)}>
             <Pressable style={styles.overlay} onPress={() => setInfoModal(null)}>
                 <View style={styles.optionSheet}>
-                    <Text style={styles.optionTitle}>What does this do?</Text>
+                    <Text style={styles.optionTitle}>{t('settings.info.title')}</Text>
                     <Text style={styles.optionSubtitle}>
-                        {infoModal ? INFO_TEXT[infoModal as keyof typeof INFO_TEXT] : ''}
+                        {infoModal ? t(`settings.info.${infoModal}`) : ''}
                     </Text>
                     <Pressable style={styles.optionBtn} onPress={() => setInfoModal(null)}>
-                        <Text style={styles.optionBtnText}>Got it</Text>
+                        <Text style={styles.optionBtnText}>{t('settings.info.ok')}</Text>
                     </Pressable>
                 </View>
             </Pressable>
@@ -544,8 +558,8 @@ export function SettingsModal() {
         <Modal visible={showAutoWipeConfirm} transparent animationType="fade" onRequestClose={() => setShowAutoWipeConfirm(false)}>
             <Pressable style={styles.overlay} onPress={() => setShowAutoWipeConfirm(false)}>
                 <View style={styles.optionSheet}>
-                    <Text style={styles.optionTitle}>Erase after 10 failed attempts?</Text>
-                    <Text style={styles.optionSubtitle}>{INFO_TEXT.autoWipe}</Text>
+                    <Text style={styles.optionTitle}>{t('settings.enableAutoWipe.title')}</Text>
+                    <Text style={styles.optionSubtitle}>{t('settings.info.autoWipe')}</Text>
                     <Pressable
                         style={styles.optionBtn}
                         onPress={() => {
@@ -554,10 +568,10 @@ export function SettingsModal() {
                         }}
                     >
                         <Ionicons name="skull-outline" size={20} color={colors.crimson} />
-                        <Text style={[styles.optionBtnText, { color: colors.crimson }]}>Enable</Text>
+                        <Text style={[styles.optionBtnText, { color: colors.crimson }]}>{t('settings.enableAutoWipe.button')}</Text>
                     </Pressable>
                     <Pressable style={styles.optionBtn} onPress={() => setShowAutoWipeConfirm(false)}>
-                        <Text style={styles.optionBtnText}>Cancel</Text>
+                        <Text style={styles.optionBtnText}>{t('common.cancel')}</Text>
                     </Pressable>
                 </View>
             </Pressable>
@@ -572,15 +586,15 @@ export function SettingsModal() {
 
         <PinVerifyModal
             visible={showPinVerify}
-            title={pinVerifyPurpose === 'change' ? 'Enter your current PIN' : 'Confirm PIN to disable App Lock'}
+            title={pinVerifyPurpose === 'change' ? t('applock.change.currentPin') : t('settings.disableLock.pin')}
             onVerified={handlePinVerified}
             onClose={() => setShowPinVerify(false)}
         />
 
         <PinInputModal
             visible={pendingImportMode !== null}
-            title={pendingImportMode === 'replace' ? 'Enter PIN to decrypt and replace' : 'Enter PIN to decrypt import'}
-            subtitle="This backup was encrypted with a PIN. Enter it to continue."
+            title={pendingImportMode === 'replace' ? t('applock.import.titleReplace') : t('applock.import.title')}
+            subtitle={t('applock.import.hint')}
             showError={backupError === 'IMPORT_WRONG_PIN'}
             onSubmit={handleSubmitImportPin}
             onClose={cancelImport}
@@ -616,6 +630,7 @@ const styles = StyleSheet.create({
     sectionLabel: {
         fontSize: 9, letterSpacing: 2, color: colors.text2,
         fontFamily: fonts.outfitSemiBold, marginTop: 20, marginBottom: 10,
+        textTransform: 'uppercase',
     },
     chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     chip: {

@@ -1,6 +1,7 @@
 import React, { memo } from 'react';
 import { Animated, View, Text, Image, StyleSheet } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
+import { useTranslation } from 'react-i18next';
 import { useCardGestures } from '../../hooks/useCardGestures';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, fonts, fontSize, labCard } from '../../utils/theme';
@@ -34,6 +35,7 @@ function LabCardComponent({
     currency = 'USD',
     onPress,
 }: LabCardProps) {
+    const { t } = useTranslation();
     const displayValue = totalValue != null ? formatCardValue(totalValue, currency) : '—';
 
     const ozParts = [
@@ -48,10 +50,10 @@ function LabCardComponent({
     const isWishlist = lab.type === 'wishlist';
 
     const countLabel = lab.type === 'wishlist'
-        ? `${cards} wishlist item${cards !== 1 ? 's' : ''}`
+        ? t('common.items', { count: cards })
         : lab.type === 'trash'
-            ? `${cards} item${cards !== 1 ? 's' : ''}`
-            : `${cards} card${cards !== 1 ? 's' : ''} · ${units} unit${units !== 1 ? 's' : ''}`;
+            ? t('common.items', { count: cards })
+            : `${t('dashboard.cards', { count: cards })} · ${t('common.units', { count: units })}`;
 
     const { cardRef, canvasRef, canvasOpacity, gesture, animatedStyle } = useCardGestures({
         onPress,
@@ -80,7 +82,7 @@ function LabCardComponent({
 
             {isWishlist && (
                 <View style={styles.wishlistBadge}>
-                    <Text style={styles.wishlistBadgeText}>☆  WISHLIST</Text>
+                    <Text style={styles.wishlistBadgeText}>☆  {t('labs.wishlistBadge')}</Text>
                 </View>
             )}
 
@@ -154,6 +156,7 @@ const styles = StyleSheet.create({
         color: 'rgba(255,255,255,0.70)',
         fontFamily: fonts.outfitSemiBold,
         letterSpacing: 1.5,
+        textTransform: 'uppercase',
     },
     content: {
         position: 'absolute',

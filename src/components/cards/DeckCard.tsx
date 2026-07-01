@@ -1,6 +1,7 @@
 import React, { memo } from 'react';
 import { Animated, View, Text, Image, StyleSheet } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
+import { useTranslation } from 'react-i18next';
 import { useCardGestures } from '../../hooks/useCardGestures';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, fonts, fontSize, deckCard } from '../../utils/theme';
@@ -28,13 +29,14 @@ function DeckCardComponent({
     subDeckCount = 0,
     onPress,
 }: DeckCardProps) {
+    const { t } = useTranslation();
     const displayValue = totalValue != null ? formatCardValue(totalValue, currency) : '—';
     const coverSource = deck.coverPhotoUrl ? { uri: deck.coverPhotoUrl } : DECK_COVER;
 
     const { cardRef, canvasRef, canvasOpacity, gesture, animatedStyle } = useCardGestures({
         onPress,
         buildShareText: () =>
-            `${deck.name} — ${itemCount} item${itemCount !== 1 ? 's' : ''}\nTracked with StackLab`,
+            `${deck.name} — ${t('common.items', { count: itemCount })}\nTracked with StackLab`,
     });
 
     return (
@@ -62,12 +64,12 @@ function DeckCardComponent({
                     </View>
                     <View style={styles.metaRow}>
                         <Text style={styles.meta}>
-                            {itemCount} item{itemCount !== 1 ? 's' : ''}
+                            {t('common.items', { count: itemCount })}
                         </Text>
                         {subDeckCount > 0 && (
                             <View style={styles.subChip}>
                                 <Text style={styles.subChipText}>
-                                    {subDeckCount} sub-deck{subDeckCount !== 1 ? 's' : ''}
+                                    {t('deck.subDecks', { count: subDeckCount })}
                                 </Text>
                             </View>
                         )}
@@ -88,7 +90,7 @@ function DeckCardComponent({
                 />
                 <View style={styles.content}>
                     <Text style={styles.name} numberOfLines={1}>{deck.name}</Text>
-                    <Text style={styles.meta}>{itemCount} item{itemCount !== 1 ? 's' : ''}  ·  {displayValue}</Text>
+                    <Text style={styles.meta}>{t('common.items', { count: itemCount })}  ·  {displayValue}</Text>
                 </View>
             </View>
         </ShareCanvas>

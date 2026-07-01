@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { useItemStore } from '../../stores/itemStore';
 import { useLabStore } from '../../stores/labStore';
 import { colors, fonts } from '../../utils/theme';
@@ -18,6 +19,7 @@ type Props = {
 };
 
 export function TrashScreenC({ items, labName, onBack, onCancel, onDone }: Props) {
+    const { t } = useTranslation();
     const insets = useSafeAreaInsets();
     const [action, setAction] = useState<Action>(null);
     const [targetLabId, setTargetLabId] = useState<string | null>(null);
@@ -44,7 +46,7 @@ export function TrashScreenC({ items, labName, onBack, onCancel, onDone }: Props
         for (const item of items) {
             await restoreFromTrash(item.id, targetLabId, null);
             if (useItemStore.getState().error) {
-                setError('Restore failed. Please try again.');
+                setError(t('modifier.restoreFailed'));
                 setProcessing(false);
                 return;
             }
@@ -60,7 +62,7 @@ export function TrashScreenC({ items, labName, onBack, onCancel, onDone }: Props
         for (const item of items) {
             await deleteItem(item.id);
             if (useItemStore.getState().error) {
-                setError('Delete failed. Please try again.');
+                setError(t('modifier.deleteFailed'));
                 setProcessing(false);
                 return;
             }
@@ -73,10 +75,10 @@ export function TrashScreenC({ items, labName, onBack, onCancel, onDone }: Props
         <View style={styles.screen}>
             <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
                 <Text style={styles.headerTitle}>
-                    {itemCount} item{itemCount > 1 ? 's' : ''} selected
+                    {t('modifier.selected', { count: itemCount })}
                 </Text>
                 <Pressable onPress={onCancel} hitSlop={8}>
-                    <Text style={styles.cancelText}>Cancel</Text>
+                    <Text style={styles.cancelText}>{t('common.cancel')}</Text>
                 </Pressable>
             </View>
 
@@ -93,8 +95,8 @@ export function TrashScreenC({ items, labName, onBack, onCancel, onDone }: Props
                     {action !== 'restore' && (
                         <Pressable style={styles.action} onPress={() => { setAction('restore'); setTargetLabId(null); setError(null); }}>
                             <View style={styles.actionInfo}>
-                                <Text style={styles.actionTitle}>Restore</Text>
-                                <Text style={styles.actionDesc}>Move items back to a Lab</Text>
+                                <Text style={styles.actionTitle}>{t('item.actions.restore')}</Text>
+                                <Text style={styles.actionDesc}>{t('modifier.restoreDesc')}</Text>
                             </View>
                             <Ionicons name="chevron-forward" size={18} color={colors.text2} />
                         </Pressable>
@@ -102,12 +104,10 @@ export function TrashScreenC({ items, labName, onBack, onCancel, onDone }: Props
                     {action === 'restore' && (
                         <View style={styles.subSection}>
                             {isMixed ? (
-                                <Text style={styles.errorText}>
-                                    {'You can\'t restore wishlist and active items together. Select items of the same type.'}
-                                </Text>
+                                <Text style={styles.errorText}>{t('modifier.mixedError')}</Text>
                             ) : (
                                 <>
-                                    <Text style={styles.subLabel}>Choose destination Lab</Text>
+                                    <Text style={styles.subLabel}>{t('modifier.chooseDestLab')}</Text>
                                     {destinationLabs.map(l => (
                                         <Pressable
                                             key={l.id}
@@ -124,12 +124,14 @@ export function TrashScreenC({ items, labName, onBack, onCancel, onDone }: Props
                                         onPress={handleRestore}
                                         disabled={!targetLabId || processing}
                                     >
-                                        <Text style={styles.confirmBtnText}>{processing ? 'Restoring...' : 'Confirm restore'}</Text>
+                                        <Text style={styles.confirmBtnText}>
+                                            {processing ? t('modifier.restoring') : t('modifier.confirmRestore')}
+                                        </Text>
                                     </Pressable>
                                 </>
                             )}
                             <Pressable style={styles.linkBtn} onPress={() => setAction(null)}>
-                                <Text style={styles.cancelText}>Cancel</Text>
+                                <Text style={styles.cancelText}>{t('common.cancel')}</Text>
                             </Pressable>
                         </View>
                     )}
@@ -139,8 +141,8 @@ export function TrashScreenC({ items, labName, onBack, onCancel, onDone }: Props
                     {action !== 'delete' && (
                         <Pressable style={styles.action} onPress={() => { setAction('delete'); setError(null); }}>
                             <View style={styles.actionInfo}>
-                                <Text style={[styles.actionTitle, styles.red]}>Delete permanently</Text>
-                                <Text style={styles.actionDesc}>This action cannot be undone</Text>
+                                <Text style={[styles.actionTitle, styles.red]}>{t('modifier.deletePermTitle')}</Text>
+                                <Text style={styles.actionDesc}>{t('modifier.cannotUndo')}</Text>
                             </View>
                             <Ionicons name="chevron-forward" size={18} color={colors.crimson} />
                         </Pressable>
@@ -148,7 +150,10 @@ export function TrashScreenC({ items, labName, onBack, onCancel, onDone }: Props
                     {action === 'delete' && (
                         <View style={styles.subSection}>
                             <Text style={styles.deleteWarn}>
-                                {`⚠ You are about to permanently delete ${itemCount} item${itemCount > 1 ? 's' : ''} (${totalUnits} unit${totalUnits > 1 ? 's' : ''}).\nThis action cannot be undone.`}
+                                {t('modifier.deletePermWarn', {
+                                    items: t('common.items', { count: itemCount }),
+                                    units: t('common.units', { count: totalUnits }),
+                                })}
                             </Text>
                             {error !== null && <Text style={styles.errorText}>{error}</Text>}
                             <Pressable
@@ -156,10 +161,15 @@ export function TrashScreenC({ items, labName, onBack, onCancel, onDone }: Props
                                 onPress={handleDelete}
                                 disabled={processing}
                             >
-                                <Text style={styles.deleteBtnText}>{processing ? 'Deleting...' : `Delete ${itemCount} item${itemCount > 1 ? 's' : ''} permanently`}</Text>
+                                <Text style={styles.deleteBtnText}>
+                                    {processing
+                                        ? t('modifier.deleting')
+                                        : t('modifier.deletePermBtn', { count: itemCount })
+                                    }
+                                </Text>
                             </Pressable>
                             <Pressable style={styles.linkBtn} onPress={() => setAction(null)}>
-                                <Text style={styles.cancelText}>Cancel</Text>
+                                <Text style={styles.cancelText}>{t('common.cancel')}</Text>
                             </Pressable>
                         </View>
                     )}
@@ -167,7 +177,7 @@ export function TrashScreenC({ items, labName, onBack, onCancel, onDone }: Props
 
                 <Pressable style={styles.backSelection} onPress={onBack}>
                     <Ionicons name="arrow-back" size={16} color={colors.text2} />
-                    <Text style={styles.cancelText}> Edit selection</Text>
+                    <Text style={styles.cancelText}> {t('modifier.editSelection')}</Text>
                 </Pressable>
             </ScrollView>
         </View>

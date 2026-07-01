@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, Pressable, FlatList, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { colors, fonts, metalTokens } from '../../utils/theme';
 import type { Item } from '../../types/item.types';
 
@@ -16,6 +17,7 @@ type Props = {
 };
 
 export function ModifierScreenB({ items, labName, deckName, selectedIds, onSelectionChange, onContinue, onCancel }: Props) {
+    const { t } = useTranslation();
     const insets = useSafeAreaInsets();
     const totalUnits = items.reduce((s, i) => s + i.quantity, 0);
     const selCount = selectedIds.length;
@@ -47,7 +49,10 @@ export function ModifierScreenB({ items, labName, deckName, selectedIds, onSelec
                 <View style={styles.rowInfo}>
                     <Text style={styles.rowName} numberOfLines={1}>{item.name}</Text>
                     <Text style={styles.rowMeta}>
-                        {isWishlist ? `Wishlist · ×${item.quantity}` : `${item.metal.toUpperCase()} · ×${item.quantity}`}
+                        {isWishlist
+                            ? `${t('item.status.wishlist')} · ×${item.quantity}`
+                            : `${t(`item.metal.${item.metal}`)} · ×${item.quantity}`
+                        }
                     </Text>
                 </View>
                 <Ionicons
@@ -62,14 +67,16 @@ export function ModifierScreenB({ items, labName, deckName, selectedIds, onSelec
     return (
         <View style={styles.screen}>
             <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-                <Text style={styles.headerTitle}>Select items</Text>
+                <Text style={styles.headerTitle}>{t('modifier.selectItems')}</Text>
                 <Pressable onPress={onCancel} hitSlop={8}>
-                    <Text style={styles.cancelText}>Cancel</Text>
+                    <Text style={styles.cancelText}>{t('common.cancel')}</Text>
                 </Pressable>
             </View>
 
             <Text style={styles.breadcrumb}>{labName}{deckName ? ` › ${deckName}` : ''}</Text>
-            <Text style={styles.subtitle}>{items.length} items · {totalUnits} units total</Text>
+            <Text style={styles.subtitle}>
+                {t('common.items', { count: items.length })} · {t('common.units', { count: totalUnits })} {t('common.total')}
+            </Text>
 
             <FlatList
                 data={items}
@@ -79,7 +86,7 @@ export function ModifierScreenB({ items, labName, deckName, selectedIds, onSelec
                 showsVerticalScrollIndicator={false}
                 ListEmptyComponent={
                     <View style={styles.empty}>
-                        <Text style={styles.emptyText}>No items in this location</Text>
+                        <Text style={styles.emptyText}>{t('modifier.noItems')}</Text>
                     </View>
                 }
             />
@@ -87,8 +94,8 @@ export function ModifierScreenB({ items, labName, deckName, selectedIds, onSelec
             <View style={styles.footer}>
                 <Text style={styles.count}>
                     {selCount === 0
-                        ? 'No items selected'
-                        : `${selCount} item${selCount > 1 ? 's' : ''} selected`
+                        ? t('modifier.noneSelected')
+                        : t('modifier.selected', { count: selCount })
                     }
                 </Text>
                 <Pressable
@@ -96,7 +103,7 @@ export function ModifierScreenB({ items, labName, deckName, selectedIds, onSelec
                     onPress={onContinue}
                     disabled={selCount === 0}
                 >
-                    <Text style={styles.continueBtnText}>Continue →</Text>
+                    <Text style={styles.continueBtnText}>{t('modifier.continue')}</Text>
                 </Pressable>
             </View>
         </View>

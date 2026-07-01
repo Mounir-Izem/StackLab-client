@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useItemStore } from '../../stores/itemStore';
 import { colors, fonts } from '../../utils/theme';
 import type { Item } from '../../types/item.types';
@@ -18,6 +19,7 @@ type Props = {
 };
 
 export function ModifierScreenC({ items, labName, deckName, isWishlistLab = false, onSell, onBack, onCancel, onDone }: Props) {
+    const { t } = useTranslation();
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -34,7 +36,7 @@ export function ModifierScreenC({ items, labName, deckName, isWishlistLab = fals
         for (const item of items) {
             await deleteItem(item.id);
             if (useItemStore.getState().error) {
-                setDeleteError(`${moved} of ${items.length} items moved to Trash. Please retry the rest.`);
+                setDeleteError(t('modifier.partialMoveError', { moved, total: items.length }));
                 setDeleting(false);
                 return;
             }
@@ -48,10 +50,10 @@ return (
     <View style={styles.screen}>
         <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
             <Text style={styles.headerTitle}>
-                {itemCount} item{itemCount > 1 ? 's' : ''} selected
+                {t('modifier.selected', { count: itemCount })}
             </Text>
             <Pressable onPress={onCancel} hitSlop={8}>
-                <Text style={styles.cancelText}>Cancel</Text>
+                <Text style={styles.cancelText}>{t('common.cancel')}</Text>
             </Pressable>
         </View>
 
@@ -68,16 +70,16 @@ return (
                 {isWishlistLab ? (
                     <View style={[styles.action, styles.actionDisabled]}>
                         <View style={styles.actionInfo}>
-                            <Text style={[styles.actionTitle, styles.muted]}>Acquire</Text>
-                            <Text style={styles.actionDesc}>Move to My Stack as purchased</Text>
+                            <Text style={[styles.actionTitle, styles.muted]}>{t('modifier.acquire')}</Text>
+                            <Text style={styles.actionDesc}>{t('modifier.acquireDesc')}</Text>
                         </View>
-                        <View style={styles.soonBadge}><Text style={styles.soonText}>Soon</Text></View>
+                        <View style={styles.soonBadge}><Text style={styles.soonText}>{t('modifier.soon')}</Text></View>
                     </View>
                 ) : (
                     <Pressable style={styles.action} onPress={onSell}>
                         <View style={styles.actionInfo}>
-                            <Text style={styles.actionTitle}>Sell</Text>
-                            <Text style={styles.actionDesc}>Set quantity and sale price</Text>
+                            <Text style={styles.actionTitle}>{t('sell.title')}</Text>
+                            <Text style={styles.actionDesc}>{t('modifier.sellDesc')}</Text>
                         </View>
                         <Ionicons name="chevron-forward" size={18} color={colors.text2} />
                     </Pressable>
@@ -87,13 +89,13 @@ return (
                     <View key={id} style={[styles.action, styles.actionDisabled]}>
                         <View style={styles.actionInfo}>
                             <Text style={[styles.actionTitle, styles.muted]}>
-                                {id === 'move' ? 'Move' : id === 'editField' ? 'Edit a field' : 'Reassign years'}
+                                {id === 'move' ? t('modifier.moveTitle') : id === 'editField' ? t('modifier.editField') : t('modifier.reassign')}
                             </Text>
                             <Text style={styles.actionDesc}>
-                                {id === 'move' ? 'Choose another Lab or Deck' : id === 'editField' ? 'Strike finish, weight, purity...' : 'Redistribute units by year'}
+                                {id === 'move' ? t('modifier.moveDesc') : id === 'editField' ? t('modifier.editFieldDesc') : t('modifier.reassignDesc')}
                             </Text>
                         </View>
-                        <View style={styles.soonBadge}><Text style={styles.soonText}>Soon</Text></View>
+                        <View style={styles.soonBadge}><Text style={styles.soonText}>{t('modifier.soon')}</Text></View>
                     </View>
                 ))}
 
@@ -101,11 +103,9 @@ return (
                     <Pressable style={styles.action} onPress={() => setShowDeleteConfirm(true)}>
                         <View style={styles.actionInfo}>
                             <Text style={[styles.actionTitle, styles.red]}>
-                                {isWishlistLab ? 'Remove from Wishlist' : 'Delete'}
+                                {isWishlistLab ? t('modifier.removeWishlist') : t('common.delete')}
                             </Text>
-                            <Text style={styles.actionDesc}>
-                                {isWishlistLab ? 'Move to Trash' : 'Move to Trash'}
-                            </Text>
+                            <Text style={styles.actionDesc}>{t('item.actions.moveToTrash')}</Text>
                         </View>
                         <Ionicons name="chevron-forward" size={18} color={colors.crimson} />
                     </Pressable>
@@ -115,7 +115,10 @@ return (
             {showDeleteConfirm && (
                 <View style={styles.deleteConfirm}>
                     <Text style={styles.deleteWarn}>
-                        {`⚠ You are about to move ${itemCount} item${itemCount > 1 ? 's' : ''} (${totalUnits} unit${totalUnits > 1 ? 's' : ''}) to Trash.`}
+                        {t('modifier.moveToTrashWarning', {
+                            items: t('common.items', { count: itemCount }),
+                            units: t('common.units', { count: totalUnits }),
+                        })}
                     </Text>
                     {deleteError !== null && <Text style={styles.errorText}>{deleteError}</Text>}
                     <Pressable
@@ -124,18 +127,18 @@ return (
                         disabled={deleting}
                     >
                         <Text style={styles.deleteBtnText}>
-                            {deleting ? 'Moving...' : 'Move to Trash'}
+                            {deleting ? t('modifier.deleting') : t('item.actions.moveToTrash')}
                         </Text>
                     </Pressable>
                     <Pressable style={styles.cancelConfirmBtn} onPress={() => setShowDeleteConfirm(false)}>
-                        <Text style={styles.cancelText}>Cancel</Text>
+                        <Text style={styles.cancelText}>{t('common.cancel')}</Text>
                     </Pressable>
                 </View>
             )}
 
             <Pressable style={styles.backSelection} onPress={onBack}>
                 <Ionicons name="arrow-back" size={16} color={colors.text2} />
-                <Text style={styles.cancelText}> Edit selection</Text>
+                <Text style={styles.cancelText}> {t('modifier.editSelection')}</Text>
             </Pressable>
         </ScrollView>
     </View>

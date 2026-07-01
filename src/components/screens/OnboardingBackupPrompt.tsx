@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, Pressable, StyleSheet, Platform, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { triggerSuccess } from '../../utils/haptics';
 import { colors, fonts } from '../../utils/theme';
@@ -12,6 +13,7 @@ type Props = OnboardingStackScreenProps<'OnboardingBackupPrompt'>;
 const CLOUD_NAME = Platform.OS === 'ios' ? 'iCloud' : 'Google Drive';
 
 export function OnboardingBackupPrompt(_props: Props) {
+    const { t } = useTranslation();
     const updateSettings = useSettingsStore(s => s.updateSettings);
     const [confirmed, setConfirmed] = useState(false);
 
@@ -43,22 +45,27 @@ export function OnboardingBackupPrompt(_props: Props) {
                     color={colors.violet}
                     style={styles.icon}
                 />
-                <Text style={styles.heading}>{confirmed ? 'Got it' : 'Protect your stack'}</Text>
+                <Text style={styles.heading}>
+                    {confirmed ? t('onboarding.backup.gotIt') : t('onboarding.backup.title')}
+                </Text>
                 {!confirmed && (
-                    <Text style={styles.sub}>
-                        We'll automatically save a backup to your {CLOUD_NAME} — nothing leaves your
-                        phone except to your own {CLOUD_NAME}.{'\n\n'}You can turn this on or off
-                        anytime in Settings.
-                    </Text>
+                    <>
+                        <Text style={styles.sub}>
+                            {t('onboarding.backup.subtitle', { cloud: CLOUD_NAME })}
+                        </Text>
+                        <Text style={[styles.sub, styles.hint]}>
+                            {t('onboarding.backup.hint')}
+                        </Text>
+                    </>
                 )}
             </View>
             {!confirmed && (
                 <View style={styles.actions}>
                     <Pressable style={styles.primary} onPress={handleEnable}>
-                        <Text style={styles.primaryText}>Enable auto-backup</Text>
+                        <Text style={styles.primaryText}>{t('onboarding.backup.enable')}</Text>
                     </Pressable>
                     <Pressable onPress={handleManual} hitSlop={8}>
-                        <Text style={styles.skip}>I'll export manually</Text>
+                        <Text style={styles.skip}>{t('onboarding.backup.manual')}</Text>
                     </Pressable>
                 </View>
             )}
@@ -88,6 +95,10 @@ const styles = StyleSheet.create({
         color: colors.text2,
         textAlign: 'center',
         lineHeight: 22,
+    },
+    hint: {
+        marginTop: 14,
+        fontSize: 13,
     },
     actions: {
         paddingHorizontal: 24,

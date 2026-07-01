@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, Pressable, ScrollView, TextInput, StyleSheet, Modal } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useItemStore } from '../../stores/itemStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { colors, fonts, metalTokens } from '../../utils/theme';
@@ -20,6 +21,7 @@ type Props = {
 };
 
 export function ModifierScreenD({ items, labName, deckName, onBack, onDone }: Props) {
+    const { t } = useTranslation();
     const [rows, setRows] = useState<SellRow[]>(() =>
         items.map(i => ({ itemId: i.id, qty: 0, price: '', perUnit: true }))
     );
@@ -59,7 +61,7 @@ export function ModifierScreenD({ items, labName, deckName, onBack, onDone }: Pr
             }));
         await sellManyItems(sells);
         if (useItemStore.getState().error) {
-            setError('Sale failed. Please try again.');
+            setError(t('modifier.saleFailed'));
             setSubmitting(false);
             return;
         }
@@ -77,12 +79,12 @@ export function ModifierScreenD({ items, labName, deckName, onBack, onDone }: Pr
                 <Pressable onPress={onBack} hitSlop={8}>
                     <Ionicons name="arrow-back" size={22} color={colors.text} />
                 </Pressable>
-                <Text style={styles.headerTitle}>Sell</Text>
+                <Text style={styles.headerTitle}>{t('sell.title')}</Text>
                 <View style={styles.placeholder} />
             </View>
 
             <Text style={styles.breadcrumb}>{labName}{deckName ? ` › ${deckName}` : ''}</Text>
-            <Text style={styles.subtitle}>{'Set the quantity to sell. Remaining units will stay active.'}</Text>
+            <Text style={styles.subtitle}>{t('modifier.sellSubtitle')}</Text>
 
             <ScrollView
                 contentContainerStyle={styles.content}
@@ -100,12 +102,12 @@ export function ModifierScreenD({ items, labName, deckName, onBack, onDone }: Pr
                                 </View>
                                 <View>
                                     <Text style={styles.cardName}>{item.name}</Text>
-                                    <Text style={styles.cardAvail}>× {item.quantity} available</Text>
+                                    <Text style={styles.cardAvail}>{t('modifier.availableCount', { count: item.quantity })}</Text>
                                 </View>
                             </View>
 
                             <View style={styles.section}>
-                                <Text style={styles.sectionLabel}>Sell</Text>
+                                <Text style={styles.sectionLabel}>{t('sell.title')}</Text>
                                 <View style={styles.qtyRow}>
                                     <Pressable
                                         style={styles.qtyBtn}
@@ -118,7 +120,7 @@ export function ModifierScreenD({ items, labName, deckName, onBack, onDone }: Pr
                                         style={styles.qtyInput}
                                         value={String(row.qty)}
                                         keyboardType="number-pad"
-                                        onChangeText={t => setQty(item.id, t)}
+                                        onChangeText={val => setQty(item.id, val)}
                                         selectTextOnFocus
                                     />
                                     <Pressable
@@ -133,14 +135,14 @@ export function ModifierScreenD({ items, labName, deckName, onBack, onDone }: Pr
                             </View>
 
                             <View style={styles.section}>
-                                <Text style={styles.sectionLabel}>Sale price (optional)</Text>
+                                <Text style={styles.sectionLabel}>{t('item.salePriceLabel')}</Text>
                                 <View style={styles.priceRow}>
                                     <TextInput
                                         style={styles.priceInput}
                                         placeholder="0.00"
                                         placeholderTextColor={colors.text2}
                                         value={row.price}
-                                        onChangeText={t => updateRow(item.id, { price: t })}
+                                        onChangeText={val => updateRow(item.id, { price: val })}
                                         keyboardType="decimal-pad"
                                     />
                                     <Pressable onPress={() => setShowCurrencyPicker(true)} style={styles.currencyBtn}>
@@ -151,7 +153,7 @@ export function ModifierScreenD({ items, labName, deckName, onBack, onDone }: Pr
                                         style={styles.perUnitBtn}
                                         onPress={() => updateRow(item.id, { perUnit: !row.perUnit })}
                                     >
-                                        <Text style={styles.perUnitText}>{row.perUnit ? 'Per unit' : 'Per lot'} ▾</Text>
+                                        <Text style={styles.perUnitText}>{row.perUnit ? t('item.purchasePerUnit') : t('item.perLot')} ▾</Text>
                                     </Pressable>
                                 </View>
                             </View>
@@ -162,8 +164,11 @@ export function ModifierScreenD({ items, labName, deckName, onBack, onDone }: Pr
                 <View style={styles.summary}>
                     <Text style={styles.summaryText}>
                         {totalToSell === 0
-                            ? 'No sale configured.'
-                            : `Sale: ${totalToSell} unit${totalToSell > 1 ? 's' : ''} out of ${totalSelected} selected.`
+                            ? t('modifier.noSale')
+                            : t('modifier.saleInfo', {
+                                sell: t('common.units', { count: totalToSell }),
+                                total: totalSelected,
+                            })
                         }
                     </Text>
                 </View>
@@ -178,17 +183,17 @@ export function ModifierScreenD({ items, labName, deckName, onBack, onDone }: Pr
                     disabled={submitting || totalToSell === 0}
                 >
                     <Text style={styles.confirmBtnText}>
-                        {submitting ? 'Processing...' : 'Confirm sale'}
+                        {submitting ? t('modifier.processing') : t('sell.confirm')}
                     </Text>
                 </Pressable>
                 <Pressable style={styles.backBtn} onPress={onBack} disabled={submitting}>
-                    <Text style={styles.backBtnText}>← Back</Text>
+                    <Text style={styles.backBtnText}>{t('modifier.back')}</Text>
                 </Pressable>
             </View>
             <Modal visible={showCurrencyPicker} transparent animationType="fade" onRequestClose={() => setShowCurrencyPicker(false)}>
                 <Pressable style={styles.overlay} onPress={() => setShowCurrencyPicker(false)}>
                     <View style={styles.pickerSheet}>
-                        <Text style={styles.pickerTitle}>Sale currency</Text>
+                        <Text style={styles.pickerTitle}>{t('item.saleCurrencyLabel')}</Text>
                         <View style={styles.pickerChips}>
                             {(['USD', 'EUR', 'GBP', 'CAD', 'AUD'] as Currency[]).map(c => (
                                 <Pressable
