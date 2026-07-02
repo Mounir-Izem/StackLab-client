@@ -91,6 +91,7 @@ const SettingsExportSchema = z.object({
     subscriptionExpiry: z.string().nullable(),
     onboardingCompleted: z.boolean(),
     onboardingStep: z.union([z.literal(0), z.literal(1)]),
+    language: z.enum(['system', 'en', 'fr']).default('system'),
     updatedAt: z.string().min(1),
 });
 

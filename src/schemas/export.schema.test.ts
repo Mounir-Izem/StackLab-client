@@ -89,6 +89,7 @@ const makeSettings = () => ({
     subscriptionExpiry: null,
     onboardingCompleted: true,
     onboardingStep: 1 as const,
+    language: 'system' as const,
     updatedAt: '2026-01-01T00:00:00.000Z',
 });
 
@@ -120,6 +121,26 @@ describe('ExportSchema — structure de base', () => {
     });
     test('schema_version = 0 → rejeté', () => {
         expect(() => ExportSchema.parse({ ...makeValidExport(), schema_version: 0 })).toThrow();
+    });
+});
+
+describe('ExportSchema — settings.language', () => {
+    test('language system → accepté', () => {
+        expect(() => ExportSchema.parse({ ...makeValidExport(), settings: { ...makeSettings(), language: 'system' } })).not.toThrow();
+    });
+    test('language en → accepté', () => {
+        expect(() => ExportSchema.parse({ ...makeValidExport(), settings: { ...makeSettings(), language: 'en' } })).not.toThrow();
+    });
+    test('language fr → accepté', () => {
+        expect(() => ExportSchema.parse({ ...makeValidExport(), settings: { ...makeSettings(), language: 'fr' } })).not.toThrow();
+    });
+    test('language invalide → rejeté', () => {
+        expect(() => ExportSchema.parse({ ...makeValidExport(), settings: { ...makeSettings(), language: 'de' } })).toThrow();
+    });
+    test('language absent → accepté, normalisé à system (rétrocompatibilité anciens exports)', () => {
+        const { language: _l, ...rest } = makeSettings();
+        const result = ExportSchema.parse({ ...makeValidExport(), settings: rest });
+        expect(result.settings.language).toBe('system');
     });
 });
 

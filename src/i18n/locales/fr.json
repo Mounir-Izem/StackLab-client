@@ -351,6 +351,8 @@
     "priceHeading": "Prix",
     "observedPriceLabel": "Prix observé pour cet objet",
     "paidPriceLabel": "Prix payé pour cet objet",
+    "totalForItems": "Total pour {{count}} articles : {{amount}}",
+    "averagePerItem": "Moyenne par article : {{amount}}",
     "creationFailed": "La création a échoué. Veuillez réessayer.",
     "creationFailedRows": "La création a échoué sur une ou plusieurs lignes. Veuillez réessayer.",
     "updateFailed": "La mise à jour a échoué. Veuillez réessayer.",

@@ -397,9 +397,23 @@ describe('itemService.acquire', () => {
 
         await itemService.acquire('item-uuid-1', 3, 'lab-2', null, 39, 'USD', false);
 
-        expect(mockRepo.update).toHaveBeenCalledWith('item-uuid-1', { quantity: 5, purchasePrice: null });
+        expect(mockRepo.update).toHaveBeenCalledWith('item-uuid-1', { quantity: 5, purchasePrice: null, observedPrice: null });
         const created = mockRepo.create.mock.calls[0][0];
         expect(created.purchasePrice).toBe(39);
+        expect(created.status).toBe('active');
+    });
+
+    test('acquisition partielle avec observedPrice → prorata sur la part Wishlist restante', async () => {
+        mockRepo.findById.mockResolvedValue(makeItem({ status: 'wishlist', quantity: 8, purchasePrice: null, observedPrice: 104 }));
+        mockRepo.update.mockResolvedValue(makeItem({ quantity: 5 }));
+        mockRepo.create.mockResolvedValue(makeItem({ quantity: 3, status: 'active' }));
+
+        await itemService.acquire('item-uuid-1', 3, 'lab-2', null, 39, 'USD', false);
+
+        // ×8 observedPrice 104 → acquire ×3 → remaining ×5 observedPrice 65
+        expect(mockRepo.update).toHaveBeenCalledWith('item-uuid-1', { quantity: 5, purchasePrice: null, observedPrice: 65 });
+        const created = mockRepo.create.mock.calls[0][0];
+        expect(created.observedPrice).toBeNull();
         expect(created.status).toBe('active');
     });
 

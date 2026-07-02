@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { colors, fonts } from '../../utils/theme';
 
 type Props = {
@@ -16,6 +17,7 @@ type Props = {
 export function PurchasePriceField({
     quantity, priceText, onPriceTextChange, isPerUnit, onIsPerUnitChange, label,
 }: Props) {
+    const { t } = useTranslation();
     const parsed = parseFloat(priceText.replace(',', '.'));
     const hasValue = priceText.trim() !== '' && !isNaN(parsed);
 
@@ -27,7 +29,7 @@ export function PurchasePriceField({
                     value={priceText}
                     onChangeText={onPriceTextChange}
                     keyboardType="decimal-pad"
-                    placeholder={label ?? 'Price paid for this item'}
+                    placeholder={label ?? t('create.paidPriceLabel')}
                     placeholderTextColor={colors.text3}
                 />
             </View>
@@ -44,13 +46,13 @@ export function PurchasePriceField({
                     style={[styles.toggleBtn, !isPerUnit && styles.toggleBtnActive]}
                     onPress={() => onIsPerUnitChange(false)}
                 >
-                    <Text style={[styles.toggleText, !isPerUnit && styles.toggleTextActive]}>Total lot</Text>
+                    <Text style={[styles.toggleText, !isPerUnit && styles.toggleTextActive]}>{t('item.totalLot')}</Text>
                 </Pressable>
                 <Pressable
                     style={[styles.toggleBtn, isPerUnit && styles.toggleBtnActive]}
                     onPress={() => onIsPerUnitChange(true)}
                 >
-                    <Text style={[styles.toggleText, isPerUnit && styles.toggleTextActive]}>Per unit</Text>
+                    <Text style={[styles.toggleText, isPerUnit && styles.toggleTextActive]}>{t('item.purchasePerUnit')}</Text>
                 </Pressable>
             </View>
             <TextInput
@@ -64,8 +66,8 @@ export function PurchasePriceField({
             {hasValue && (
                 <Text style={styles.hint}>
                     {isPerUnit
-                        ? `Total for ${quantity} items: ${total!.toFixed(2)}`
-                        : `Average per item: ${perUnit!.toFixed(2)}`}
+                        ? t('create.totalForItems', { count: quantity, amount: total!.toFixed(2) })
+                        : t('create.averagePerItem', { amount: perUnit!.toFixed(2) })}
                 </Text>
             )}
         </View>

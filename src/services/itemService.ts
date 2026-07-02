@@ -328,10 +328,12 @@ export const itemService = {
         }
 
         const { createdAt: _c, updatedAt: _u, ...base } = item;
+        // Prorata observedPrice pour la part Wishlist restante (même logique que purchasePrice).
+        const { remaining: remainingObservedPrice } = proratePurchasePrice(item.observedPrice, qty, item.quantity);
         await withTransaction(async () => {
             // La part qui reste en Wishlist n'est pas encore achetée : elle ne doit
             // jamais hériter d'un purchasePrice, même si le row source en avait un.
-            await itemRepository.update(id, { quantity: item.quantity - qty, purchasePrice: null });
+            await itemRepository.update(id, { quantity: item.quantity - qty, purchasePrice: null, observedPrice: remainingObservedPrice });
             await itemRepository.create({
                 ...base,
                 id: generateUUID(),
