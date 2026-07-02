@@ -1,9 +1,12 @@
-import React, { memo } from 'react';
+import React, { memo, useEffect, useRef, useState } from 'react';
 import { Animated, View, Text, Image, StyleSheet } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { useTranslation } from 'react-i18next';
 import { useCardGestures } from '../../hooks/useCardGestures';
+import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { ShareCanvas } from './ShareCanvas';
+import { ContextMenu } from '../ui/ContextMenu';
+import type { ContextMenuAction } from '../ui/ContextMenu';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -21,12 +24,54 @@ type ItemCardProps = {
     currency?: string;
     weightUnit?: WeightUnit;
     onPress?: () => void;
+    isNew?: boolean;
+    onNewAnimationEnd?: () => void;
+    menuActions?: ContextMenuAction[];
+    noAutoShare?: boolean;
 };
 
-function ItemCardComponent({ item, meltValue, currency = 'USD', weightUnit = 'oz', onPress }: ItemCardProps) {
+function ItemCardComponent({
+    item, meltValue, currency = 'USD', weightUnit = 'oz', onPress,
+    isNew = false, onNewAnimationEnd, menuActions = [], noAutoShare = false,
+}: ItemCardProps) {
     const { t } = useTranslation();
     const metal = metalTokens[item.metal];
     const { rates } = useSpotStore();
+    const reduceMotion = useReducedMotion();
+
+    const [menuVisible, setMenuVisible] = useState(false);
+
+    // Entry animation — outer wrapper (translateY + scale)
+    const entryTranslateY = useRef(new Animated.Value(0)).current;
+    const entryScale = useRef(new Animated.Value(1)).current;
+    // Glow burst — inside the card
+    const glowBurstOpacity = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+        if (!isNew || reduceMotion) {
+            entryTranslateY.setValue(0);
+            entryScale.setValue(1);
+            glowBurstOpacity.setValue(0);
+            onNewAnimationEnd?.();
+            return;
+        }
+        entryTranslateY.setValue(40);
+        entryScale.setValue(0.8);
+        glowBurstOpacity.setValue(0);
+
+        Animated.parallel([
+            Animated.spring(entryTranslateY, { toValue: 0, useNativeDriver: true, speed: 14, bounciness: 4 }),
+            Animated.sequence([
+                Animated.spring(entryScale, { toValue: 1.05, useNativeDriver: true, speed: 12, bounciness: 0 }),
+                Animated.spring(entryScale, { toValue: 1.0, useNativeDriver: true, speed: 20, bounciness: 0 }),
+            ]),
+            Animated.sequence([
+                Animated.timing(glowBurstOpacity, { toValue: 0.6, duration: 150, useNativeDriver: true }),
+                Animated.timing(glowBurstOpacity, { toValue: 0, duration: 300, useNativeDriver: true }),
+            ]),
+        ]).start(() => { onNewAnimationEnd?.(); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isNew]);
 
     const strikeLabel = item.strikeFinish && item.strikeFinish !== 'unknown'
         ? formatStrikeLabel(item.strikeFinish) : null;
@@ -65,14 +110,27 @@ function ItemCardComponent({ item, meltValue, currency = 'USD', weightUnit = 'oz
     const isSold = item.status === 'sold';
     const isWishlist = item.status === 'wishlist';
 
-    const { cardRef, canvasRef, canvasOpacity, gesture, animatedStyle } = useCardGestures({
+    const { cardRef, canvasRef, canvasOpacity, gesture, animatedStyle, glowAnim, handleShare } = useCardGestures({
         onPress,
+        onLongPress: menuActions.length > 0 ? () => setMenuVisible(true) : undefined,
         buildShareText: () =>
             `My ${item.name}${item.year ? ` ${item.year}` : ''} — ${item.quantity}×${item.weightOz.toFixed(2)}oz ${item.metal}\nTracked with StackLab`,
+        glowColor: metal.color,
+        reduceMotion,
     });
+
+    // Share injecté automatiquement entre les actions non-destructives et destructives
+    const shareAction: ContextMenuAction = { label: t('item.actions.share'), icon: 'share-outline', onPress: handleShare };
+    const effectiveMenuActions: ContextMenuAction[] = (menuActions.length > 0 && !noAutoShare) ? [
+        ...menuActions.filter(a => !a.destructive),
+        shareAction,
+        ...menuActions.filter(a => a.destructive),
+    ] : menuActions;
 
     return (
         <View>
+        {/* Entry animation wrapper — translateY + scale séparés de l'animation tap */}
+        <Animated.View style={{ transform: [{ translateY: entryTranslateY }, { scale: entryScale }] }}>
         <GestureDetector gesture={gesture}>
         <Animated.View
             ref={cardRef as any}
@@ -88,7 +146,6 @@ function ItemCardComponent({ item, meltValue, currency = 'USD', weightUnit = 'oz
                 end={{ x: 0.9, y: 1 }}
                 style={StyleSheet.absoluteFill}
             />
-            {/* Shimmer directionnel — source lumière haut-gauche */}
             <LinearGradient
                 colors={['rgba(255,255,255,0.22)', 'rgba(255,255,255,0.06)', 'transparent']}
                 locations={[0, 0.28, 0.65]}
@@ -96,7 +153,6 @@ function ItemCardComponent({ item, meltValue, currency = 'USD', weightUnit = 'oz
                 end={{ x: 1, y: 0.9 }}
                 style={StyleSheet.absoluteFill}
             />
-            {/* Vignette coins */}
             <LinearGradient
                 colors={['rgba(0,0,0,0.22)', 'transparent', 'rgba(0,0,0,0.32)']}
                 locations={[0, 0.45, 1]}
@@ -106,6 +162,18 @@ function ItemCardComponent({ item, meltValue, currency = 'USD', weightUnit = 'oz
             />
 
             {/* ── SKIN LAYER — null MVP ── */}
+
+            {/* Glow tap overlay */}
+            <Animated.View
+                pointerEvents="none"
+                style={[StyleSheet.absoluteFill, { backgroundColor: metal.color, opacity: glowAnim }]}
+            />
+
+            {/* Glow burst entrée */}
+            <Animated.View
+                pointerEvents="none"
+                style={[StyleSheet.absoluteFill, { backgroundColor: metal.color, opacity: glowBurstOpacity }]}
+            />
 
             {/* ── CONTENT LAYER ── */}
             <View style={[styles.innerFrame, { borderColor: metal.frameBorder }]} pointerEvents="none" />
@@ -170,6 +238,8 @@ function ItemCardComponent({ item, meltValue, currency = 'USD', weightUnit = 'oz
             </View>
         </Animated.View>
         </GestureDetector>
+        </Animated.View>
+
         <ShareCanvas canvasRef={canvasRef} opacity={canvasOpacity}>
             <View style={styles.scCardWrap}>
                 <LinearGradient colors={metal.gradient} start={{ x: 0.1, y: 0 }} end={{ x: 0.9, y: 1 }} style={StyleSheet.absoluteFill} />
@@ -216,6 +286,12 @@ function ItemCardComponent({ item, meltValue, currency = 'USD', weightUnit = 'oz
                 </View>
             </View>
         </ShareCanvas>
+
+        <ContextMenu
+            visible={menuVisible}
+            actions={effectiveMenuActions}
+            onClose={() => setMenuVisible(false)}
+        />
         </View>
     );
 }

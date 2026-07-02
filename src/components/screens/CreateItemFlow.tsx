@@ -5,6 +5,8 @@ import { useTranslation } from 'react-i18next';
 import { useItemStore } from '../../stores/itemStore';
 import { useLabStore } from '../../stores/labStore';
 import { triggerSuccess } from '../../utils/haptics';
+import { animationState } from '../../utils/animationState';
+import { playCreationSound } from '../../utils/sound';
 import { colors, fonts } from '../../utils/theme';
 import { CreateItemStep1 } from './CreateItemStep1';
 import { CreateItemStep2 } from './CreateItemStep2';
@@ -137,7 +139,10 @@ export function CreateItemFlow({ route, navigation }: Props) {
                     setSubmitError(t('create.creationFailed'));
                     return;
                 }
+                const newId = useItemStore.getState().items.at(-1)?.id ?? null;
+                if (newId) animationState.lastCreatedItemId = newId;
             } else {
+                let lastId: string | null = null;
                 for (const row of state.rows) {
                     await createItem({
                         ...base,
@@ -149,9 +154,12 @@ export function CreateItemFlow({ route, navigation }: Props) {
                         setSubmitError(t('create.creationFailedRows'));
                         return;
                     }
+                    lastId = useItemStore.getState().items.at(-1)?.id ?? null;
                 }
+                if (lastId) animationState.lastCreatedItemId = lastId;
             }
             triggerSuccess();
+            void playCreationSound(state.metal as 'gold' | 'silver');
             navigation.goBack();
         } catch {
             setSubmitError(t('create.unexpectedError'));

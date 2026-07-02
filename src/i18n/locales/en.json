@@ -266,7 +266,8 @@
       "remove": "Remove",
       "deleteForever": "Delete forever",
       "extract": "Extract",
-      "moveToTrash": "Move to Trash"
+      "moveToTrash": "Move to Trash",
+      "share": "Share"
     },
     "empty": {
       "title": "No items yet",

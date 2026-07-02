@@ -3,6 +3,7 @@ import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import {
     View, Text, FlatList, Pressable,
     StyleSheet, ActivityIndicator, Modal,
+    LayoutAnimation, UIManager, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -12,9 +13,12 @@ import { useItemStore } from '../../stores/itemStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useSpotStore } from '../../stores/spotStore';
 import { convertSpotPrice, calcFineWeightOz, calcMeltValue } from '../../utils/calculations';
+import { animationState } from '../../utils/animationState';
 import { DeckCard } from '../cards/DeckCard';
 import { ItemCard } from '../cards/ItemCard';
+import { MoveItemModal } from '../modals/MoveItemModal';
 import { colors, fonts, card } from '../../utils/theme';
+import type { ContextMenuAction } from '../ui/ContextMenu';
 import type { LabsStackScreenProps } from '../../navigation/types';
 import type { Item } from '../../types/item.types';
 
@@ -25,8 +29,8 @@ export function DeckDetail({ route, navigation }: Props) {
     const { deckId, labId } = route.params;
 
     const { labs } = useLabStore();
-    const { decks, loadDecks, isLoading: isLoadingDecks, currentLabId } = useDeckStore();
-    const { items, loadItems } = useItemStore();
+    const { decks, loadDecks, isLoading: isLoadingDecks, currentLabId, deleteDeck } = useDeckStore();
+    const { items, loadItems, deleteItem } = useItemStore();
     const currency = useSettingsStore(s => s.settings?.currency ?? 'USD');
     const weightUnit = useSettingsStore(s => s.settings?.weightUnit ?? 'oz');
     const { spot, rates } = useSpotStore();
@@ -40,10 +44,25 @@ export function DeckDetail({ route, navigation }: Props) {
     const deckItems = items.filter(i => i.deckId === deckId && i.status === 'active');
 
     const [showPaywall, setShowPaywall] = useState(false);
+    const [newItemId, setNewItemId] = useState<string | null>(null);
+    const [moveItemId, setMoveItemId] = useState<string | null>(null);
+    const moveTarget = moveItemId ? (items.find(i => i.id === moveItemId) ?? null) : null;
     const isFocused = useIsFocused();
 
     useFocusEffect(
-        useCallback(() => { loadDecks(labId); loadItems(labId); }, [labId])
+        useCallback(() => {
+            const newId = animationState.lastCreatedItemId;
+            if (newId) {
+                animationState.lastCreatedItemId = null;
+                setNewItemId(newId);
+                if (Platform.OS === 'android') {
+                    UIManager.setLayoutAnimationEnabledExperimental?.(true);
+                }
+                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+            }
+            loadDecks(labId);
+            loadItems(labId);
+        }, [labId])
     );
 
     useEffect(() => {
@@ -72,6 +91,28 @@ export function DeckDetail({ route, navigation }: Props) {
         const meltValue = spotPrice !== null
             ? calcMeltValue(calcFineWeightOz(item.weightOz, item.purity), spotPrice) * item.quantity
             : null;
+
+        const menuActions: ContextMenuAction[] = [
+            ...(item.status !== 'sold' ? [
+                {
+                    label: t('item.actions.edit'),
+                    icon: 'pencil-outline' as const,
+                    onPress: () => navigation.navigate('EditItem', { itemId: item.id }),
+                },
+                {
+                    label: t('item.actions.move'),
+                    icon: 'arrow-forward-outline' as const,
+                    onPress: () => setMoveItemId(item.id),
+                },
+            ] : []),
+            {
+                label: t('item.actions.moveToTrash'),
+                icon: 'trash-outline' as const,
+                onPress: () => { deleteItem(item.id); },
+                destructive: true,
+            },
+        ];
+
         return (
             <View style={styles.col}>
                 <ItemCard
@@ -80,10 +121,13 @@ export function DeckDetail({ route, navigation }: Props) {
                     currency={currency}
                     weightUnit={weightUnit}
                     onPress={() => navigation.navigate('ItemDetail', { itemId: item.id })}
+                    isNew={item.id === newItemId}
+                    onNewAnimationEnd={() => setNewItemId(null)}
+                    menuActions={menuActions}
                 />
             </View>
         );
-    }, [currency, weightUnit, navigation, spotGold, spotSilver]);
+    }, [currency, weightUnit, navigation, spotGold, spotSilver, newItemId, labId, deckId, t, deleteItem]);
 
     if (!deck) return (
         <View style={[styles.screen, styles.center]}>
@@ -114,6 +158,19 @@ export function DeckDetail({ route, navigation }: Props) {
                                             return sum + calcMeltValue(calcFineWeightOz(i.weightOz, i.purity), sp) * i.quantity;
                                         }, 0)
                                         : null;
+                                    const subDeckMenuActions: ContextMenuAction[] = [
+                                        {
+                                            label: t('modifier.title'),
+                                            icon: 'create-outline',
+                                            onPress: () => navigation.navigate('Modifier', { labId, deckId: d.id }),
+                                        },
+                                        {
+                                            label: t('common.delete'),
+                                            icon: 'trash-outline',
+                                            onPress: () => { deleteDeck(d.id); },
+                                            destructive: true,
+                                        },
+                                    ];
                                     return (
                                         <DeckCard
                                             key={d.id}
@@ -122,6 +179,7 @@ export function DeckDetail({ route, navigation }: Props) {
                                             subDeckCount={0}
                                             totalValue={totalValue}
                                             onPress={() => navigation.navigate('DeckDetail', { deckId: d.id, labId })}
+                                            menuActions={subDeckMenuActions}
                                         />
                                     );
                                 })}
@@ -161,6 +219,14 @@ export function DeckDetail({ route, navigation }: Props) {
                     <Text style={styles.btnText}>{t('common.edit')}</Text>
                 </Pressable>
             </View>
+
+            {moveTarget && (
+                <MoveItemModal
+                    item={moveTarget}
+                    visible
+                    onClose={() => setMoveItemId(null)}
+                />
+            )}
 
             <Modal visible={showPaywall} transparent animationType="fade" onRequestClose={() => setShowPaywall(false)}>
                 <Pressable style={styles.overlay} onPress={() => setShowPaywall(false)}>

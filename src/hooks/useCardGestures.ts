@@ -7,22 +7,41 @@ import { triggerLight, triggerMedium } from '../utils/haptics';
 
 type Options = {
     onPress?: () => void;
+    onLongPress?: () => void;
     buildShareText: () => string;
+    glowColor?: string;
+    reduceMotion?: boolean;
 };
 
-export function useCardGestures({ onPress, buildShareText }: Options) {
+export function useCardGestures({ onPress, onLongPress, buildShareText, glowColor, reduceMotion }: Options) {
     const cardRef = useRef<View>(null);
     const isSharing = useRef(false);
     const onPressRef = useRef(onPress);
     onPressRef.current = onPress;
+    const onLongPressRef = useRef(onLongPress);
+    onLongPressRef.current = onLongPress;
     const buildShareTextRef = useRef(buildShareText);
     buildShareTextRef.current = buildShareText;
 
+    // Scale tap — useNativeDriver: true
     const scale = useRef(new Animated.Value(1)).current;
     const animatedStyle = { transform: [{ scale }] };
 
+    // Glow au tap — useNativeDriver: true (opacity uniquement)
+    const glowAnim = useRef(new Animated.Value(0)).current;
+
+    // Canvas share
     const canvasOpacity = useRef(new Animated.Value(0)).current;
     const canvasRef = useRef<View>(null);
+
+    function triggerGlow() {
+        if (reduceMotion || !glowColor) return;
+        glowAnim.setValue(0);
+        Animated.sequence([
+            Animated.timing(glowAnim, { toValue: 0.4, duration: 60, useNativeDriver: true }),
+            Animated.timing(glowAnim, { toValue: 0, duration: 120, useNativeDriver: true }),
+        ]).start();
+    }
 
     async function handleShare() {
         if (isSharing.current) return;
@@ -48,12 +67,17 @@ export function useCardGestures({ onPress, buildShareText }: Options) {
     const tap = Gesture.Tap()
         .runOnJS(true)
         .onBegin(() => {
-            Animated.spring(scale, { toValue: 0.97, useNativeDriver: true, speed: 50, bounciness: 0 }).start();
+            if (!reduceMotion) {
+                Animated.spring(scale, { toValue: 0.97, useNativeDriver: true, speed: 50, bounciness: 0 }).start();
+            }
             triggerLight();
+            triggerGlow();
         })
         .onEnd(() => { onPressRef.current?.(); })
         .onFinalize(() => {
-            Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 20, bounciness: 4 }).start();
+            if (!reduceMotion) {
+                Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 20, bounciness: 4 }).start();
+            }
         });
 
     const longPress = Gesture.LongPress()
@@ -62,10 +86,27 @@ export function useCardGestures({ onPress, buildShareText }: Options) {
         .maxDistance(10)
         .onStart(() => {
             triggerMedium();
-            handleShare();
+            if (!reduceMotion) {
+                Animated.spring(scale, { toValue: 1.05, useNativeDriver: true, speed: 20, bounciness: 0 }).start();
+            }
+            onLongPressRef.current?.();
+        })
+        .onEnd(() => {
+            if (!reduceMotion) {
+                Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 20, bounciness: 4 }).start();
+            }
         });
 
     const gesture = Gesture.Exclusive(longPress, tap);
 
-    return { cardRef, canvasRef, canvasOpacity, gesture, animatedStyle };
+    return {
+        cardRef,
+        canvasRef,
+        canvasOpacity,
+        gesture,
+        animatedStyle,
+        glowAnim,
+        glowColor,
+        handleShare,
+    };
 }

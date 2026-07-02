@@ -266,7 +266,8 @@
       "remove": "Retirer",
       "deleteForever": "Supprimer définitivement",
       "extract": "Extraire",
-      "moveToTrash": "Déplacer vers la corbeille"
+      "moveToTrash": "Déplacer vers la corbeille",
+      "share": "Partager"
     },
     "empty": {
       "title": "Aucun objet",

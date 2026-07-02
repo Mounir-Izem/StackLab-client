@@ -1,8 +1,9 @@
-import React, { memo } from 'react';
+import React, { memo, useRef } from 'react';
 import { Animated, View, Text, Image, StyleSheet } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { useTranslation } from 'react-i18next';
 import { useCardGestures } from '../../hooks/useCardGestures';
+import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, fonts, fontSize, labCard } from '../../utils/theme';
 import { formatCardValue } from '../../utils/formatters';
@@ -36,6 +37,11 @@ function LabCardComponent({
     onPress,
 }: LabCardProps) {
     const { t } = useTranslation();
+    const reduceMotion = useReducedMotion();
+
+    // Long press → share direct, pas de menu (action unique)
+    const handleShareRef = useRef<(() => Promise<void>) | null>(null);
+
     const displayValue = totalValue != null ? formatCardValue(totalValue, currency) : '—';
 
     const ozParts = [
@@ -55,8 +61,9 @@ function LabCardComponent({
             ? t('common.items', { count: cards })
             : `${t('dashboard.cards', { count: cards })} · ${t('common.units', { count: units })}`;
 
-    const { cardRef, canvasRef, canvasOpacity, gesture, animatedStyle } = useCardGestures({
+    const { cardRef, canvasRef, canvasOpacity, gesture, animatedStyle, glowAnim, handleShare } = useCardGestures({
         onPress,
+        onLongPress: () => { handleShareRef.current?.(); },
         buildShareText: () => {
             const parts = [
                 totalOzGold > 0 ? `${totalOzGold.toFixed(2)}oz Au` : null,
@@ -64,7 +71,11 @@ function LabCardComponent({
             ].filter(Boolean).join(' · ');
             return `${lab.name} — ${countLabel}${parts ? `  ·  ${parts}` : ''}\nTracked with StackLab`;
         },
+        glowColor: 'rgba(255,255,255,0.5)',
+        reduceMotion,
     });
+
+    handleShareRef.current = handleShare;
 
     return (
         <View>
@@ -78,6 +89,12 @@ function LabCardComponent({
                 start={{ x: 0, y: 0 }}
                 end={{ x: 0, y: 1 }}
                 style={StyleSheet.absoluteFill}
+            />
+
+            {/* Glow tap overlay */}
+            <Animated.View
+                pointerEvents="none"
+                style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(255,255,255,1)', opacity: glowAnim }]}
             />
 
             {isWishlist && (
@@ -98,6 +115,7 @@ function LabCardComponent({
             </View>
         </Animated.View>
         </GestureDetector>
+
         <ShareCanvas canvasRef={canvasRef} opacity={canvasOpacity}>
             <View style={styles.scCardWrap}>
                 <Image source={coverSource} style={StyleSheet.absoluteFill} resizeMode="cover" />

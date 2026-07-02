@@ -18,6 +18,7 @@ import {
     formatDate, formatStrikeLabel,
 } from '../../utils/formatters';
 import { metalTokens, colors, fonts, fontSize } from '../../utils/theme';
+import { MoveItemModal } from '../modals/MoveItemModal';
 import type { LabsStackScreenProps } from '../../navigation/types';
 import type { Currency } from '../../types/settings.types';
 
@@ -29,7 +30,7 @@ export function ItemDetail({ route, navigation }: Props) {
 
     const { labs } = useLabStore();
     const { decks, loadDecks } = useDeckStore();
-    const { items, loadItems, updateItem, deleteItem, restoreFromTrash, sellItem, acquireItem, moveItem } = useItemStore();
+    const { items, loadItems, updateItem, deleteItem, restoreFromTrash, sellItem, acquireItem } = useItemStore();
     const currency = useSettingsStore(s => s.settings?.currency ?? 'USD');
     const weightUnit = useSettingsStore(s => s.settings?.weightUnit ?? 'oz');
     const { spot, rates } = useSpotStore();
@@ -52,9 +53,6 @@ export function ItemDetail({ route, navigation }: Props) {
     const [acquireTargetLabId, setAcquireTargetLabId] = useState<string | null>(null);
     const [showAcquireCurrencyPicker, setShowAcquireCurrencyPicker] = useState(false);
     const [showMoveModal, setShowMoveModal] = useState(false);
-    const [moveQty, setMoveQty] = useState(1);
-    const [moveDestLabId, setMoveDestLabId] = useState<string | null>(null);
-    const [moveDestDeckId, setMoveDestDeckId] = useState<string | null>(null);
 
     const item = items.find(i => i.id === itemId);
     const lab = item ? labs.find(l => l.id === item.labId) : undefined;
@@ -307,7 +305,7 @@ export function ItemDetail({ route, navigation }: Props) {
                     <>
                         <ActionBtn icon="create-outline" label={t('item.actions.edit')} onPress={() => navigation.navigate('EditItem', { itemId: item.id })} />
                         <ActionBtn icon="copy-outline" label={t('item.actions.duplicate')} disabled />
-                        <ActionBtn icon="arrow-forward-outline" label={t('item.actions.move')} onPress={() => { setMoveQty(1); setMoveDestLabId(null); setMoveDestDeckId(null); setShowMoveModal(true); }} />
+                        <ActionBtn icon="arrow-forward-outline" label={t('item.actions.move')} onPress={() => setShowMoveModal(true)} />
                         <ActionBtn icon="trash-outline" label={t('item.actions.delete')} danger onPress={() => setShowDeleteConfirm(true)} />
                     </>
                 ) : (
@@ -316,98 +314,18 @@ export function ItemDetail({ route, navigation }: Props) {
                         <ActionBtn icon="cash-outline" label={t('item.actions.sell')} onPress={() => { setSellQty(item.quantity); setSellPrice(''); setSellPerUnit(true); setSellCurrency(currency as Currency); setShowSellModal(true); }} />
                         <ActionBtn icon="copy-outline" label={t('item.actions.duplicate')} disabled />
                         <ActionBtn icon="git-branch-outline" label={t('item.actions.extract')} disabled />
-                        <ActionBtn icon="arrow-forward-outline" label={t('item.actions.move')} onPress={() => { setMoveQty(1); setMoveDestLabId(null); setMoveDestDeckId(null); setShowMoveModal(true); }} />
+                        <ActionBtn icon="arrow-forward-outline" label={t('item.actions.move')} onPress={() => setShowMoveModal(true)} />
                         <ActionBtn icon="trash-outline" label={t('item.actions.delete')} danger onPress={() => setShowDeleteConfirm(true)} />
                     </>
                 )}
             </View>
 
-            {/* Move modal */}
-            <Modal visible={showMoveModal} transparent animationType="slide" onRequestClose={() => setShowMoveModal(false)}>
-                <Pressable style={styles.overlay} onPress={() => setShowMoveModal(false)}>
-                    <Pressable style={styles.sellSheet} onPress={e => e.stopPropagation()}>
-                        <Text style={styles.optionTitle}>{t('move.title')}</Text>
-
-                        <View style={styles.sellBody}>
-                            {item.quantity > 1 && (
-                                <>
-                                    <Text style={styles.sellLabel}>{t('item.moveQtyRange', { max: item.quantity })}</Text>
-                                    <View style={styles.qtyRow}>
-                                        <Pressable style={styles.qtyBtn} onPress={() => setMoveQty(q => Math.max(1, q - 1))} disabled={moveQty <= 1}>
-                                            <Ionicons name="remove" size={18} color={moveQty > 1 ? colors.text : colors.text2} />
-                                        </Pressable>
-                                        <TextInput
-                                            style={styles.qtyInput}
-                                            value={String(moveQty)}
-                                            keyboardType="number-pad"
-                                            onChangeText={val => setMoveQty(Math.min(item.quantity, Math.max(1, parseInt(val, 10) || 1)))}
-                                            selectTextOnFocus
-                                        />
-                                        <Pressable style={styles.qtyBtn} onPress={() => setMoveQty(q => Math.min(item.quantity, q + 1))} disabled={moveQty >= item.quantity}>
-                                            <Ionicons name="add" size={18} color={moveQty < item.quantity ? colors.text : colors.text2} />
-                                        </Pressable>
-                                        <Text style={styles.qtyMax}>/ {item.quantity}</Text>
-                                    </View>
-                                </>
-                            )}
-
-                            <Text style={styles.sellLabel}>{t('item.moveWithinLab')}</Text>
-                            <View style={styles.labChips}>
-                                {item.deckId !== null && (
-                                    <Pressable
-                                        style={[styles.labChip, moveDestLabId === item.labId && moveDestDeckId === null && styles.labChipActive]}
-                                        onPress={() => { setMoveDestLabId(item.labId); setMoveDestDeckId(null); }}
-                                    >
-                                        <Text style={[styles.labChipText, moveDestLabId === item.labId && moveDestDeckId === null && styles.labChipTextActive]}>{t('item.moveNoDeck')}</Text>
-                                    </Pressable>
-                                )}
-                                {decks.filter(d => d.parentId === null && d.id !== item.deckId).map(d => (
-                                    <Pressable
-                                        key={d.id}
-                                        style={[styles.labChip, moveDestLabId === item.labId && moveDestDeckId === d.id && styles.labChipActive]}
-                                        onPress={() => { setMoveDestLabId(item.labId); setMoveDestDeckId(d.id); }}
-                                    >
-                                        <Text style={[styles.labChipText, moveDestLabId === item.labId && moveDestDeckId === d.id && styles.labChipTextActive]}>{d.name}</Text>
-                                    </Pressable>
-                                ))}
-                                {item.deckId === null && decks.filter(d => d.parentId === null).length === 0 && (
-                                    <Text style={styles.moveEmptyText}>{t('item.moveNoDecks')}</Text>
-                                )}
-                            </View>
-
-                            <Text style={styles.sellLabel}>{t('item.moveAnotherLab')}</Text>
-                            <View style={styles.labChips}>
-                                {labs.filter(l => l.type === 'standard' && l.id !== item.labId).length > 0
-                                    ? labs.filter(l => l.type === 'standard' && l.id !== item.labId).map(l => (
-                                        <Pressable key={l.id} style={[styles.labChip, moveDestLabId === l.id && styles.labChipActive]} onPress={() => { setMoveDestLabId(l.id); setMoveDestDeckId(null); }}>
-                                            <Text style={[styles.labChipText, moveDestLabId === l.id && styles.labChipTextActive]}>{l.name}</Text>
-                                        </Pressable>
-                                    ))
-                                    : (
-                                        <View style={styles.premiumNote}>
-                                            <Ionicons name="lock-closed-outline" size={13} color={colors.text2} />
-                                            <Text style={styles.premiumNoteText}>{t('item.movePremiumNote')}</Text>
-                                        </View>
-                                    )
-                                }
-                            </View>
-                        </View>
-
-                        <Pressable
-                            style={[styles.sellConfirmBtn, !moveDestLabId && styles.disabled]}
-                            disabled={!moveDestLabId}
-                            onPress={async () => {
-                                if (!moveDestLabId) return;
-                                setShowMoveModal(false);
-                                await moveItem(item.id, moveQty, moveDestLabId, moveDestDeckId);
-                                navigation.goBack();
-                            }}
-                        >
-                            <Text style={styles.sellConfirmText}>{t('move.confirm')}</Text>
-                        </Pressable>
-                    </Pressable>
-                </Pressable>
-            </Modal>
+            <MoveItemModal
+                item={item}
+                visible={showMoveModal}
+                onClose={() => setShowMoveModal(false)}
+                onMoveComplete={() => navigation.goBack()}
+            />
 
             {/* Acquire modal */}
             <Modal visible={showAcquireModal} transparent animationType="slide" onRequestClose={() => setShowAcquireModal(false)}>

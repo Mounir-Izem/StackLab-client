@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     View, Text, StyleSheet,
     ScrollView, ActivityIndicator, Pressable, RefreshControl,
@@ -11,17 +11,59 @@ import { useSettingsStore } from '../../stores/settingsStore';
 import { convertSpotPrice, calcTotalInvested, calcUnrealizedPnL, calcRealizedPnL, sumByCurrency } from '../../utils/calculations';
 import { formatWeight, formatCurrency, formatPnL } from '../../utils/formatters';
 import { snapshotService } from '../../services/snapshotService';
+import { useReducedMotion } from '../../hooks/useReducedMotion';
+import { useCounterAnimationWithCurrency } from '../../hooks/useCounterAnimation';
 import { colors, fonts } from '../../utils/theme';
+import type { Animated } from 'react-native';
 import type { Currency, WeightUnit } from '../../types/settings.types';
 
 const CURRENCY_SYMBOL: Record<Currency, string> = {
     USD: '$', EUR: '€', GBP: '£', CAD: 'CA$', AUD: 'A$',
 };
 
+// Composant interne — anime un nombre de 0 → value avec formatage libre.
+// Utilise addListener pour déclencher setDisplay à chaque frame.
+function AnimatedCounter({
+    animated,
+    value,
+    currency,
+    reduceMotion,
+    style,
+    format,
+    nullDisplay = '—',
+}: {
+    animated: Animated.Value;
+    value: number | null;
+    currency: Currency;
+    reduceMotion: boolean;
+    style?: object | (object | false | undefined)[];
+    format: (v: number, currency: Currency) => string;
+    nullDisplay?: string;
+}) {
+    const [display, setDisplay] = useState<string>(() =>
+        value !== null ? (reduceMotion ? format(value, currency) : format(0, currency)) : nullDisplay
+    );
+
+    useEffect(() => {
+        if (value === null) {
+            setDisplay(nullDisplay);
+            return;
+        }
+        const id = animated.addListener(({ value: v }) => {
+            setDisplay(format(v, currency));
+        });
+        return () => { animated.removeListener(id); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [value, currency, nullDisplay]);
+
+    return <Text style={style as any}>{display}</Text>;
+}
+
 export function DashboardHome() {
     const { t } = useTranslation();
     const { labs, labOzTotals, labActiveSummaries, wishlistSummary, soldSummary, labInvestedTotals, loadLabs, isLoading: labsLoading } = useLabStore();
     const { spot, rates, isLoading: spotLoading, refresh } = useSpotStore();
+    const reduceMotion = useReducedMotion();
 
     function handleRefresh() {
         loadLabs();
@@ -73,10 +115,21 @@ export function DashboardHome() {
     const realizedCostBasis = sumByCurrency(soldSummary.costBasisByCurrency, currency, rates);
     const realizedPnL = calcRealizedPnL(realizedProceeds, realizedCostBasis);
 
+    // Animated counters — useNativeDriver: false (valeurs numériques)
+    const animTotalValue = useCounterAnimationWithCurrency(totalValue, currency, reduceMotion);
+    const animInvested = useCounterAnimationWithCurrency(totalInvested, currency, reduceMotion);
+    const animPnL = useCounterAnimationWithCurrency(unrealizedPnL, currency, reduceMotion);
+
     useEffect(() => {
         if (!spot || !hasActiveHoldings) return;
         void snapshotService.captureIfNeeded(spot.gold, spot.silver, currency);
     }, [spot?.gold, spot?.silver, hasActiveHoldings, currency]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const pnlColor = unrealizedPnL !== null && unrealizedPnL > 0
+        ? { color: colors.green }
+        : unrealizedPnL !== null && unrealizedPnL < 0
+            ? { color: colors.crimson }
+            : undefined;
 
     if (!hasAnything) {
         return (
@@ -104,9 +157,16 @@ export function DashboardHome() {
                 {spotLoading && !spot ? (
                     <ActivityIndicator color={colors.violet} style={{ marginVertical: 8 }} />
                 ) : totalValue !== null ? (
-                    <Text style={styles.totalValue}>
-                        {CURRENCY_SYMBOL[currency]}{totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </Text>
+                    <AnimatedCounter
+                        animated={animTotalValue}
+                        value={totalValue}
+                        currency={currency}
+                        reduceMotion={reduceMotion}
+                        style={styles.totalValue}
+                        format={(v, cur) =>
+                            `${CURRENCY_SYMBOL[cur as Currency]}${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                        }
+                    />
                 ) : (
                     <Text style={styles.totalValue}>—</Text>
                 )}
@@ -131,9 +191,14 @@ export function DashboardHome() {
                 <View style={styles.pnlRow}>
                     <View style={styles.pnlItem}>
                         <Text style={styles.statLabel}>{t('dashboard.invested')}</Text>
-                        <Text style={styles.statValue}>
-                            {totalInvested !== null ? formatCurrency(totalInvested, currency) : '—'}
-                        </Text>
+                        <AnimatedCounter
+                            animated={animInvested}
+                            value={totalInvested}
+                            currency={currency}
+                            reduceMotion={reduceMotion}
+                            style={styles.statValue}
+                            format={(v, cur) => formatCurrency(v, cur)}
+                        />
                         {totalInvested === null && (
                             <Text style={styles.statNote}>{t('dashboard.addPricesHint')}</Text>
                         )}
@@ -141,13 +206,14 @@ export function DashboardHome() {
                     <View style={styles.divider} />
                     <View style={styles.pnlItem}>
                         <Text style={styles.statLabel}>{t('dashboard.unrealizedPnl')}</Text>
-                        <Text style={[
-                            styles.statValue,
-                            unrealizedPnL !== null && unrealizedPnL > 0 && { color: colors.green },
-                            unrealizedPnL !== null && unrealizedPnL < 0 && { color: colors.crimson },
-                        ]}>
-                            {formatPnL(unrealizedPnL, currency)}
-                        </Text>
+                        <AnimatedCounter
+                            animated={animPnL}
+                            value={unrealizedPnL}
+                            currency={currency}
+                            reduceMotion={reduceMotion}
+                            style={[styles.statValue, pnlColor]}
+                            format={(v, cur) => formatPnL(v, cur)}
+                        />
                     </View>
                 </View>
             </View>
