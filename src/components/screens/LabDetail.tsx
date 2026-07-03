@@ -3,7 +3,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import {
     View, Text, FlatList, Pressable,
     StyleSheet, ActivityIndicator, Modal,
-    LayoutAnimation, UIManager, Platform,
+    LayoutAnimation,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -69,9 +69,6 @@ export function LabDetail({ route, navigation }: Props) {
             if (newId) {
                 animationState.lastCreatedItemId = null;
                 setNewItemId(newId);
-                if (Platform.OS === 'android') {
-                    UIManager.setLayoutAnimationEnabledExperimental?.(true);
-                }
                 LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
             }
             loadDecks(labId);
