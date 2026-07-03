@@ -469,3 +469,69 @@ describe('itemService.update — garde-fou purchasePrice', () => {
         await expect(itemService.update('item-uuid-1', data)).rejects.toThrow('USE_UPDATE_PURCHASE_PRICE');
     });
 });
+
+describe('itemService.updateObservedPrice', () => {
+    test('mode total → écrit la valeur telle quelle avec currency et date', async () => {
+        mockRepo.findById.mockResolvedValue(makeItem({ status: 'wishlist', quantity: 5 }));
+        mockRepo.update.mockResolvedValue(makeItem({ status: 'wishlist', observedPrice: 200, observedCurrency: 'EUR' }));
+
+        await itemService.updateObservedPrice('item-uuid-1', 200, false, 'EUR', '2026-01-01');
+
+        expect(mockRepo.update).toHaveBeenCalledWith('item-uuid-1', {
+            observedPrice: 200,
+            observedCurrency: 'EUR',
+            observedPriceDate: '2026-01-01',
+        });
+    });
+
+    test('mode per-unit → multiplie par la quantity actuelle du row', async () => {
+        mockRepo.findById.mockResolvedValue(makeItem({ status: 'wishlist', quantity: 5 }));
+        mockRepo.update.mockResolvedValue(makeItem({ status: 'wishlist', observedPrice: 250 }));
+
+        await itemService.updateObservedPrice('item-uuid-1', 50, true, 'USD', null);
+
+        expect(mockRepo.update).toHaveBeenCalledWith('item-uuid-1', {
+            observedPrice: 250,
+            observedCurrency: 'USD',
+            observedPriceDate: null,
+        });
+    });
+
+    test('null → efface observedPrice, currency et date', async () => {
+        mockRepo.findById.mockResolvedValue(makeItem({ status: 'wishlist', quantity: 5, observedPrice: 200, observedCurrency: 'EUR' }));
+        mockRepo.update.mockResolvedValue(makeItem({ status: 'wishlist', observedPrice: null, observedCurrency: null }));
+
+        await itemService.updateObservedPrice('item-uuid-1', null, false, 'EUR', '2026-01-01');
+
+        expect(mockRepo.update).toHaveBeenCalledWith('item-uuid-1', {
+            observedPrice: null,
+            observedCurrency: null,
+            observedPriceDate: null,
+        });
+    });
+
+    test('ne touche jamais purchasePrice — la clé est absente du payload', async () => {
+        mockRepo.findById.mockResolvedValue(makeItem({ status: 'wishlist', quantity: 5 }));
+        mockRepo.update.mockResolvedValue(makeItem({ status: 'wishlist' }));
+
+        await itemService.updateObservedPrice('item-uuid-1', 200, false, 'USD', null);
+
+        const payload = mockRepo.update.mock.calls[0][1];
+        expect(payload).not.toHaveProperty('purchasePrice');
+    });
+
+    test('ITEM_NOT_FOUND si item inexistant', async () => {
+        mockRepo.findById.mockResolvedValue(null);
+        await expect(itemService.updateObservedPrice('bad-id', 100, false, 'USD', null)).rejects.toThrow('ITEM_NOT_FOUND');
+    });
+
+    test('ITEM_NOT_WISHLIST si item est active', async () => {
+        mockRepo.findById.mockResolvedValue(makeItem({ status: 'active' }));
+        await expect(itemService.updateObservedPrice('item-uuid-1', 100, false, 'USD', null)).rejects.toThrow('ITEM_NOT_WISHLIST');
+    });
+
+    test('ITEM_NOT_WISHLIST si item est sold', async () => {
+        mockRepo.findById.mockResolvedValue(makeItem({ status: 'sold' }));
+        await expect(itemService.updateObservedPrice('item-uuid-1', 100, false, 'USD', null)).rejects.toThrow('ITEM_NOT_WISHLIST');
+    });
+});

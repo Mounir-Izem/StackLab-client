@@ -30,6 +30,10 @@ type EditState = {
     purchasePriceIsPerUnit: boolean;
     purchaseCurrency: Currency;
     purchaseDate: string;
+    observedPrice: string;
+    observedPriceIsPerUnit: boolean;
+    observedCurrency: Currency;
+    observedPriceDate: string;
     condition: ItemCondition | null;
     location: string;
     features: ItemFeature[];
@@ -120,7 +124,7 @@ function weightOzToInput(weightOz: number, unit: ItemWeightUnit): string {
 export function EditItemFlow({ route, navigation }: Props) {
     const { t } = useTranslation();
     const { itemId } = route.params;
-    const { items, updateItem, updatePurchasePrice } = useItemStore();
+    const { items, updateItem, updatePurchasePrice, updateObservedPrice } = useItemStore();
     const item = items.find(i => i.id === itemId);
 
     const [submitting, setSubmitting] = useState(false);
@@ -131,7 +135,9 @@ export function EditItemFlow({ route, navigation }: Props) {
             name: '', metal: null, shape: 'coin', shapeDescription: '',
             mintName: '', year: '', strikeFinish: null,
             weightInput: '1', weightUnit: 'oz', purity: 0.9999,
-            quantity: 1, purchasePrice: '', purchasePriceIsPerUnit: false, purchaseCurrency: 'USD', purchaseDate: '',
+            quantity: 1,
+            purchasePrice: '', purchasePriceIsPerUnit: false, purchaseCurrency: 'USD', purchaseDate: '',
+            observedPrice: '', observedPriceIsPerUnit: false, observedCurrency: 'USD', observedPriceDate: '',
             condition: null, location: '', features: [], notes: '',
         };
         const weightUnit = item.weightUnitInput ?? 'oz';
@@ -151,6 +157,10 @@ export function EditItemFlow({ route, navigation }: Props) {
             purchasePriceIsPerUnit: false,
             purchaseCurrency: item.purchaseCurrency ?? 'USD',
             purchaseDate: item.purchaseDate ?? '',
+            observedPrice: item.observedPrice?.toString() ?? '',
+            observedPriceIsPerUnit: false,
+            observedCurrency: item.observedCurrency ?? 'USD',
+            observedPriceDate: item.observedPriceDate ?? '',
             condition: item.condition ?? null,
             location: item.location ?? '',
             features: item.features ?? [],
@@ -173,6 +183,7 @@ export function EditItemFlow({ route, navigation }: Props) {
 
     async function handleSave() {
         if (!item || submitting || !state.metal) return;
+        const isWishlistItem = item.status === 'wishlist';
         setSubmitting(true);
         setSubmitError(null);
 
@@ -196,14 +207,18 @@ export function EditItemFlow({ route, navigation }: Props) {
                 weightUnitInput: state.weightUnit,
                 purity: state.purity,
                 quantity: state.quantity,
-                purchaseCurrency: state.purchasePrice.trim() ? state.purchaseCurrency : null,
-                purchaseDate: (() => {
-                    const d = state.purchaseDate.trim().replace(/\//g, '-');
-                    if (/^\d{4}$/.test(d)) return d;
-                    if (/^\d{4}-\d{2}$/.test(d)) return d;
-                    if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
-                    return null;
-                })(),
+                // Wishlist items never carry purchaseCurrency/purchaseDate — those are
+                // purchase fields that belong only to active/sold items.
+                ...(isWishlistItem ? {} : {
+                    purchaseCurrency: state.purchasePrice.trim() ? state.purchaseCurrency : null,
+                    purchaseDate: (() => {
+                        const d = state.purchaseDate.trim().replace(/\//g, '-');
+                        if (/^\d{4}$/.test(d)) return d;
+                        if (/^\d{4}-\d{2}$/.test(d)) return d;
+                        if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+                        return null;
+                    })(),
+                }),
                 condition: state.condition,
                 location: state.location.trim() || null,
                 features: state.features,
@@ -214,13 +229,28 @@ export function EditItemFlow({ route, navigation }: Props) {
                 return;
             }
 
-            // Appelé après updateItem pour que la normalisation per-unit se base
-            // sur la quantity à jour (au cas où elle vient d'être modifiée ici aussi).
-            await updatePurchasePrice(
-                item.id,
-                state.purchasePrice.trim() ? parseFloat(state.purchasePrice.replace(',', '.')) : null,
-                state.purchasePriceIsPerUnit,
-            );
+            // Called after updateItem so per-unit normalisation uses the updated quantity.
+            if (isWishlistItem) {
+                await updateObservedPrice(
+                    item.id,
+                    state.observedPrice.trim() ? parseFloat(state.observedPrice.replace(',', '.')) : null,
+                    state.observedPriceIsPerUnit,
+                    state.observedPrice.trim() ? state.observedCurrency : null,
+                    (() => {
+                        const d = state.observedPriceDate.trim().replace(/\//g, '-');
+                        if (/^\d{4}$/.test(d)) return d;
+                        if (/^\d{4}-\d{2}$/.test(d)) return d;
+                        if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+                        return null;
+                    })(),
+                );
+            } else {
+                await updatePurchasePrice(
+                    item.id,
+                    state.purchasePrice.trim() ? parseFloat(state.purchasePrice.replace(',', '.')) : null,
+                    state.purchasePriceIsPerUnit,
+                );
+            }
             if (useItemStore.getState().error) {
                 setSubmitError(t('create.updateFailed'));
                 return;
@@ -241,6 +271,7 @@ export function EditItemFlow({ route, navigation }: Props) {
         );
     }
 
+    const isWishlist = item.status === 'wishlist';
     const canSave = !!state.name.trim() && !!state.metal;
 
     return (
@@ -422,14 +453,24 @@ export function EditItemFlow({ route, navigation }: Props) {
                     {/* ── FINANCIAL ─────────────────────────────────── */}
                     <SectionHeader label={t('create.sectionFinancial')} />
 
-                    <FieldLabel label={t('item.purchasePrice')} optional />
-                    <PurchasePriceField
-                        quantity={state.quantity}
-                        priceText={state.purchasePrice}
-                        onPriceTextChange={v => patch({ purchasePrice: v.replace(/[^0-9.,]/g, '') })}
-                        isPerUnit={state.purchasePriceIsPerUnit}
-                        onIsPerUnitChange={v => patch({ purchasePriceIsPerUnit: v })}
-                    />
+                    <FieldLabel label={t(isWishlist ? 'item.observedPrice' : 'item.purchasePrice')} optional />
+                    {isWishlist ? (
+                        <PurchasePriceField
+                            quantity={state.quantity}
+                            priceText={state.observedPrice}
+                            onPriceTextChange={v => patch({ observedPrice: v.replace(/[^0-9.,]/g, '') })}
+                            isPerUnit={state.observedPriceIsPerUnit}
+                            onIsPerUnitChange={v => patch({ observedPriceIsPerUnit: v })}
+                        />
+                    ) : (
+                        <PurchasePriceField
+                            quantity={state.quantity}
+                            priceText={state.purchasePrice}
+                            onPriceTextChange={v => patch({ purchasePrice: v.replace(/[^0-9.,]/g, '') })}
+                            isPerUnit={state.purchasePriceIsPerUnit}
+                            onIsPerUnitChange={v => patch({ purchasePriceIsPerUnit: v })}
+                        />
+                    )}
 
                     <FieldLabel label={t('settings.currency')} />
                     <ChipRow>
@@ -437,17 +478,17 @@ export function EditItemFlow({ route, navigation }: Props) {
                             <Chip
                                 key={c}
                                 label={c}
-                                active={state.purchaseCurrency === c}
-                                onPress={() => patch({ purchaseCurrency: c })}
+                                active={(isWishlist ? state.observedCurrency : state.purchaseCurrency) === c}
+                                onPress={() => patch(isWishlist ? { observedCurrency: c } : { purchaseCurrency: c })}
                             />
                         ))}
                     </ChipRow>
 
-                    <FieldLabel label={t('create.purchaseDate')} optional />
+                    <FieldLabel label={t(isWishlist ? 'create.observedDate' : 'create.purchaseDate')} optional />
                     <TextInput
                         style={[styles.input, styles.inputNarrow]}
-                        value={state.purchaseDate}
-                        onChangeText={v => patch({ purchaseDate: v })}
+                        value={isWishlist ? state.observedPriceDate : state.purchaseDate}
+                        onChangeText={v => patch(isWishlist ? { observedPriceDate: v } : { purchaseDate: v })}
                         placeholder="YYYY-MM-DD"
                         placeholderTextColor={colors.text3}
                         keyboardType="numbers-and-punctuation"

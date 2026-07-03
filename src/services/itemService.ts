@@ -116,6 +116,26 @@ export const itemService = {
         return itemRepository.update(id, { purchasePrice: normalizedPurchasePrice });
     },
 
+    async updateObservedPrice(
+        id: string,
+        observedPrice: number | null,
+        observedPriceIsPerUnit: boolean,
+        observedCurrency: Currency | null,
+        observedPriceDate: string | null,
+    ): Promise<Item> {
+        const item = await itemRepository.findById(id);
+        if (!item) throw new Error('ITEM_NOT_FOUND');
+        if (item.status !== 'wishlist') throw new Error('ITEM_NOT_WISHLIST');
+        const normalizedObservedPrice = observedPrice != null
+            ? (observedPriceIsPerUnit ? observedPrice * item.quantity : observedPrice)
+            : null;
+        return itemRepository.update(id, {
+            observedPrice: normalizedObservedPrice,
+            observedCurrency: normalizedObservedPrice != null ? observedCurrency : null,
+            observedPriceDate: normalizedObservedPrice != null ? observedPriceDate : null,
+        });
+    },
+
     async sell(
         id: string,
         qty: number,

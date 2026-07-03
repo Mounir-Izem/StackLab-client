@@ -1,7 +1,7 @@
 import * as SQLite from 'expo-sqlite';
 import { generateUUID } from '../utils/uuid';
 
-export const CURRENT_SCHEMA_VERSION = 6;
+export const CURRENT_SCHEMA_VERSION = 7;
 
 const MIGRATIONS: Record<number, (db: SQLite.SQLiteDatabase) => Promise<void>> = {
     1: migrateV0toV1,
@@ -10,6 +10,7 @@ const MIGRATIONS: Record<number, (db: SQLite.SQLiteDatabase) => Promise<void>> =
     4: migrateV3toV4,
     5: migrateV4toV5,
     6: migrateV5toV6,
+    7: migrateV6toV7,
 };
 
 export async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
@@ -339,4 +340,23 @@ async function migrateV5toV6(db: SQLite.SQLiteDatabase): Promise<void> {
     await db.execAsync(
         "ALTER TABLE settings ADD COLUMN language TEXT NOT NULL DEFAULT 'system'"
     );
+}
+
+async function migrateV6toV7(db: SQLite.SQLiteDatabase): Promise<void> {
+    // Repair wishlist items that incorrectly have purchase_price set (P0 bug in EditItemFlow).
+    // Rules:
+    //   - observed_price IS NULL → salvage: copy purchase_price/currency/date into observed fields
+    //   - observed_price IS NOT NULL → keep observed fields as-is, just clear purchase fields
+    // All CASE WHEN expressions below read the pre-update column values (SQL standard).
+    await db.execAsync(`
+        UPDATE items
+        SET
+            observed_price      = CASE WHEN observed_price IS NULL THEN purchase_price      ELSE observed_price      END,
+            observed_currency   = CASE WHEN observed_price IS NULL THEN purchase_currency   ELSE observed_currency   END,
+            observed_price_date = CASE WHEN observed_price IS NULL THEN purchase_date       ELSE observed_price_date END,
+            purchase_price      = NULL,
+            purchase_currency   = NULL,
+            purchase_date       = NULL
+        WHERE status = 'wishlist' AND purchase_price IS NOT NULL
+    `);
 }
