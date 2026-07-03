@@ -1,7 +1,7 @@
 import * as SQLite from 'expo-sqlite';
 import { generateUUID } from '../utils/uuid';
 
-export const CURRENT_SCHEMA_VERSION = 7;
+export const CURRENT_SCHEMA_VERSION = 8;
 
 const MIGRATIONS: Record<number, (db: SQLite.SQLiteDatabase) => Promise<void>> = {
     1: migrateV0toV1,
@@ -11,6 +11,7 @@ const MIGRATIONS: Record<number, (db: SQLite.SQLiteDatabase) => Promise<void>> =
     5: migrateV4toV5,
     6: migrateV5toV6,
     7: migrateV6toV7,
+    8: migrateV7toV8,
 };
 
 export async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
@@ -359,4 +360,10 @@ async function migrateV6toV7(db: SQLite.SQLiteDatabase): Promise<void> {
             purchase_date       = NULL
         WHERE status = 'wishlist' AND purchase_price IS NOT NULL
     `);
+}
+
+async function migrateV7toV8(db: SQLite.SQLiteDatabase): Promise<void> {
+    await db.execAsync(
+        'ALTER TABLE settings ADD COLUMN screen_protection_enabled INTEGER NOT NULL DEFAULT 0'
+    );
 }

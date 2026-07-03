@@ -14,6 +14,7 @@ import { useSettingsStore } from './src/stores/settingsStore';
 import { useSpotPrice } from './src/hooks/useSpotPrice';
 import { useAutoBackup } from './src/hooks/useAutoBackup';
 import { useAppLock } from './src/hooks/useAppLock';
+import { useScreenProtection, useAppSwitcherProtection } from './src/hooks/useScreenProtection';
 import { useLockStore } from './src/stores/lockStore';
 import { initI18n } from './src/i18n';
 import { RootNavigator } from './src/navigation/RootNavigator';
@@ -27,6 +28,9 @@ export default function App() {
   useAutoBackup();
   useAppLock();
   const isLocked = useLockStore(s => s.isLocked);
+  const screenProtectionEnabled = useSettingsStore(s => s.settings?.screenProtectionEnabled ?? false);
+  useScreenProtection(screenProtectionEnabled, 'app');
+  useAppSwitcherProtection(screenProtectionEnabled, 'app');
 
   const [fontsLoaded] = useFonts({
     Outfit_400Regular,

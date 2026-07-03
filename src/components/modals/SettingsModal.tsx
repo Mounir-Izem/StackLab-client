@@ -138,6 +138,10 @@ export function SettingsModal() {
         }
     }
 
+    function handleScreenProtectionToggle(value: boolean) {
+        updateSettings({ screenProtectionEnabled: value });
+    }
+
     function handleAutoWipeToggle(value: boolean) {
         if (value) {
             setShowAutoWipeConfirm(true);
@@ -279,6 +283,20 @@ export function SettingsModal() {
                                 </View>
                             </>
                         )}
+                        <View style={styles.row}>
+                            <View style={[styles.rowLeft, { flex: 1 }]}>
+                                <Ionicons name="eye-off-outline" size={18} color={colors.text2} />
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.rowLabel}>{t('settings.screenProtection')}</Text>
+                                    <Text style={styles.rowDesc}>{t('settings.screenProtectionDesc')}</Text>
+                                </View>
+                            </View>
+                            <Switch
+                                value={settings.screenProtectionEnabled}
+                                onValueChange={handleScreenProtectionToggle}
+                                trackColor={{ true: colors.violet, false: colors.surface2 }}
+                            />
+                        </View>
 
                         {/* Data */}
                         <Text style={styles.sectionLabel}>{t('settings.section.data')}</Text>
@@ -649,6 +667,7 @@ const styles = StyleSheet.create({
     rowLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     rowLabel: { fontFamily: fonts.outfit, fontSize: 14, color: colors.text },
     rowValue: { fontFamily: fonts.outfit, fontSize: 13, color: colors.text2 },
+    rowDesc: { fontFamily: fonts.outfit, fontSize: 11, color: colors.text2, marginTop: 2 },
     version: {
         fontFamily: fonts.outfit, fontSize: 12, color: colors.text2,
         textAlign: 'center', marginTop: 28, marginBottom: 8,

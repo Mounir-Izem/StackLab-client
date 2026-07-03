@@ -14,6 +14,7 @@ export type Settings = {
     appLockEnabled: boolean;
     appLockAutoWipeEnabled: boolean;
     appLockPromptShown: boolean;
+    screenProtectionEnabled: boolean;
     hideValues: boolean;
     subscriptionStatus: SubscriptionStatus;
     subscriptionExpiry: string | null;

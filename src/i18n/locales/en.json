@@ -46,6 +46,8 @@
     "appLock": "App Lock",
     "changePin": "Change PIN",
     "autoWipe": "Erase after 10 failed attempts",
+    "screenProtection": "Screen protection",
+    "screenProtectionDesc": "Prevents screenshots and screen recordings on sensitive screens.",
     "autoBackup": "Auto-backup",
     "backupReminders": "Backup reminders",
     "exportData": "Export data",

@@ -97,11 +97,43 @@ AsyncStorage n'est jamais utilisé pour des données sensibles (UUID, passphrase
 
 ### Screenshot prevention
 
-- Activé obligatoirement sur :
-  - L'écran d'affichage de la passphrase de récupération
-  - L'écran du Dashboard (valeurs financières)
-- Désactivé partout ailleurs.
-- Implémentation via `expo-screen-capture` ou équivalent.
+Implémenté via `expo-screen-capture` (SDK 54). Deux niveaux indépendants :
+
+**Toujours actif (indépendant des préférences utilisateur) :**
+- `LockScreen` — écran de saisie PIN au déverrouillage
+- `PinSetupModal` — création / modification du PIN
+- `PinVerifyModal` — vérification du PIN (désactivation App Lock, changement PIN)
+- `PinInputModal` — saisie PIN pour import/déchiffrement backup
+
+**Activable par l'utilisateur — réglage "Protection écran" dans Settings :**
+- Si activé : protection globale de l'app (LabsHome, Dashboard, LabDetail, DeckDetail, ItemDetail, etc.)
+- Si désactivé : les écrans normaux restent capturables ; les écrans PIN ci-dessus restent toujours protégés.
+
+**Implémentation :**
+- `useScreenProtection(active, tag)` — appelle `preventScreenCaptureAsync(tag)` / `allowScreenCaptureAsync(tag)` avec un tag unique par point d'injection. Plusieurs tags peuvent coexister sans conflit.
+- `useAppSwitcherProtection(active, tag)` — iOS uniquement. Appelle `enableAppSwitcherProtectionAsync(1.0)` / `disableAppSwitcherProtectionAsync()` avec gestion ref-count via un `Set<string>` module-level : l'API iOS est globale (pas de clé native), plusieurs composants peuvent coexister sans qu'un unmount annule la protection d'un autre.
+
+**Limites par plateforme :**
+
+| Comportement | Android | iOS |
+|---|---|---|
+| Screenshots bloqués en-app | ✅ `FLAG_SECURE` | ✅ iOS 13+ |
+| Enregistrement écran bloqué | ✅ `FLAG_SECURE` | ✅ iOS 11+ |
+| Thumbnail Recents/app-switcher bloqué | ✅ `FLAG_SECURE` | ✅ overlay blur (`enableAppSwitcherProtectionAsync`) |
+| Snapshot OS au passage background | ✅ bloqué | ⚠️ atténué par le blur — pas un blocage binaire |
+
+Sur iOS, le blur via `enableAppSwitcherProtectionAsync` masque le contenu dans l'app-switcher sans le bloquer complètement (contrairement au `FLAG_SECURE` Android qui affiche un écran noir). Le niveau de flou est réglé à 1.0 (maximum).
+
+**`screenProtectionEnabled` — stocké dans `settings.screen_protection_enabled` (INTEGER 0/1, défaut 0).** Rétrocompatible : les utilisateurs existants ont la protection désactivée par défaut et peuvent l'activer dans Settings → Security.
+
+**QA manuelle — cas à vérifier sur device réel :**
+
+1. Protection écran **OFF** + LabsHome → screenshot autorisé ✓
+2. Protection écran **ON** + LabsHome → screenshot bloqué ✓
+3. Protection écran **ON** + Dashboard → screenshot bloqué ✓
+4. Protection écran **OFF** + PinInputModal → screenshot bloqué (protection permanente) ✓
+5. Protection écran **ON** + ouvrir/fermer PinInputModal → LabsHome reste protégé après fermeture du modal ✓ (ref-count)
+6. Protection écran **OFF** + ouvrir/fermer PinInputModal → LabsHome redevient capturable après fermeture ✓ (ref-count)
 
 ### Clipboard — Clear automatique
 
@@ -437,7 +469,7 @@ Ces mesures sont documentées ici comme intention future :
 - [ ] Headers Spring Security configurés
 - [ ] Dependabot sans alertes critiques non résolues
 - [ ] Logs auditées — aucune donnée utilisateur visible
-- [ ] Screenshot prevention actif sur écrans sensibles
+- [ ] Screenshot prevention : LockScreen/PIN toujours protégés, toggle "Protection écran" visible dans Settings
 
 ---
 

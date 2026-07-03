@@ -17,6 +17,7 @@ type RawSettings = {
     app_lock_enabled: number;
     app_lock_auto_wipe_enabled: number;
     app_lock_prompt_shown: number;
+    screen_protection_enabled: number;
     language: string | null;
     updated_at: string;
 };
@@ -38,6 +39,7 @@ function mapRowToSettings(row: RawSettings): Settings {
         appLockEnabled: row.app_lock_enabled === 1,
         appLockAutoWipeEnabled: row.app_lock_auto_wipe_enabled === 1,
         appLockPromptShown: row.app_lock_prompt_shown === 1,
+        screenProtectionEnabled: row.screen_protection_enabled === 1,
         language: (row.language === 'en' || row.language === 'fr' ? row.language : 'system') as AppLanguage,
         updatedAt: row.updated_at,
     };
@@ -77,6 +79,7 @@ export const settingsRepository = {
         if (data.appLockEnabled !== undefined) { fields.push('app_lock_enabled = ?'); values.push(data.appLockEnabled ? 1 : 0); }
         if (data.appLockAutoWipeEnabled !== undefined) { fields.push('app_lock_auto_wipe_enabled = ?'); values.push(data.appLockAutoWipeEnabled ? 1 : 0); }
         if (data.appLockPromptShown !== undefined) { fields.push('app_lock_prompt_shown = ?'); values.push(data.appLockPromptShown ? 1 : 0); }
+        if (data.screenProtectionEnabled !== undefined) { fields.push('screen_protection_enabled = ?'); values.push(data.screenProtectionEnabled ? 1 : 0); }
         if (data.language !== undefined) { fields.push('language = ?'); values.push(data.language); }
 
         fields.push('updated_at = ?');

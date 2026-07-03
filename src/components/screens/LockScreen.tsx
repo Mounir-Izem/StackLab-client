@@ -3,6 +3,7 @@ import { View, Text, Modal, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useLockStore } from '../../stores/lockStore';
+import { useScreenProtection, useAppSwitcherProtection } from '../../hooks/useScreenProtection';
 import { lockService } from '../../services/lockService';
 import { PinKeypad } from '../common/PinKeypad';
 import { triggerLight, triggerMedium } from '../../utils/haptics';
@@ -20,6 +21,8 @@ function formatLockTime(ms: number): string {
 export function LockScreen() {
     const { t } = useTranslation();
     const { unlockWithPin, unlockWithBiometric, lockedUntil } = useLockStore();
+    useScreenProtection(true, 'lock-screen');
+    useAppSwitcherProtection(true, 'lock-screen');
     const [pin, setPin] = useState('');
     const [error, setError] = useState(false);
     const [biometricAvailable, setBiometricAvailable] = useState(false);

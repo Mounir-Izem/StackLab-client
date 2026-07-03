@@ -3,6 +3,7 @@ import { Modal, View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useLockStore } from '../../stores/lockStore';
+import { useScreenProtection, useAppSwitcherProtection } from '../../hooks/useScreenProtection';
 import { PinKeypad } from '../common/PinKeypad';
 import { triggerLight, triggerMedium } from '../../utils/haptics';
 import { colors, fonts } from '../../utils/theme';
@@ -26,6 +27,8 @@ type Props = {
 export function PinVerifyModal({ visible, title, onVerified, onClose }: Props) {
     const { t } = useTranslation();
     const verifyCurrentPin = useLockStore(s => s.verifyCurrentPin);
+    useScreenProtection(visible, 'pin-verify');
+    useAppSwitcherProtection(visible, 'pin-verify');
     const lockedUntil = useLockStore(s => s.lockedUntil);
     const [pin, setPin] = useState('');
     const [error, setError] = useState(false);

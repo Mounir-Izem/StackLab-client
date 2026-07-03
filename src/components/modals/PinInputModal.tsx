@@ -3,6 +3,7 @@ import { Modal, View, Text, Pressable, StyleSheet, ActivityIndicator } from 'rea
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { PinKeypad } from '../common/PinKeypad';
+import { useScreenProtection, useAppSwitcherProtection } from '../../hooks/useScreenProtection';
 import { triggerLight, triggerMedium } from '../../utils/haptics';
 import { colors, fonts } from '../../utils/theme';
 
@@ -19,6 +20,8 @@ type Props = {
 
 export function PinInputModal({ visible, title, subtitle, showError, onSubmit, onClose }: Props) {
     const { t } = useTranslation();
+    useScreenProtection(visible, 'pin-input');
+    useAppSwitcherProtection(visible, 'pin-input');
     const [pin, setPin] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 

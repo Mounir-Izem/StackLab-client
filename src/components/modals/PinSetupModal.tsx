@@ -3,6 +3,7 @@ import { Modal, View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useLockStore } from '../../stores/lockStore';
+import { useScreenProtection, useAppSwitcherProtection } from '../../hooks/useScreenProtection';
 import { PinKeypad } from '../common/PinKeypad';
 import { triggerLight, triggerMedium, triggerSuccess } from '../../utils/haptics';
 import { colors, fonts } from '../../utils/theme';
@@ -20,6 +21,8 @@ type Props = {
 export function PinSetupModal({ visible, purpose = 'setup', onClose, onDone }: Props) {
     const { t } = useTranslation();
     const setupPin = useLockStore(s => s.setupPin);
+    useScreenProtection(visible, 'pin-setup');
+    useAppSwitcherProtection(visible, 'pin-setup');
     const [stage, setStage] = useState<Stage>('warning');
     const [firstPin, setFirstPin] = useState('');
     const [pin, setPin] = useState('');

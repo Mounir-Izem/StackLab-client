@@ -46,6 +46,8 @@
     "appLock": "Verrouillage",
     "changePin": "Changer le PIN",
     "autoWipe": "Suppression après 10 tentatives",
+    "screenProtection": "Protection écran",
+    "screenProtectionDesc": "Empêche les captures d'écran et l'enregistrement de l'écran sur les écrans sensibles.",
     "autoBackup": "Sauvegarde automatique",
     "backupReminders": "Rappels de sauvegarde",
     "exportData": "Exporter les données",
