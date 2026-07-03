@@ -14,6 +14,7 @@ import { useSettingsStore } from '../../stores/settingsStore';
 import { useSpotStore } from '../../stores/spotStore';
 import { convertSpotPrice, calcFineWeightOz, calcMeltValue } from '../../utils/calculations';
 import { animationState } from '../../utils/animationState';
+import type { MeltBadge } from '../../utils/meltAnalysis';
 import { DeckCard } from '../cards/DeckCard';
 import { ItemCard } from '../cards/ItemCard';
 import { MoveItemModal } from '../modals/MoveItemModal';
@@ -48,6 +49,7 @@ export function DeckDetail({ route, navigation }: Props) {
     const [moveItemId, setMoveItemId] = useState<string | null>(null);
     const moveTarget = moveItemId ? (items.find(i => i.id === moveItemId) ?? null) : null;
     const isFocused = useIsFocused();
+    const YEAR_SHAPES = ['coin', 'token'] as const;
 
     useFocusEffect(
         useCallback(() => {
@@ -92,6 +94,13 @@ export function DeckDetail({ route, navigation }: Props) {
             ? calcMeltValue(calcFineWeightOz(item.weightOz, item.purity), spotPrice) * item.quantity
             : null;
 
+        const meltBadge: MeltBadge = null; // DeckDetail only shows active items
+
+        const showMissingPrice = item.purchasePrice === null;
+
+        const showYearDot = item.year === null
+            && (YEAR_SHAPES as readonly string[]).includes(item.shape);
+
         const menuActions: ContextMenuAction[] = [
             ...(item.status !== 'sold' ? [
                 {
@@ -124,6 +133,9 @@ export function DeckDetail({ route, navigation }: Props) {
                     isNew={item.id === newItemId}
                     onNewAnimationEnd={() => setNewItemId(null)}
                     menuActions={menuActions}
+                    meltBadge={meltBadge}
+                    showMissingPrice={showMissingPrice}
+                    showYearDot={showYearDot}
                 />
             </View>
         );

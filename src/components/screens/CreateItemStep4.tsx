@@ -3,8 +3,11 @@ import {
     View, Text, TextInput, Pressable,
     ScrollView, StyleSheet, ActivityIndicator,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { PurchasePriceField } from '../common/PurchasePriceField';
+import { useSpotStore } from '../../stores/spotStore';
+import { toTroyOz, calcFineWeightOz, calcMeltValue, convertSpotPrice } from '../../utils/calculations';
 import { colors, fonts } from '../../utils/theme';
 import type { FlowState } from './CreateItemFlow';
 import type { Currency } from '../../types/settings.types';
@@ -22,10 +25,35 @@ const CURRENCIES: Currency[] = ['USD', 'EUR', 'GBP', 'CAD', 'AUD'];
 
 export function CreateItemStep4({ state, update, itemStatus, onCreate, submitting, error }: Props) {
     const { t } = useTranslation();
+    const { spot, rates } = useSpotStore();
     const isWishlist = itemStatus === 'wishlist';
     const recapQty = state.mode === 'simple'
         ? state.quantity
         : state.rows.reduce((s, r) => s + r.qty, 0);
+
+    const priceCurrency = isWishlist ? state.observedCurrency : state.purchaseCurrency;
+    const priceText = isWishlist ? state.observedPrice : state.purchasePrice;
+    const priceIsPerUnit = isWishlist ? state.observedPriceIsPerUnit : state.purchasePriceIsPerUnit;
+
+    const showUnderMelt = (() => {
+        if (!spot || !state.metal) return false;
+        const priceNum = parseFloat(priceText.replace(',', '.'));
+        if (!isFinite(priceNum) || priceNum <= 0) return false;
+        const weightNum = parseFloat(state.weightInput.replace(',', '.'));
+        if (!isFinite(weightNum) || weightNum <= 0) return false;
+        const spotInCurrency = convertSpotPrice(
+            state.metal === 'gold' ? spot.gold : spot.silver,
+            priceCurrency,
+            rates,
+        );
+        const meltPerUnit = calcMeltValue(
+            calcFineWeightOz(toTroyOz(weightNum, state.weightUnit), state.purity),
+            spotInCurrency,
+        );
+        const meltTotal = meltPerUnit * recapQty;
+        const effectiveTotalPrice = priceIsPerUnit ? priceNum * recapQty : priceNum;
+        return meltTotal > 0 && effectiveTotalPrice > 0 && effectiveTotalPrice < meltTotal;
+    })();
 
     return (
         <ScrollView
@@ -58,6 +86,13 @@ export function CreateItemStep4({ state, update, itemStatus, onCreate, submittin
                     onIsPerUnitChange={v => update({ purchasePriceIsPerUnit: v })}
                     label={t('create.paidPriceLabel')}
                 />
+            )}
+
+            {showUnderMelt && (
+                <View style={styles.underMeltRow}>
+                    <Ionicons name="warning-outline" size={11} color="rgba(255,200,100,0.70)" />
+                    <Text style={styles.underMeltText}>{t('create.underMeltHint')}</Text>
+                </View>
             )}
 
             <Text style={styles.label}>{t('settings.currency')}</Text>
@@ -125,4 +160,6 @@ const styles = StyleSheet.create({
     btnCreate: { marginTop: 16, backgroundColor: colors.violet, borderRadius: 12, paddingVertical: 16, alignItems: 'center' },
     btnCreateText: { fontFamily: fonts.outfitSemiBold, fontSize: 16, color: colors.text },
     btnDisabled: { opacity: 0.4 },
+    underMeltRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4 },
+    underMeltText: { fontFamily: fonts.outfit, fontSize: 11, color: 'rgba(255,200,100,0.70)', flexShrink: 1 },
 });

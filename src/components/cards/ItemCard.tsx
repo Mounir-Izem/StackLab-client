@@ -17,6 +17,7 @@ import { formatCardValue, formatStrikeLabel, formatWeight } from '../../utils/fo
 import { useSpotStore } from '../../stores/spotStore';
 import type { Item } from '../../types/item.types';
 import type { WeightUnit } from '../../types/settings.types';
+import type { MeltBadge } from '../../utils/meltAnalysis';
 
 type ItemCardProps = {
     item: Item;
@@ -28,11 +29,15 @@ type ItemCardProps = {
     onNewAnimationEnd?: () => void;
     menuActions?: ContextMenuAction[];
     noAutoShare?: boolean;
+    meltBadge?: MeltBadge;
+    showMissingPrice?: boolean;
+    showYearDot?: boolean;
 };
 
 function ItemCardComponent({
     item, meltValue, currency = 'USD', weightUnit = 'oz', onPress,
     isNew = false, onNewAnimationEnd, menuActions = [], noAutoShare = false,
+    meltBadge = null, showMissingPrice = false, showYearDot = false,
 }: ItemCardProps) {
     const { t } = useTranslation();
     const metal = metalTokens[item.metal];
@@ -218,7 +223,12 @@ function ItemCardComponent({
 
             <View style={styles.content}>
                 <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
-                {sub ? <Text style={styles.sub}>{sub}</Text> : null}
+                {(sub || showYearDot) ? (
+                    <View style={styles.subRow}>
+                        {sub ? <Text style={styles.sub} numberOfLines={1}>{sub}</Text> : null}
+                        {showYearDot ? <View style={styles.yearDot} /> : null}
+                    </View>
+                ) : null}
                 <View style={styles.statsRow}>
                     <View style={styles.stat}>
                         <Text style={styles.statLabel}>{t('item.card.wt')}</Text>
@@ -235,6 +245,18 @@ function ItemCardComponent({
                         <Text style={[styles.mainVal, { color: valueColor }]}>{displayValue}</Text>
                     </View>
                 </View>
+                {meltBadge ? (
+                    <View style={[styles.meltBadgeWrap, meltBadge === 'under' && styles.meltBadgeUnder]}>
+                        <Text style={styles.meltBadgeText}>
+                            {t(meltBadge === 'under' ? 'item.badges.underMelt' : 'item.badges.nearMelt')}
+                        </Text>
+                    </View>
+                ) : showMissingPrice ? (
+                    <View style={styles.missingPriceRow}>
+                        <Ionicons name="add-circle-outline" size={9} color="rgba(255,255,255,0.30)" />
+                        <Text style={styles.missingPriceText}>{t('item.hints.addPurchasePrice')}</Text>
+                    </View>
+                ) : null}
             </View>
         </Animated.View>
         </GestureDetector>
@@ -443,12 +465,57 @@ const styles = StyleSheet.create({
         color: colors.text,
         letterSpacing: -0.5,
     },
+    subRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 5,
+        marginTop: 1,
+        marginBottom: 6,
+    },
     sub: {
         fontSize: fontSize.cardSub,
         color: 'rgba(255,255,255,0.45)',
-        marginTop: 1,
-        marginBottom: 6,
         fontFamily: fonts.outfit,
+        flexShrink: 1,
+    },
+    yearDot: {
+        width: 4,
+        height: 4,
+        borderRadius: 2,
+        backgroundColor: 'rgba(255,255,255,0.35)',
+    },
+    meltBadgeWrap: {
+        alignSelf: 'flex-start',
+        marginTop: 5,
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 6,
+        backgroundColor: 'rgba(255,255,255,0.10)',
+        borderWidth: 0.5,
+        borderColor: 'rgba(255,255,255,0.20)',
+    },
+    meltBadgeUnder: {
+        backgroundColor: 'rgba(80,200,120,0.15)',
+        borderColor: 'rgba(80,200,120,0.40)',
+    },
+    meltBadgeText: {
+        fontSize: 8,
+        fontFamily: fonts.outfitSemiBold,
+        color: 'rgba(255,255,255,0.65)',
+        letterSpacing: 0.5,
+        textTransform: 'uppercase',
+    },
+    missingPriceRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        marginTop: 5,
+    },
+    missingPriceText: {
+        fontSize: 8,
+        fontFamily: fonts.outfit,
+        color: 'rgba(255,255,255,0.28)',
+        letterSpacing: 0.3,
     },
     statsRow: {
         flexDirection: 'row',

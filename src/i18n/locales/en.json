@@ -269,6 +269,13 @@
       "moveToTrash": "Move to Trash",
       "share": "Share"
     },
+    "hints": {
+      "addPurchasePrice": "Add purchase price"
+    },
+    "badges": {
+      "nearMelt": "Near melt",
+      "underMelt": "Under melt"
+    },
     "empty": {
       "title": "No items yet",
       "hint": "Tap + to add your first item.",
@@ -348,6 +355,7 @@
     "totalWt": "Total wt",
     "fineWt": "Fine wt",
     "step4Subtitle": "Optional — skip if you don't want to track cost basis.",
+    "underMeltHint": "Price below melt value — spot may vary",
     "step4SubtitleWishlist": "Optional — the price you've seen this item listed for.",
     "priceHeading": "Price",
     "observedPriceLabel": "Price observed for this item",

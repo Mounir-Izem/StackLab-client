@@ -15,6 +15,8 @@ import { useSpotStore } from '../../stores/spotStore';
 import { convertSpotPrice, calcFineWeightOz, calcMeltValue } from '../../utils/calculations';
 import { triggerSuccess } from '../../utils/haptics';
 import { animationState } from '../../utils/animationState';
+import { getMeltBadge } from '../../utils/meltAnalysis';
+import type { MeltBadge } from '../../utils/meltAnalysis';
 import { DeckCard } from '../cards/DeckCard';
 import { ItemCard } from '../cards/ItemCard';
 import { NewDeckModal } from '../modals/NewDeckModal';
@@ -38,6 +40,8 @@ export function LabDetail({ route, navigation }: Props) {
     const currency = useSettingsStore(s => s.settings?.currency ?? 'USD');
     const weightUnit = useSettingsStore(s => s.settings?.weightUnit ?? 'oz');
     const { spot, rates } = useSpotStore();
+
+    const YEAR_SHAPES = ['coin', 'token'] as const;
 
     const spotGold = spot ? convertSpotPrice(spot.gold, currency, rates) : null;
     const spotSilver = spot ? convertSpotPrice(spot.silver, currency, rates) : null;
@@ -86,6 +90,23 @@ export function LabDetail({ route, navigation }: Props) {
             ? calcMeltValue(calcFineWeightOz(item.weightOz, item.purity), spotPrice) * item.quantity
             : null;
 
+        const meltBadge: MeltBadge = (isWishlist && item.observedPrice !== null && meltValue !== null)
+            ? getMeltBadge({
+                price: item.observedPrice,
+                priceCurrency: item.observedCurrency ?? 'USD',
+                displayCurrency: currency,
+                meltTotal: meltValue,
+                rates,
+            })
+            : null;
+
+        const showMissingPrice = item.status === 'active' && !isTrash && item.purchasePrice === null;
+
+        const showYearDot = item.year === null
+            && item.status !== 'sold'
+            && !isTrash
+            && (YEAR_SHAPES as readonly string[]).includes(item.shape);
+
         const menuActions: ContextMenuAction[] = isTrash ? [] : [
             ...(item.status !== 'sold' ? [{
                 label: t('item.actions.edit'),
@@ -116,6 +137,9 @@ export function LabDetail({ route, navigation }: Props) {
                     isNew={item.id === newItemId}
                     onNewAnimationEnd={() => setNewItemId(null)}
                     menuActions={menuActions}
+                    meltBadge={meltBadge}
+                    showMissingPrice={showMissingPrice}
+                    showYearDot={showYearDot}
                 />
             </View>
         );

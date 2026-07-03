@@ -269,6 +269,13 @@
       "moveToTrash": "Déplacer vers la corbeille",
       "share": "Partager"
     },
+    "hints": {
+      "addPurchasePrice": "Ajouter le prix d'achat"
+    },
+    "badges": {
+      "nearMelt": "Proche valeur métal",
+      "underMelt": "Sous valeur métal"
+    },
     "empty": {
       "title": "Aucun objet",
       "hint": "Appuyez sur + pour ajouter votre premier objet.",
@@ -348,6 +355,7 @@
     "totalWt": "Poids total",
     "fineWt": "Poids fin",
     "step4Subtitle": "Optionnel — ignorez si vous ne souhaitez pas suivre votre coût.",
+    "underMeltHint": "Prix sous valeur métal — cours variable",
     "step4SubtitleWishlist": "Optionnel — le prix auquel vous avez vu cet objet listé.",
     "priceHeading": "Prix",
     "observedPriceLabel": "Prix observé pour cet objet",
