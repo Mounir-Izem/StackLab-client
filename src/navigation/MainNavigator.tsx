@@ -8,6 +8,8 @@ import type { MainTabParamList } from './types';
 import { LabsStack } from './LabsStack';
 import { SpotHome } from '../components/screens/SpotHome';
 import { DashboardHome } from '../components/screens/DashboardHome';
+import { SoldHistoryScreen } from '../components/screens/SoldHistoryScreen';
+import { SoldItemDetailScreen } from '../components/screens/SoldItemDetailScreen';
 
 function GearButton() {
     return (
@@ -41,6 +43,8 @@ function DashStack() {
     return (
         <DashNav.Navigator screenOptions={{ ...HEADER_OPTIONS, headerRight: () => <GearButton /> }}>
             <DashNav.Screen name="DashHome" component={DashboardHome} options={{ title: 'Dashboard' }} />
+            <DashNav.Screen name="SoldHistory" component={SoldHistoryScreen} options={{ title: 'Sold History' }} />
+            <DashNav.Screen name="SoldItemDetail" component={SoldItemDetailScreen} options={{ title: 'Détail' }} />
         </DashNav.Navigator>
     );
 }

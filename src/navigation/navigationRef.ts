@@ -13,3 +13,12 @@ export function resetToLabsHome(): void {
         }],
     });
 }
+
+export function navigateToItemDetail(itemId: string): void {
+    if (!navigationRef.isReady()) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (navigationRef as any).navigate('LabsTab', {
+        screen: 'ItemDetail',
+        params: { itemId },
+    });
+}

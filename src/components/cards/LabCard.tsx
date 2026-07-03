@@ -56,10 +56,10 @@ function LabCardComponent({
     const isWishlist = lab.type === 'wishlist';
 
     const countLabel = lab.type === 'wishlist'
-        ? t('common.items', { count: cards })
+        ? t('common.wishes', { count: cards })
         : lab.type === 'trash'
-            ? t('common.items', { count: cards })
-            : `${t('dashboard.cards', { count: cards })} · ${t('common.units', { count: units })}`;
+            ? (cards === 0 ? t('labs.trashEmpty') : t('common.items', { count: cards }))
+            : `${t('common.lots', { count: cards })} · ${t('common.units', { count: units })}`;
 
     const { cardRef, canvasRef, canvasOpacity, gesture, animatedStyle, glowAnim, handleShare } = useCardGestures({
         onPress,

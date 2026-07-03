@@ -115,6 +115,21 @@ function ItemCardComponent({
     const isSold = item.status === 'sold';
     const isWishlist = item.status === 'wishlist';
 
+    const observedPremiumAmount = (() => {
+        if (!isWishlist || item.observedPrice == null || meltValue == null || meltValue <= 0) return null;
+        const obsCur = item.observedCurrency ?? 'USD';
+        const obsInUsd = obsCur === 'USD' ? item.observedPrice
+            : (rates[obsCur] ? item.observedPrice * rates[obsCur] : null);
+        if (obsInUsd === null) return null;
+        const obsInDisplay = currency === 'USD' ? obsInUsd
+            : (rates[currency] ? obsInUsd / rates[currency] : null);
+        if (obsInDisplay === null) return null;
+        return obsInDisplay - meltValue;
+    })();
+    const observedPremiumPct = observedPremiumAmount !== null && meltValue != null
+        ? observedPremiumAmount / meltValue
+        : null;
+
     const { cardRef, canvasRef, canvasOpacity, gesture, animatedStyle, glowAnim, handleShare } = useCardGestures({
         onPress,
         onLongPress: menuActions.length > 0 ? () => setMenuVisible(true) : undefined,
@@ -245,7 +260,15 @@ function ItemCardComponent({
                         <Text style={[styles.mainVal, { color: valueColor }]}>{displayValue}</Text>
                     </View>
                 </View>
-                {meltBadge ? (
+                {isWishlist && observedPremiumAmount !== null && observedPremiumPct !== null ? (
+                    <View style={styles.meltBadgeWrap}>
+                        <Text style={styles.meltBadgeText}>
+                            {observedPremiumAmount >= 0 ? '+' : ''}{(observedPremiumPct * 100).toFixed(1)}%
+                            {' · '}
+                            {observedPremiumAmount >= 0 ? '+' : '-'}{formatCardValue(Math.abs(observedPremiumAmount), currency)}
+                        </Text>
+                    </View>
+                ) : meltBadge ? (
                     <View style={[styles.meltBadgeWrap, meltBadge === 'under' && styles.meltBadgeUnder]}>
                         <Text style={styles.meltBadgeText}>
                             {t(meltBadge === 'under' ? 'item.badges.underMelt' : 'item.badges.nearMelt')}

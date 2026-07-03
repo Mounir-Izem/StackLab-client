@@ -25,6 +25,10 @@
     "decks_other": "{{count}} decks",
     "units_one": "{{count}} unit",
     "units_other": "{{count}} units",
+    "lots_one": "{{count}} lot",
+    "lots_other": "{{count}} lots",
+    "wishes_one": "{{count}} wish",
+    "wishes_other": "{{count}} wishes",
     "gotIt": "Got it",
     "and": "and",
     "total": "total"
@@ -123,10 +127,9 @@
     "addPricesHint": "add purchase prices to items",
     "fineUnit": "fine {{unit}}",
     "activeHoldings": "Active holdings",
-    "cards_one": "{{count}} card",
-    "cards_other": "{{count}} cards",
     "wishlistLabel": "Wishlist",
     "soldHistory": "Sold history",
+    "soldHistoryEmpty": "No sales recorded yet.",
     "realized": "realized {{value}}",
     "refreshSpot": "Refresh spot prices"
   },
@@ -176,6 +179,7 @@
       "title": "Trash is empty",
       "hint": "Items you delete appear here. Restore them or remove them forever."
     },
+    "trashEmpty": "Empty",
     "deckHint": "Use Decks to group your pieces by theme, year, or origin.",
     "addToWishlist": "Add to Wishlist",
     "backupBanner": "Back up your stack to keep your data safe.",
@@ -287,6 +291,7 @@
     "fineWeightUnit": "Fine {{unit}}",
     "purchasedLabel": "Purchased",
     "observedLabel": "Observed",
+    "observedPremiumLabel": "Observed premium",
     "dateLabel": "Date",
     "photoHint": "Tap to shoot or pick from library",
     "takePhoto": "Take photo",

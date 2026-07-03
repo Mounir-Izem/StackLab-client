@@ -3,6 +3,7 @@ import {
     View, Text, StyleSheet,
     ScrollView, ActivityIndicator, Pressable, RefreshControl,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useLabStore } from '../../stores/labStore';
@@ -61,6 +62,7 @@ function AnimatedCounter({
 
 export function DashboardHome() {
     const { t } = useTranslation();
+    const navigation = useNavigation<any>(); // eslint-disable-line @typescript-eslint/no-explicit-any
     const { labs, labOzTotals, labActiveSummaries, wishlistSummary, soldSummary, labInvestedTotals, loadLabs, isLoading: labsLoading } = useLabStore();
     const { spot, rates, isLoading: spotLoading, refresh } = useSpotStore();
     const reduceMotion = useReducedMotion();
@@ -252,7 +254,7 @@ export function DashboardHome() {
                     <View style={styles.countRow}>
                         <Ionicons name="layers-outline" size={16} color={colors.text2} />
                         <Text style={styles.countText}>
-                            {t('dashboard.activeHoldings')} · {t('dashboard.cards', { count: activeCards })} · {t('common.units', { count: activeUnits })}
+                            {t('dashboard.activeHoldings')} · {t('common.lots', { count: activeCards })} · {t('common.units', { count: activeUnits })}
                         </Text>
                     </View>
                 )}
@@ -260,18 +262,19 @@ export function DashboardHome() {
                     <View style={styles.countRow}>
                         <Ionicons name="heart-outline" size={16} color={colors.text2} />
                         <Text style={styles.countText}>
-                            {t('dashboard.wishlistLabel')} · {t('common.items', { count: wishlistSummary.cards })}
+                            {t('dashboard.wishlistLabel')} · {t('common.wishes', { count: wishlistSummary.cards })}
                         </Text>
                     </View>
                 )}
                 {soldSummary.cards > 0 && (
-                    <View style={styles.countRow}>
+                    <Pressable style={styles.countRow} onPress={() => navigation.navigate('SoldHistory')}>
                         <Ionicons name="cash-outline" size={16} color={colors.text2} />
                         <Text style={styles.countText}>
-                            {t('dashboard.soldHistory')} · {t('common.items', { count: soldSummary.cards })}
+                            {t('dashboard.soldHistory')} · {t('common.lots', { count: soldSummary.cards })}
                             {realizedPnL !== null ? ` · ${t('dashboard.realized', { value: formatPnL(realizedPnL, currency) })}` : ''}
                         </Text>
-                    </View>
+                        <Ionicons name="chevron-forward" size={14} color={colors.text2} />
+                    </Pressable>
                 )}
             </View>
 

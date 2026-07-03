@@ -58,7 +58,7 @@ function DeckCardComponent({
         onPress,
         onLongPress: menuActions.length > 0 ? () => { setMenuVisible(true); triggerLayerSpread(); } : undefined,
         buildShareText: () =>
-            `${deck.name} — ${t('common.items', { count: itemCount })}\nTracked with StackLab`,
+            `${deck.name} — ${t('common.lots', { count: itemCount })}\nTracked with StackLab`,
         glowColor: 'rgba(200,200,230,0.5)',
         reduceMotion,
     });
@@ -115,7 +115,7 @@ function DeckCardComponent({
                     </View>
                     <View style={styles.metaRow}>
                         <Text style={styles.meta}>
-                            {t('common.items', { count: itemCount })}
+                            {t('common.lots', { count: itemCount })}
                         </Text>
                         {subDeckCount > 0 && (
                             <View style={styles.subChip}>
@@ -142,7 +142,7 @@ function DeckCardComponent({
                 />
                 <View style={styles.content}>
                     <Text style={styles.name} numberOfLines={1}>{deck.name}</Text>
-                    <Text style={styles.meta}>{t('common.items', { count: itemCount })}  ·  {displayValue}</Text>
+                    <Text style={styles.meta}>{t('common.lots', { count: itemCount })}  ·  {displayValue}</Text>
                 </View>
             </View>
         </ShareCanvas>

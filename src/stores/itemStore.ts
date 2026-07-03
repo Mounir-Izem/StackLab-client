@@ -6,11 +6,13 @@ import type { Currency } from '../types/settings.types';
 
 interface ItemStore {
     items: Item[];
+    soldItems: Item[];
     currentLabId: string | null;
     isLoading: boolean;
     error: string | null;
 
     loadItems: (labId: string) => Promise<void>;
+    loadSoldItems: () => Promise<void>;
     createItem: (data: ItemCreateInput) => Promise<void>;
     updateItem: (id: string, data: Partial<Omit<Item, 'id' | 'familyKey' | 'createdAt' | 'updatedAt' | 'purchasePrice'>>) => Promise<void>;
     updatePurchasePrice: (id: string, purchasePrice: number | null, purchasePriceIsPerUnit: boolean) => Promise<void>;
@@ -28,6 +30,7 @@ interface ItemStore {
 
 export const useItemStore = create<ItemStore>((set, get) => ({
     items: [],
+    soldItems: [],
     currentLabId: null,
     isLoading: false,
     error: null,
@@ -37,6 +40,16 @@ export const useItemStore = create<ItemStore>((set, get) => ({
         try {
             const items = await itemService.getByLabId(labId);
             set({ items, isLoading: false });
+        } catch {
+            set({ isLoading: false, error: 'LOAD_ERROR' });
+        }
+    },
+
+    loadSoldItems: async () => {
+        set({ isLoading: true, error: null });
+        try {
+            const soldItems = await itemService.getSoldItems();
+            set({ soldItems, isLoading: false });
         } catch {
             set({ isLoading: false, error: 'LOAD_ERROR' });
         }

@@ -153,6 +153,19 @@ export function ItemDetail({ route, navigation }: Props) {
     const isWishlist = item.status === 'wishlist';
     const isTrash = lab?.type === 'trash';
 
+    const observedUsd = isWishlist && item.observedPrice !== null
+        ? (!item.observedCurrency || item.observedCurrency === 'USD'
+            ? item.observedPrice
+            : (rates[item.observedCurrency] ? item.observedPrice * rates[item.observedCurrency] : null))
+        : null;
+    const observedInDisplay = observedUsd !== null ? convertSpotPrice(observedUsd, currency, rates) : null;
+    const observedPremiumAmount = observedInDisplay !== null && meltValue !== null && meltValue > 0
+        ? observedInDisplay - meltValue
+        : null;
+    const observedPremiumPct = observedPremiumAmount !== null && meltValue !== null
+        ? observedPremiumAmount / meltValue
+        : null;
+
     return (
         <View style={styles.screen}>
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -252,6 +265,19 @@ export function ItemDetail({ route, navigation }: Props) {
                         )}
                     </View>
                 )}
+                {isWishlist && observedPremiumAmount !== null && observedPremiumPct !== null && (
+                    <View style={styles.row2}>
+                        <View style={styles.stat}>
+                            <Text style={styles.statLabel}>{t('item.observedPremiumLabel')}</Text>
+                            <Text style={styles.statVal}>
+                                {observedPremiumAmount >= 0 ? '+' : ''}{formatCurrency(Math.abs(observedPremiumAmount), currency as Currency)}
+                                {' ('}
+                                {observedPremiumAmount >= 0 ? '+' : ''}{(observedPremiumPct * 100).toFixed(1)}%
+                                {')'}
+                            </Text>
+                        </View>
+                    </View>
+                )}
                 {isSold && item.soldPrice !== null && (
                     <View style={styles.row2}>
                         <View style={styles.stat}>
@@ -305,7 +331,6 @@ export function ItemDetail({ route, navigation }: Props) {
                     <>
                         <ActionBtn icon="create-outline" label={t('item.actions.edit')} onPress={() => navigation.navigate('EditItem', { itemId: item.id })} />
                         <ActionBtn icon="copy-outline" label={t('item.actions.duplicate')} disabled />
-                        <ActionBtn icon="arrow-forward-outline" label={t('item.actions.move')} onPress={() => setShowMoveModal(true)} />
                         <ActionBtn icon="trash-outline" label={t('item.actions.delete')} danger onPress={() => setShowDeleteConfirm(true)} />
                     </>
                 ) : (

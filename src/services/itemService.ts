@@ -52,6 +52,16 @@ export const itemService = {
         return itemRepository.findByLabId(labId);
     },
 
+    async getSoldItems(): Promise<Item[]> {
+        const [trashLab, soldItems] = await Promise.all([
+            labRepository.findByType('trash'),
+            itemRepository.findAll('sold'),
+        ]);
+        return trashLab
+            ? soldItems.filter(i => i.labId !== trashLab.id)
+            : soldItems;
+    },
+
     async create(data: ItemCreateInput): Promise<Item> {
         const purchasePrice = data.purchasePrice != null
             ? (data.purchasePriceIsPerUnit ? data.purchasePrice * data.quantity : data.purchasePrice)

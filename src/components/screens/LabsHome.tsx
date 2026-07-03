@@ -53,9 +53,9 @@ export function LabsHome({ navigation }: Props) {
     const renderLab = useCallback(({ item }: { item: Lab }) => {
         const ozGold = labOzTotals[item.id]?.gold ?? 0;
         const ozSilver = labOzTotals[item.id]?.silver ?? 0;
-        const totalValue = spotGold !== null && spotSilver !== null
-            ? ozGold * spotGold + ozSilver * spotSilver
-            : null;
+        const totalValue = item.type !== 'standard' || spotGold === null || spotSilver === null
+            ? null
+            : ozGold * spotGold + ozSilver * spotSilver;
 
         const summary = item.type === 'wishlist' ? wishlistSummary
             : item.type === 'trash' ? trashSummary
