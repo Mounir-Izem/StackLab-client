@@ -1,4 +1,5 @@
 import type { ItemWeightUnit } from '../types/item.types';
+import { convertCurrencyAmount } from './currencyConversion';
 
 export function toTroyOz(weight: number, unit: ItemWeightUnit): number {
     if (unit === 'g') return weight / 31.1035;
@@ -57,15 +58,14 @@ export function calcWishlistGap(
     return observedPrice - currentValue;
 }
 
+// priceUsd est toujours en USD (nom explicite) — conversion vers currency.
+// Retourne null si le taux manque, jamais le montant USD non converti.
 export function convertSpotPrice(
     priceUsd: number,
     currency: string,
     rates: Record<string, number>,
-): number {
-    if (currency === 'USD') return priceUsd;
-    const rate = rates[currency];
-    if (!rate) return priceUsd;
-    return priceUsd / rate;
+): number | null {
+    return convertCurrencyAmount(priceUsd, 'USD', currency, rates);
 }
 
 export function proratePurchasePrice(
@@ -80,18 +80,26 @@ export function proratePurchasePrice(
     return { extracted: extractedCents / 100, remaining: remainingCents / 100 };
 }
 
+// Convertit chaque ligne directement vers displayCurrency (jamais via un
+// détour USD forcé) et additionne. Une ligne vide → null (aucun prix
+// renseigné = inconnu, jamais 0). Une seule ligne non convertible (taux
+// manquant) rend le total entier non fiable → null, jamais un fallback
+// vers 1 ou vers le montant non converti.
 export function sumByCurrency(
     amountsByCurrency: Record<string, number>,
     displayCurrency: string,
     rates: Record<string, number>,
 ): number | null {
-    if (Object.keys(amountsByCurrency).length === 0) return null;
-    const hasNonUsd = Object.keys(amountsByCurrency).some(c => c !== 'USD');
-    if (hasNonUsd && Object.keys(rates).length === 0) return null;
-    const totalUsd = Object.entries(amountsByCurrency).reduce((sum, [cur, amount]) => {
-        return sum + (cur === 'USD' ? amount : amount * (rates[cur] ?? 1));
-    }, 0);
-    return convertSpotPrice(totalUsd, displayCurrency, rates);
+    const entries = Object.entries(amountsByCurrency);
+    if (entries.length === 0) return null;
+
+    let total = 0;
+    for (const [cur, amount] of entries) {
+        const converted = convertCurrencyAmount(amount, cur, displayCurrency, rates);
+        if (converted === null) return null;
+        total += converted;
+    }
+    return total;
 }
 
 export function calcTotalInvested(

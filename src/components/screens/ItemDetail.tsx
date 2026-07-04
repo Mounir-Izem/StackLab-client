@@ -19,6 +19,9 @@ import {
 } from '../../utils/formatters';
 import { metalTokens, colors, fonts, fontSize } from '../../utils/theme';
 import { MoveItemModal } from '../modals/MoveItemModal';
+import { getItemRole } from '../../domain/itemSemantics';
+import { canPerformAction } from '../../domain/actionSemantics';
+import { resolveQuantityDraft } from '../../utils/quantityInput';
 import type { LabsStackScreenProps } from '../../navigation/types';
 import type { Currency } from '../../types/settings.types';
 
@@ -41,6 +44,10 @@ export function ItemDetail({ route, navigation }: Props) {
     const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
     const [showSellModal, setShowSellModal] = useState(false);
     const [sellQty, setSellQty] = useState(1);
+    // Drafts libres pendant la frappe des champs quantité sell/acquire — sellQty/
+    // acquireQty restent la source de vérité, résolus au blur uniquement.
+    const [sellQtyDraft, setSellQtyDraft] = useState<string | null>(null);
+    const [acquireQtyDraft, setAcquireQtyDraft] = useState<string | null>(null);
     const [sellPrice, setSellPrice] = useState('');
     const [sellPerUnit, setSellPerUnit] = useState(true);
     const [sellCurrency, setSellCurrency] = useState<Currency>(currency as Currency);
@@ -152,6 +159,11 @@ export function ItemDetail({ route, navigation }: Props) {
     const isSold = item.status === 'sold';
     const isWishlist = item.status === 'wishlist';
     const isTrash = lab?.type === 'trash';
+    // Guardrail ciblé (Lot 4.1) — lab est disponible ici, donc getItemRole()
+    // plutôt qu'un mapping status-only. Le reste de l'écran garde encore la
+    // structure isTrash/isWishlist/isSold existante (migration complète hors
+    // périmètre de ce lot).
+    const role = lab ? getItemRole(item, lab) : null;
 
     const observedUsd = isWishlist && item.observedPrice !== null
         ? (!item.observedCurrency || item.observedCurrency === 'USD'
@@ -329,9 +341,9 @@ export function ItemDetail({ route, navigation }: Props) {
                     </>
                 ) : isSold ? (
                     <>
-                        <ActionBtn icon="create-outline" label={t('item.actions.edit')} onPress={() => navigation.navigate('EditItem', { itemId: item.id })} />
-                        <ActionBtn icon="copy-outline" label={t('item.actions.duplicate')} disabled />
-                        <ActionBtn icon="trash-outline" label={t('item.actions.delete')} danger onPress={() => setShowDeleteConfirm(true)} />
+                        {role !== null && canPerformAction(role, 'trash') && (
+                            <ActionBtn icon="trash-outline" label={t('item.actions.delete')} danger onPress={() => setShowDeleteConfirm(true)} />
+                        )}
                     </>
                 ) : (
                     <>
@@ -361,17 +373,23 @@ export function ItemDetail({ route, navigation }: Props) {
                         <View style={styles.sellBody}>
                             <Text style={styles.sellLabel}>{t('item.quantity')}</Text>
                             <View style={styles.qtyRow}>
-                                <Pressable style={styles.qtyBtn} onPress={() => setAcquireQty(q => Math.max(1, q - 1))} disabled={acquireQty <= 1}>
+                                <Pressable style={styles.qtyBtn} onPress={() => { setAcquireQty(q => Math.max(1, q - 1)); setAcquireQtyDraft(null); }} disabled={acquireQty <= 1}>
                                     <Ionicons name="remove" size={18} color={acquireQty > 1 ? colors.text : colors.text2} />
                                 </Pressable>
                                 <TextInput
                                     style={styles.qtyInput}
-                                    value={String(acquireQty)}
+                                    value={acquireQtyDraft ?? String(acquireQty)}
                                     keyboardType="number-pad"
-                                    onChangeText={val => setAcquireQty(Math.min(item.quantity, Math.max(1, parseInt(val, 10) || 1)))}
+                                    onChangeText={setAcquireQtyDraft}
+                                    onBlur={() => {
+                                        if (acquireQtyDraft !== null) {
+                                            setAcquireQty(resolveQuantityDraft(acquireQtyDraft, item.quantity));
+                                            setAcquireQtyDraft(null);
+                                        }
+                                    }}
                                     selectTextOnFocus
                                 />
-                                <Pressable style={styles.qtyBtn} onPress={() => setAcquireQty(q => Math.min(item.quantity, q + 1))} disabled={acquireQty >= item.quantity}>
+                                <Pressable style={styles.qtyBtn} onPress={() => { setAcquireQty(q => Math.min(item.quantity, q + 1)); setAcquireQtyDraft(null); }} disabled={acquireQty >= item.quantity}>
                                     <Ionicons name="add" size={18} color={acquireQty < item.quantity ? colors.text : colors.text2} />
                                 </Pressable>
                                 <Text style={styles.qtyMax}>/ {item.quantity}</Text>
@@ -417,8 +435,9 @@ export function ItemDetail({ route, navigation }: Props) {
                             onPress={async () => {
                                 if (!acquireTargetLabId) return;
                                 setShowAcquireModal(false);
+                                const finalQty = acquireQtyDraft !== null ? resolveQuantityDraft(acquireQtyDraft, item.quantity) : acquireQty;
                                 const price = acquirePrice.trim() ? parseFloat(acquirePrice.replace(',', '.')) : null;
-                                await acquireItem(item.id, acquireQty, acquireTargetLabId, null, price, price ? acquireCurrency : null, acquirePerUnit);
+                                await acquireItem(item.id, finalQty, acquireTargetLabId, null, price, price ? acquireCurrency : null, acquirePerUnit);
                                 navigation.goBack();
                             }}
                         >
@@ -452,17 +471,23 @@ export function ItemDetail({ route, navigation }: Props) {
                         <View style={styles.sellBody}>
                             <Text style={styles.sellLabel}>{t('item.quantity')}</Text>
                             <View style={styles.qtyRow}>
-                                <Pressable style={styles.qtyBtn} onPress={() => setSellQty(q => Math.max(1, q - 1))} disabled={sellQty <= 1}>
+                                <Pressable style={styles.qtyBtn} onPress={() => { setSellQty(q => Math.max(1, q - 1)); setSellQtyDraft(null); }} disabled={sellQty <= 1}>
                                     <Ionicons name="remove" size={18} color={sellQty > 1 ? colors.text : colors.text2} />
                                 </Pressable>
                                 <TextInput
                                     style={styles.qtyInput}
-                                    value={String(sellQty)}
+                                    value={sellQtyDraft ?? String(sellQty)}
                                     keyboardType="number-pad"
-                                    onChangeText={val => setSellQty(Math.min(item.quantity, Math.max(1, parseInt(val, 10) || 1)))}
+                                    onChangeText={setSellQtyDraft}
+                                    onBlur={() => {
+                                        if (sellQtyDraft !== null) {
+                                            setSellQty(resolveQuantityDraft(sellQtyDraft, item.quantity));
+                                            setSellQtyDraft(null);
+                                        }
+                                    }}
                                     selectTextOnFocus
                                 />
-                                <Pressable style={styles.qtyBtn} onPress={() => setSellQty(q => Math.min(item.quantity, q + 1))} disabled={sellQty >= item.quantity}>
+                                <Pressable style={styles.qtyBtn} onPress={() => { setSellQty(q => Math.min(item.quantity, q + 1)); setSellQtyDraft(null); }} disabled={sellQty >= item.quantity}>
                                     <Ionicons name="add" size={18} color={sellQty < item.quantity ? colors.text : colors.text2} />
                                 </Pressable>
                                 <Text style={styles.qtyMax}>/ {item.quantity}</Text>
@@ -489,8 +514,9 @@ export function ItemDetail({ route, navigation }: Props) {
 
                         <Pressable style={styles.sellConfirmBtn} onPress={async () => {
                             setShowSellModal(false);
+                            const finalQty = sellQtyDraft !== null ? resolveQuantityDraft(sellQtyDraft, item.quantity) : sellQty;
                             const price = sellPrice.trim() ? parseFloat(sellPrice.replace(',', '.')) : null;
-                            await sellItem(item.id, sellQty, price, sellPerUnit, sellCurrency, new Date().toISOString());
+                            await sellItem(item.id, finalQty, price, sellPerUnit, sellCurrency, new Date().toISOString());
                             navigation.goBack();
                         }}>
                             <Text style={styles.sellConfirmText}>{t('sell.confirm')}</Text>
@@ -535,21 +561,41 @@ export function ItemDetail({ route, navigation }: Props) {
                 </Pressable>
             </Modal>
 
-            {/* Restore lab picker modal */}
+            {/* Restore modal — trashedSale : pas de choix de lab, la vente n'est pas
+                "rangée" dans un lab pour l'utilisateur, elle retourne dans l'historique
+                des ventes. Les autres rôles trash gardent le picker de lab existant. */}
             <Modal visible={showRestorePicker} transparent animationType="fade" onRequestClose={() => setShowRestorePicker(false)}>
                 <Pressable style={styles.overlay} onPress={() => setShowRestorePicker(false)}>
                     <View style={styles.optionSheet}>
-                        <Text style={styles.optionTitle}>{t('item.restoreTitle')}</Text>
-                        {labs.filter(l => item.status === 'wishlist' ? l.type === 'wishlist' : l.type === 'standard').map(l => (
-                            <Pressable key={l.id} style={styles.optionBtn} onPress={async () => {
-                                setShowRestorePicker(false);
-                                await restoreFromTrash(item.id, l.id, null);
-                                navigation.goBack();
-                            }}>
-                                <Ionicons name="layers-outline" size={20} color={colors.text} />
-                                <Text style={styles.optionBtnText}>{l.name}</Text>
-                            </Pressable>
-                        ))}
+                        {role === 'trashedSale' ? (
+                            <>
+                                <Text style={styles.optionTitle}>{t('item.restoreSaleTitle')}</Text>
+                                <Pressable style={styles.optionBtn} onPress={async () => {
+                                    const standardLab = labs.find(l => l.type === 'standard');
+                                    if (!standardLab) return;
+                                    setShowRestorePicker(false);
+                                    await restoreFromTrash(item.id, standardLab.id, null);
+                                    navigation.goBack();
+                                }}>
+                                    <Ionicons name="cash-outline" size={20} color={colors.text} />
+                                    <Text style={styles.optionBtnText}>{t('item.actions.restoreSale')}</Text>
+                                </Pressable>
+                            </>
+                        ) : (
+                            <>
+                                <Text style={styles.optionTitle}>{t('item.restoreTitle')}</Text>
+                                {labs.filter(l => item.status === 'wishlist' ? l.type === 'wishlist' : l.type === 'standard').map(l => (
+                                    <Pressable key={l.id} style={styles.optionBtn} onPress={async () => {
+                                        setShowRestorePicker(false);
+                                        await restoreFromTrash(item.id, l.id, null);
+                                        navigation.goBack();
+                                    }}>
+                                        <Ionicons name="layers-outline" size={20} color={colors.text} />
+                                        <Text style={styles.optionBtnText}>{l.name}</Text>
+                                    </Pressable>
+                                ))}
+                            </>
+                        )}
                         <Pressable style={styles.optionBtn} onPress={() => setShowRestorePicker(false)}>
                             <Text style={styles.optionBtnText}>{t('common.cancel')}</Text>
                         </Pressable>

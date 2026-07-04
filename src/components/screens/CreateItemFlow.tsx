@@ -7,6 +7,7 @@ import { useLabStore } from '../../stores/labStore';
 import { triggerSuccess } from '../../utils/haptics';
 import { animationState } from '../../utils/animationState';
 import { playCreationSound } from '../../utils/sound';
+import { resolveCreationPriceAllocation } from '../../domain/createFlowSemantics';
 import { colors, fonts } from '../../utils/theme';
 import { CreateItemStep1 } from './CreateItemStep1';
 import { CreateItemStep2 } from './CreateItemStep2';
@@ -20,6 +21,10 @@ export type MixRow = {
     year: string;
     strikeFinish: StrikeFinish | null;
     qty: number;
+    // Prix (achat ou observé selon itemStatus) propre à cette ligne — le coût
+    // total de cette ligne/item, jamais un prix unitaire. Jamais de prix
+    // global partagé entre rows : voir NATIVE_BUSINESS_SEMANTICS.md §13.
+    priceText: string;
 };
 
 export type FlowState = {
@@ -91,26 +96,34 @@ export function CreateItemFlow({ route, navigation }: Props) {
         setSubmitting(true);
         setSubmitError(null);
 
-        // Le prix suit une union discriminée (price + priceIsPerUnit vont toujours ensemble,
-        // jamais l'un sans l'autre) — d'où le ternaire plutôt qu'un objet plat. Un lab standard
-        // remplit purchasePrice (prix payé), un lab wishlist remplit observedPrice (prix constaté).
-        const priceFields = itemStatus === 'wishlist'
-            ? (state.observedPrice.trim()
-                ? {
-                    observedPrice: parseFloat(state.observedPrice.replace(',', '.')),
-                    observedPriceIsPerUnit: state.observedPriceIsPerUnit,
-                    observedCurrency: state.observedCurrency,
-                    observedPriceDate: state.observedPriceDate.trim() || null,
-                }
-                : {})
-            : (state.purchasePrice.trim()
-                ? {
-                    purchasePrice: parseFloat(state.purchasePrice.replace(',', '.')),
-                    purchasePriceIsPerUnit: state.purchasePriceIsPerUnit,
-                    purchaseCurrency: state.purchaseCurrency,
-                    purchaseDate: state.purchaseDate.trim() || null,
-                }
-                : {});
+        // Le prix ne fait plus partie de `base` : en mode mix, chaque row a son
+        // propre prix, résolu via resolveCreationPriceAllocation() — jamais un
+        // prix global dupliqué sur plusieurs items (NATIVE_BUSINESS_SEMANTICS.md §13).
+        const priceMeta = itemStatus === 'wishlist'
+            ? { observedCurrency: state.observedCurrency, observedPriceDate: state.observedPriceDate.trim() || null }
+            : { purchaseCurrency: state.purchaseCurrency, purchaseDate: state.purchaseDate.trim() || null };
+
+        const allocations = state.mode === 'simple'
+            ? resolveCreationPriceAllocation({
+                mode: 'simple',
+                quantity: state.quantity,
+                priceText: itemStatus === 'wishlist' ? state.observedPrice : state.purchasePrice,
+                isPerUnit: itemStatus === 'wishlist' ? state.observedPriceIsPerUnit : state.purchasePriceIsPerUnit,
+            })
+            : resolveCreationPriceAllocation({
+                mode: 'mix',
+                rows: state.rows.map(r => ({ id: r.id, quantity: r.qty, priceText: r.priceText })),
+            });
+
+        // price est déjà le total résolu (isPerUnit déjà appliqué pour le mode
+        // simple) — toujours false ici pour ne pas le faire remultiplier par
+        // quantity dans itemService.create().
+        function priceFieldsFor(price: number | null) {
+            if (price === null) return {};
+            return itemStatus === 'wishlist'
+                ? { observedPrice: price, observedPriceIsPerUnit: false, ...priceMeta }
+                : { purchasePrice: price, purchasePriceIsPerUnit: false, ...priceMeta };
+        }
 
         const base = {
             labId,
@@ -124,7 +137,6 @@ export function CreateItemFlow({ route, navigation }: Props) {
             weightInput: parseFloat(state.weightInput) || 0,
             weightUnit: state.weightUnit,
             purity: state.purity,
-            ...priceFields,
         };
 
         try {
@@ -134,6 +146,7 @@ export function CreateItemFlow({ route, navigation }: Props) {
                     quantity: state.quantity,
                     year: state.year ? parseInt(state.year, 10) : null,
                     strikeFinish: state.strikeFinish,
+                    ...priceFieldsFor(allocations[0].price),
                 });
                 if (useItemStore.getState().error) {
                     setSubmitError(t('create.creationFailed'));
@@ -144,11 +157,13 @@ export function CreateItemFlow({ route, navigation }: Props) {
             } else {
                 let lastId: string | null = null;
                 for (const row of state.rows) {
+                    const allocation = allocations.find(a => a.id === row.id);
                     await createItem({
                         ...base,
                         quantity: row.qty,
                         year: row.year ? parseInt(row.year, 10) : null,
                         strikeFinish: row.strikeFinish,
+                        ...priceFieldsFor(allocation?.price ?? null),
                     });
                     if (useItemStore.getState().error) {
                         setSubmitError(t('create.creationFailedRows'));

@@ -11,6 +11,8 @@ import { useSpotStore } from '../../stores/spotStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { convertSpotPrice, calcTotalInvested, calcUnrealizedPnL, calcRealizedPnL, sumByCurrency } from '../../utils/calculations';
 import { formatWeight, formatCurrency, formatPnL } from '../../utils/formatters';
+import { formatCountDisplay } from '../../utils/countDisplayFormatter';
+import { getActiveHoldingCountDisplay, getWishlistCountDisplay, getSoldHistoryCountDisplay } from '../../domain/countSemantics';
 import { snapshotService } from '../../services/snapshotService';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { useCounterAnimationWithCurrency } from '../../hooks/useCounterAnimation';
@@ -90,6 +92,9 @@ export function DashboardHome() {
 
     const activeCards = Object.values(labActiveSummaries).reduce((sum, v) => sum + v.cards, 0);
     const activeUnits = Object.values(labActiveSummaries).reduce((sum, v) => sum + v.units, 0);
+    // groupedLotCount = nombre d'items quantity > 1 — le "N lot(s)" affiché à
+    // l'utilisateur, jamais activeCards (nombre de rows en base).
+    const activeGroupedLotCount = Object.values(labActiveSummaries).reduce((sum, v) => sum + v.groupedLotCount, 0);
 
     const spotGold = spot ? convertSpotPrice(spot.gold, currency, rates) : null;
     const spotSilver = spot ? convertSpotPrice(spot.silver, currency, rates) : null;
@@ -116,6 +121,16 @@ export function DashboardHome() {
     const realizedProceeds = sumByCurrency(soldSummary.proceedsByCurrency, currency, rates);
     const realizedCostBasis = sumByCurrency(soldSummary.costBasisByCurrency, currency, rates);
     const realizedPnL = calcRealizedPnL(realizedProceeds, realizedCostBasis);
+
+    const activeCountLabel = formatCountDisplay(
+        getActiveHoldingCountDisplay({ groupedLotCount: activeGroupedLotCount, unitCount: activeUnits }), t
+    );
+    const wishlistCountLabel = formatCountDisplay(
+        getWishlistCountDisplay({ wishCount: wishlistSummary.cards }), t
+    );
+    const soldCountLabel = formatCountDisplay(
+        getSoldHistoryCountDisplay({ saleCount: soldSummary.cards, soldUnitCount: soldSummary.units }), t
+    );
 
     // Animated counters — useNativeDriver: false (valeurs numériques)
     const animTotalValue = useCounterAnimationWithCurrency(totalValue, currency, reduceMotion);
@@ -248,13 +263,13 @@ export function DashboardHome() {
                 </View>
             </View>
 
-            {/* Buckets: active / wishlist / sold */}
+            {/* Buckets: active / wishlist */}
             <View style={styles.bucketsBlock}>
                 {hasActiveHoldings && (
                     <View style={styles.countRow}>
                         <Ionicons name="layers-outline" size={16} color={colors.text2} />
                         <Text style={styles.countText}>
-                            {t('dashboard.activeHoldings')} · {t('common.lots', { count: activeCards })} · {t('common.units', { count: activeUnits })}
+                            {t('dashboard.activeHoldings')} · {activeCountLabel}
                         </Text>
                     </View>
                 )}
@@ -262,21 +277,27 @@ export function DashboardHome() {
                     <View style={styles.countRow}>
                         <Ionicons name="heart-outline" size={16} color={colors.text2} />
                         <Text style={styles.countText}>
-                            {t('dashboard.wishlistLabel')} · {t('common.wishes', { count: wishlistSummary.cards })}
+                            {t('dashboard.wishlistLabel')} · {wishlistCountLabel}
                         </Text>
                     </View>
                 )}
-                {soldSummary.cards > 0 && (
-                    <Pressable style={styles.countRow} onPress={() => navigation.navigate('SoldHistory')}>
-                        <Ionicons name="cash-outline" size={16} color={colors.text2} />
-                        <Text style={styles.countText}>
-                            {t('dashboard.soldHistory')} · {t('common.lots', { count: soldSummary.cards })}
-                            {realizedPnL !== null ? ` · ${t('dashboard.realized', { value: formatPnL(realizedPnL, currency) })}` : ''}
-                        </Text>
-                        <Ionicons name="chevron-forward" size={14} color={colors.text2} />
-                    </Pressable>
-                )}
             </View>
+
+            {/* Sold history — carte compacte, clairement cliquable */}
+            {soldSummary.cards > 0 && (
+                <Pressable style={styles.soldCard} onPress={() => navigation.navigate('SoldHistory')}>
+                    <View style={styles.soldHeaderRow}>
+                        <Text style={styles.soldTitle}>{t('dashboard.soldHistory')}</Text>
+                        <Ionicons name="chevron-forward" size={16} color={colors.text2} />
+                    </View>
+                    <Text style={styles.soldSubtitle}>{soldCountLabel}</Text>
+                    {realizedPnL !== null && (
+                        <Text style={[styles.soldValue, realizedPnL >= 0 ? { color: colors.green } : { color: colors.crimson }]}>
+                            {t('dashboard.realized', { value: formatPnL(realizedPnL, currency) })}
+                        </Text>
+                    )}
+                </Pressable>
+            )}
 
             {/* Refresh spot */}
             <Pressable style={styles.refreshBtn} onPress={refresh}>
@@ -315,6 +336,14 @@ const styles = StyleSheet.create({
     bucketsBlock: { gap: 6 },
     countRow: { flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'center' },
     countText: { fontFamily: fonts.outfit, fontSize: 13, color: colors.text2 },
+    soldCard: {
+        backgroundColor: colors.surface, borderRadius: 16, padding: 16, gap: 4,
+        borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)',
+    },
+    soldHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    soldTitle: { fontSize: 9, letterSpacing: 2, color: colors.text2, fontFamily: fonts.outfitSemiBold, textTransform: 'uppercase' },
+    soldSubtitle: { fontFamily: fonts.outfit, fontSize: 13, color: colors.text2 },
+    soldValue: { fontFamily: fonts.dmMono, fontSize: 18, color: colors.text, marginTop: 2 },
     refreshBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'center', paddingVertical: 8 },
     refreshText: { fontFamily: fonts.outfit, fontSize: 13, color: colors.text2 },
 });

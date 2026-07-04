@@ -10,6 +10,7 @@ import {
     proratePurchasePrice,
     sumByCurrency,
     calcRealizedPnL,
+    convertSpotPrice,
 } from './calculations';
 
 describe('toTroyOz', () => {
@@ -174,12 +175,69 @@ describe('sumByCurrency', () => {
         expect(total).toBeCloseTo(100 + 50 * 1.1, 6);
     });
 
-    test('objet vide → null', () => {
+    test('objet vide → null (aucun prix renseigné = inconnu, jamais 0)', () => {
         expect(sumByCurrency({}, 'USD', {})).toBeNull();
     });
 
     test('devise non-USD sans rates dispo → null (pas de conversion inventée)', () => {
         expect(sumByCurrency({ EUR: 50 }, 'USD', {})).toBeNull();
+    });
+
+    test('devise source = devise d\'affichage, rates vide → identité sans détour USD', () => {
+        expect(sumByCurrency({ EUR: 100 }, 'EUR', {})).toBe(100);
+    });
+
+    test('USD → EUR (rates.EUR = 1.1)', () => {
+        expect(sumByCurrency({ USD: 110 }, 'EUR', { EUR: 1.1 })).toBeCloseTo(100, 6);
+    });
+
+    test('EUR → USD (rates.EUR = 1.1)', () => {
+        expect(sumByCurrency({ EUR: 100 }, 'USD', { EUR: 1.1 })).toBeCloseTo(110, 6);
+    });
+
+    test('EUR → GBP (rates.EUR = 1.1, rates.GBP = 1.25)', () => {
+        expect(sumByCurrency({ EUR: 100 }, 'GBP', { EUR: 1.1, GBP: 1.25 })).toBeCloseTo(88, 6);
+    });
+
+    test('multi-lignes convertibles vers EUR : 100 EUR + 110 USD → 200 EUR', () => {
+        expect(sumByCurrency({ EUR: 100, USD: 110 }, 'EUR', { EUR: 1.1 })).toBeCloseTo(200, 6);
+    });
+
+    test('taux cible manquant → null', () => {
+        expect(sumByCurrency({ USD: 100 }, 'EUR', {})).toBeNull();
+    });
+
+    test('jamais de fallback vers 1 : taux manquant → null, pas le montant original', () => {
+        const result = sumByCurrency({ EUR: 100 }, 'USD', {});
+        expect(result).toBeNull();
+        expect(result).not.toBe(100);
+    });
+
+    test('devises mixtes avec une ligne non convertible → null (pas 100, pas 200)', () => {
+        const result = sumByCurrency({ USD: 100, EUR: 100 }, 'USD', {});
+        expect(result).toBeNull();
+        expect(result).not.toBe(100);
+        expect(result).not.toBe(200);
+    });
+
+    test('montant non fini (NaN) dans une ligne → null', () => {
+        expect(sumByCurrency({ USD: NaN }, 'USD', {})).toBeNull();
+    });
+
+    test('montant non fini (Infinity) dans une ligne → null', () => {
+        expect(sumByCurrency({ EUR: Infinity }, 'EUR', {})).toBeNull();
+    });
+});
+
+describe('convertSpotPrice — régression Lot 3.1', () => {
+    test('ne retourne jamais le prix USD brut quand le taux demandé manque', () => {
+        const result = convertSpotPrice(100, 'EUR', {});
+        expect(result).toBeNull();
+        expect(result).not.toBe(100);
+    });
+
+    test('convertit correctement quand le taux est disponible', () => {
+        expect(convertSpotPrice(110, 'EUR', { EUR: 1.1 })).toBeCloseTo(100, 6);
     });
 });
 

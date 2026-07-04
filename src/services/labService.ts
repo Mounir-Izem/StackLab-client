@@ -59,20 +59,25 @@ export const labService = {
     // Active portfolio = status 'active' ET lab.type 'standard'. Le check explicite sur
     // lab.type (plutôt qu'une simple exclusion du lab Trash) garantit qu'on ne compte
     // jamais un item actif qui se trouverait par accident hors d'un lab standard.
-    async getActiveSummaryByLab(): Promise<Record<string, { cards: number; units: number }>> {
+    // cards = nombre de rows (usage interne : seuils de rappel backup dans LabsHome).
+    // groupedLotCount = nombre de rows avec quantity > 1 — c'est ce nombre, pas cards,
+    // que l'UI doit afficher comme "N lot(s)" (un item quantity=1 n'est pas un lot
+    // pour l'utilisateur, juste une unité).
+    async getActiveSummaryByLab(): Promise<Record<string, { cards: number; units: number; groupedLotCount: number }>> {
         const [labs, activeItems] = await Promise.all([
             labRepository.findAll(),
             itemRepository.findAll('active'),
         ]);
 
         const standardLabIds = new Set(labs.filter(l => l.type === 'standard').map(l => l.id));
-        const totals: Record<string, { cards: number; units: number }> = {};
+        const totals: Record<string, { cards: number; units: number; groupedLotCount: number }> = {};
 
         for (const item of activeItems) {
             if (!standardLabIds.has(item.labId)) continue;
-            if (!totals[item.labId]) totals[item.labId] = { cards: 0, units: 0 };
+            if (!totals[item.labId]) totals[item.labId] = { cards: 0, units: 0, groupedLotCount: 0 };
             totals[item.labId].cards += 1;
             totals[item.labId].units += item.quantity;
+            if (item.quantity > 1) totals[item.labId].groupedLotCount += 1;
         }
 
         return totals;

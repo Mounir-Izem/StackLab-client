@@ -7,6 +7,8 @@ import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, fonts, fontSize, labCard } from '../../utils/theme';
 import { formatCardValue } from '../../utils/formatters';
+import { formatCountDisplay } from '../../utils/countDisplayFormatter';
+import { getLabCardCountDisplay } from '../../domain/countSemantics';
 import { ShareCanvas } from './ShareCanvas';
 import type { Lab } from '../../types/lab.types';
 
@@ -55,11 +57,12 @@ function LabCardComponent({
 
     const isWishlist = lab.type === 'wishlist';
 
-    const countLabel = lab.type === 'wishlist'
-        ? t('common.wishes', { count: cards })
-        : lab.type === 'trash'
-            ? (cards === 0 ? t('labs.trashEmpty') : t('common.items', { count: cards }))
-            : `${t('common.lots', { count: cards })} · ${t('common.units', { count: units })}`;
+    const countLabel = formatCountDisplay(
+        lab.type === 'wishlist' ? getLabCardCountDisplay({ labType: 'wishlist', wishCount: cards })
+            : lab.type === 'trash' ? getLabCardCountDisplay({ labType: 'trash', objectCount: cards })
+            : getLabCardCountDisplay({ labType: 'standard', groupedLotCount: cards, unitCount: units }),
+        t,
+    );
 
     const { cardRef, canvasRef, canvasOpacity, gesture, animatedStyle, glowAnim, handleShare } = useCardGestures({
         onPress,

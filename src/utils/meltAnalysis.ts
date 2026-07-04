@@ -1,24 +1,12 @@
+import { convertCurrencyAmount } from './currencyConversion';
+
 export const NEAR_MELT_THRESHOLD = 0.05;
 
 export type MeltBadge = 'under' | 'near' | null;
 
-/**
- * Converts an amount from one currency to another using stored rates.
- * rates[X] = USD per 1 unit of X (e.g. rates['EUR'] = 1.09 means 1 EUR = 1.09 USD).
- * Returns null if conversion is impossible (missing rate).
- */
-export function convertCurrencyAmount(
-    amount: number,
-    from: string,
-    to: string,
-    rates: Record<string, number>,
-): number | null {
-    if (from === to) return amount;
-    const usd = from === 'USD' ? amount : (rates[from] != null ? amount * rates[from] : null);
-    if (usd === null) return null;
-    if (to === 'USD') return usd;
-    return rates[to] != null ? usd / rates[to] : null;
-}
+// Ré-exporté depuis currencyConversion.ts — conserve un point d'import stable
+// pour les consommateurs existants sans dupliquer la formule.
+export { convertCurrencyAmount };
 
 /**
  * Returns the melt badge for a wishlist item.

@@ -57,15 +57,22 @@ export function LabsHome({ navigation }: Props) {
             ? null
             : ozGold * spotGold + ozSilver * spotSilver;
 
-        const summary = item.type === 'wishlist' ? wishlistSummary
-            : item.type === 'trash' ? trashSummary
-            : labActiveSummaries[item.id] ?? { cards: 0, units: 0 };
+        const activeSummary = labActiveSummaries[item.id];
+        // Pour un lab standard, "cards" passé à LabCard doit être le nombre de lots
+        // UX (groupedLotCount), pas le nombre de rows en base — un item quantity=1
+        // n'est pas un lot pour l'utilisateur.
+        const cardsForDisplay = item.type === 'wishlist' ? wishlistSummary.cards
+            : item.type === 'trash' ? trashSummary.cards
+            : activeSummary?.groupedLotCount ?? 0;
+        const unitsForDisplay = item.type === 'wishlist' ? wishlistSummary.units
+            : item.type === 'trash' ? trashSummary.units
+            : activeSummary?.units ?? 0;
 
         return (
             <LabCard
                 lab={item}
-                cards={summary.cards}
-                units={summary.units}
+                cards={cardsForDisplay}
+                units={unitsForDisplay}
                 totalOzGold={ozGold}
                 totalOzSilver={ozSilver}
                 totalValue={totalValue}

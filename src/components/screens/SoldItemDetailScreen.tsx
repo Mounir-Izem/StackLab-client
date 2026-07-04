@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
-    View, Text, ScrollView, Image, StyleSheet,
+    View, Text, ScrollView, Image, Pressable, Modal, StyleSheet,
 } from 'react-native';
-import { useRoute } from '@react-navigation/native';
+import { useRoute, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useItemStore } from '../../stores/itemStore';
@@ -11,20 +11,40 @@ import { useSpotStore } from '../../stores/spotStore';
 import { calcFineWeightOz, calcMeltValue, convertSpotPrice } from '../../utils/calculations';
 import { formatWeight, formatPurity, formatCurrency, formatDate, formatStrikeLabel } from '../../utils/formatters';
 import { metalTokens, colors, fonts, fontSize } from '../../utils/theme';
+import { canPerformAction } from '../../domain/actionSemantics';
 import type { Currency, WeightUnit } from '../../types/settings.types';
+
+// Le rôle métier ici est toujours soldRecord : SoldHistoryScreen ne liste
+// que des items status='sold' hors Trash (itemService.getSoldItems() les
+// exclut déjà). Pas besoin de résoudre lab.type via getItemRole(item, lab)
+// pour ce guardrail — le contexte d'accès garantit le rôle.
+const SOLD_RECORD_ROLE = 'soldRecord' as const;
 
 export function SoldItemDetailScreen() {
     const { t } = useTranslation();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const route = useRoute<any>();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const navigation = useNavigation<any>();
     const { itemId } = route.params as { itemId: string };
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
     const soldItems = useItemStore(s => s.soldItems);
+    const deleteItem = useItemStore(s => s.deleteItem);
+    const loadSoldItems = useItemStore(s => s.loadSoldItems);
     const currency = useSettingsStore(s => s.settings?.currency ?? 'USD') as Currency;
     const weightUnit = useSettingsStore(s => s.settings?.weightUnit ?? 'oz') as WeightUnit;
     const { spot, rates } = useSpotStore();
 
     const item = soldItems.find(i => i.id === itemId);
+
+    async function handleMoveToTrash() {
+        if (!item) return;
+        setShowDeleteConfirm(false);
+        await deleteItem(item.id);
+        await loadSoldItems();
+        navigation.goBack();
+    }
 
     if (!item) {
         return (
@@ -71,8 +91,8 @@ export function SoldItemDetailScreen() {
         : colors.text;
 
     return (
+        <View style={styles.screen}>
         <ScrollView
-            style={styles.screen}
             contentContainerStyle={styles.content}
             showsVerticalScrollIndicator={false}
         >
@@ -166,13 +186,54 @@ export function SoldItemDetailScreen() {
                 </View>
             )}
         </ScrollView>
+
+        {/* Actions footer — soldRecord : view + trash uniquement (actionSemantics) */}
+        <View style={styles.footer}>
+            {canPerformAction(SOLD_RECORD_ROLE, 'trash') && (
+                <Pressable style={styles.actionBtn} onPress={() => setShowDeleteConfirm(true)}>
+                    <Ionicons name="trash-outline" size={18} color={colors.crimson} />
+                    <Text style={[styles.actionLabel, { color: colors.crimson }]}>{t('item.actions.moveToTrash')}</Text>
+                </Pressable>
+            )}
+        </View>
+
+        {/* Move to trash confirmation modal */}
+        <Modal visible={showDeleteConfirm} transparent animationType="fade" onRequestClose={() => setShowDeleteConfirm(false)}>
+            <Pressable style={styles.overlay} onPress={() => setShowDeleteConfirm(false)}>
+                <View style={styles.optionSheet}>
+                    <Text style={styles.optionTitle}>{t('item.moveToTrashTitle')}</Text>
+                    <Pressable style={styles.optionBtn} onPress={handleMoveToTrash}>
+                        <Ionicons name="trash-outline" size={20} color={colors.crimson} />
+                        <Text style={[styles.optionBtnText, { color: colors.crimson }]}>{t('item.actions.moveToTrash')}</Text>
+                    </Pressable>
+                    <Pressable style={styles.optionBtn} onPress={() => setShowDeleteConfirm(false)}>
+                        <Text style={styles.optionBtnText}>{t('common.cancel')}</Text>
+                    </Pressable>
+                </View>
+            </Pressable>
+        </Modal>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.bg },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },
-    content: { padding: 16, paddingBottom: 60, gap: 16 },
+    content: { padding: 16, paddingBottom: 100, gap: 16 },
+    footer: {
+        position: 'absolute', bottom: 0, left: 0, right: 0,
+        flexDirection: 'row', justifyContent: 'center',
+        paddingHorizontal: 8, paddingTop: 12, paddingBottom: 28,
+        backgroundColor: colors.bg,
+        borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)',
+    },
+    actionBtn: { alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6 },
+    actionLabel: { fontSize: 10, color: colors.text2, fontFamily: fonts.outfit },
+    overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end', padding: 16, paddingBottom: 40 },
+    optionSheet: { backgroundColor: colors.surface, borderRadius: 16, overflow: 'hidden' },
+    optionTitle: { fontFamily: fonts.manrope, fontSize: 15, color: colors.text2, textAlign: 'center', paddingTop: 14, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' },
+    optionBtn: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 18, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' },
+    optionBtnText: { fontFamily: fonts.outfitMedium, fontSize: 15, color: colors.text },
     emptyText: { fontFamily: fonts.outfit, fontSize: 14, color: colors.text2, textAlign: 'center' },
     photoContainer: {
         width: '100%', aspectRatio: 1, borderRadius: 16,

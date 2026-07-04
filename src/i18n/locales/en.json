@@ -29,6 +29,12 @@
     "lots_other": "{{count}} lots",
     "wishes_one": "{{count}} wish",
     "wishes_other": "{{count}} wishes",
+    "sales_one": "{{count}} sale",
+    "sales_other": "{{count}} sales",
+    "soldUnits_one": "{{count}} sold unit",
+    "soldUnits_other": "{{count}} sold units",
+    "objects_one": "{{count}} object",
+    "objects_other": "{{count}} objects",
     "gotIt": "Got it",
     "and": "and",
     "total": "total"
@@ -130,7 +136,7 @@
     "wishlistLabel": "Wishlist",
     "soldHistory": "Sold history",
     "soldHistoryEmpty": "No sales recorded yet.",
-    "realized": "realized {{value}}",
+    "realized": "Realized {{value}}",
     "refreshSpot": "Refresh spot prices"
   },
   "labs": {
@@ -273,7 +279,8 @@
       "deleteForever": "Delete forever",
       "extract": "Extract",
       "moveToTrash": "Move to Trash",
-      "share": "Share"
+      "share": "Share",
+      "restoreSale": "Restore sale"
     },
     "hints": {
       "addPurchasePrice": "Add purchase price"
@@ -300,6 +307,7 @@
     "deleteForeverTitle": "Delete permanently?",
     "deleteForeverMsg": "This cannot be undone.",
     "restoreTitle": "Restore to...",
+    "restoreSaleTitle": "Restore this sale?",
     "removeFromWishlistTitle": "Remove from Wishlist?",
     "moveToTrashTitle": "Move to Trash?",
     "moveQtyRange": "Quantity (1 – {{max}})",
@@ -364,6 +372,8 @@
     "step4Subtitle": "Optional — skip if you don't want to track cost basis.",
     "underMeltHint": "Price below melt value — spot may vary",
     "step4SubtitleWishlist": "Optional — the price you've seen this item listed for.",
+    "step4SubtitleMix": "Each row will create a separate item — enter the price paid for each one, or leave blank.",
+    "step4SubtitleMixWishlist": "Each row will create a separate wish — enter the observed price for each one, or leave blank.",
     "priceHeading": "Price",
     "observedPriceLabel": "Price observed for this item",
     "paidPriceLabel": "Price paid for this item",
@@ -585,8 +595,9 @@
     "deleteDeckBodyEmpty": "These decks are empty and will be permanently deleted.",
     "deleteDeckBodyItems": "These decks contain {{contents}}. They will be moved to {{labName}}.",
     "restoreDesc": "Move items back to a Lab",
+    "restoreSaleDesc": "Move this sale back to Sold History",
     "chooseDestLab": "Choose destination Lab",
-    "mixedError": "You can't restore wishlist and active items together. Select items of the same type.",
+    "mixedError": "You can't restore items of different types together. Select items of the same type.",
     "restoreFailed": "Restore failed. Please try again.",
     "restoring": "Restoring…",
     "confirmRestore": "Confirm restore",

@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useItemStore } from '../../stores/itemStore';
 import { PurchasePriceField } from '../common/PurchasePriceField';
+import { resolveQuantityDraft } from '../../utils/quantityInput';
 import { colors, fonts } from '../../utils/theme';
 import type { LabsStackScreenProps } from '../../navigation/types';
 import type { ItemMetal, ItemShape, StrikeFinish, ItemCondition, ItemFeature, ItemWeightUnit } from '../../types/item.types';
@@ -129,6 +130,10 @@ export function EditItemFlow({ route, navigation }: Props) {
 
     const [submitting, setSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState<string | null>(null);
+    // Draft libre pendant la frappe — state.quantity (number) reste la source
+    // de vérité, résolue au blur/submit uniquement. Évite de forcer "1" à
+    // chaque frappe quand l'utilisateur vide le champ pour retaper une valeur.
+    const [qtyDraft, setQtyDraft] = useState<string | null>(null);
 
     const [state, setState] = useState<EditState>(() => {
         if (!item) return {
@@ -187,6 +192,10 @@ export function EditItemFlow({ route, navigation }: Props) {
         setSubmitting(true);
         setSubmitError(null);
 
+        // Résout un draft de quantité encore en cours de frappe (l'utilisateur
+        // peut appuyer sur Enregistrer sans avoir quitté le champ au préalable).
+        const finalQuantity = qtyDraft !== null ? resolveQuantityDraft(qtyDraft) : state.quantity;
+
         const rawWeight = parseFloat(state.weightInput) || 0;
         const weightOz = state.weightUnit === 'oz'
             ? rawWeight
@@ -206,7 +215,7 @@ export function EditItemFlow({ route, navigation }: Props) {
                 weightOz,
                 weightUnitInput: state.weightUnit,
                 purity: state.purity,
-                quantity: state.quantity,
+                quantity: finalQuantity,
                 // Wishlist items never carry purchaseCurrency/purchaseDate — those are
                 // purchase fields that belong only to active/sold items.
                 ...(isWishlistItem ? {} : {
@@ -290,7 +299,10 @@ export function EditItemFlow({ route, navigation }: Props) {
                     >
                         {submitting
                             ? <ActivityIndicator size="small" color={colors.violet} />
-                            : <Text style={[styles.saveBtnText, (!canSave || submitting) && styles.saveBtnTextDisabled]}>{t('common.save')}</Text>
+                            : <Text
+                                style={[styles.saveBtnText, (!canSave || submitting) && styles.saveBtnTextDisabled]}
+                                numberOfLines={1}
+                            >{t('common.save')}</Text>
                         }
                     </Pressable>
                 </View>
@@ -338,7 +350,7 @@ export function EditItemFlow({ route, navigation }: Props) {
                     </ChipRow>
 
                     <FieldLabel label={t('item.shape.label')} />
-                    <ChipRow>
+                    <ChipRow wrap>
                         {(['coin', 'bar', 'token', 'bust', 'custom'] as ItemShape[]).map(s => (
                             <Chip
                                 key={s}
@@ -430,21 +442,27 @@ export function EditItemFlow({ route, navigation }: Props) {
                     <View style={styles.qtyRow}>
                         <Pressable
                             style={[styles.qtyBtn, state.quantity <= 1 && styles.qtyBtnDisabled]}
-                            onPress={() => patch({ quantity: Math.max(1, state.quantity - 1) })}
+                            onPress={() => { patch({ quantity: Math.max(1, state.quantity - 1) }); setQtyDraft(null); }}
                             disabled={state.quantity <= 1}
                         >
                             <Ionicons name="remove" size={18} color={state.quantity > 1 ? colors.text : colors.text3} />
                         </Pressable>
                         <TextInput
                             style={styles.qtyInput}
-                            value={String(state.quantity)}
+                            value={qtyDraft ?? String(state.quantity)}
                             keyboardType="number-pad"
-                            onChangeText={val => patch({ quantity: Math.max(1, parseInt(val, 10) || 1) })}
+                            onChangeText={setQtyDraft}
+                            onBlur={() => {
+                                if (qtyDraft !== null) {
+                                    patch({ quantity: resolveQuantityDraft(qtyDraft) });
+                                    setQtyDraft(null);
+                                }
+                            }}
                             selectTextOnFocus
                         />
                         <Pressable
                             style={styles.qtyBtn}
-                            onPress={() => patch({ quantity: state.quantity + 1 })}
+                            onPress={() => { patch({ quantity: state.quantity + 1 }); setQtyDraft(null); }}
                         >
                             <Ionicons name="add" size={18} color={colors.text} />
                         </Pressable>
@@ -592,7 +610,12 @@ const styles = StyleSheet.create({
         flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
         paddingHorizontal: 16, paddingTop: 56, paddingBottom: 12,
     },
-    headerSide: { width: 80, alignItems: 'flex-start' },
+    // 80px était trop étroit pour "Enregistrer" (FR) au format outfitSemiBold
+    // 14px + 16px de padding horizontal — le texte du bouton se coupait en
+    // deux lignes ("Enregi" / "strer"). Élargi pour accueillir la version FR
+    // sans wrap ; les deux côtés du header restent symétriques (le titre
+    // reste centré via justifyContent: 'space-between').
+    headerSide: { width: 116, alignItems: 'flex-start' },
     headerTitle: { fontFamily: fonts.manrope, fontSize: 17, color: colors.text },
     saveBtn: {
         paddingHorizontal: 16, paddingVertical: 7,

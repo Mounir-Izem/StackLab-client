@@ -201,7 +201,7 @@ describe('labService.getActiveSummaryByLab', () => {
 
         const totals = await labService.getActiveSummaryByLab();
 
-        expect(totals['lab-1']).toEqual({ cards: 2, units: 8 });
+        expect(totals['lab-1']).toEqual({ cards: 2, units: 8, groupedLotCount: 2 });
     });
 
     test('exclut un item actif qui ne serait pas dans un lab standard (Trash, Wishlist)', async () => {
@@ -217,7 +217,22 @@ describe('labService.getActiveSummaryByLab', () => {
         const totals = await labService.getActiveSummaryByLab();
 
         expect(totals['trash-lab']).toBeUndefined();
-        expect(totals['lab-1']).toEqual({ cards: 1, units: 2 });
+        expect(totals['lab-1']).toEqual({ cards: 1, units: 2, groupedLotCount: 1 });
+    });
+
+    test('groupedLotCount ne compte que les rows avec quantity > 1 — quantity=1 n\'est pas un lot', async () => {
+        mockLabRepo.findAll.mockResolvedValue([makeLab({ id: 'lab-1', type: 'standard' })]);
+        mockItemRepo.findAll.mockResolvedValue([
+            makeItem({ id: 'a', labId: 'lab-1', quantity: 10 }),
+            makeItem({ id: 'b', labId: 'lab-1', quantity: 5 }),
+            makeItem({ id: 'c', labId: 'lab-1', quantity: 3 }),
+            makeItem({ id: 'd', labId: 'lab-1', quantity: 2 }),
+            makeItem({ id: 'e', labId: 'lab-1', quantity: 1 }),
+        ]);
+
+        const totals = await labService.getActiveSummaryByLab();
+
+        expect(totals['lab-1']).toEqual({ cards: 5, units: 21, groupedLotCount: 4 });
     });
 });
 

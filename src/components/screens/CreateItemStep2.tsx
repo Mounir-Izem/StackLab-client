@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
     View, Text, TextInput, Pressable,
     ScrollView, StyleSheet,
@@ -6,6 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { generateUUID } from '../../utils/uuid';
+import { resolveQuantityDraft } from '../../utils/quantityInput';
 import { colors, fonts } from '../../utils/theme';
 import type { FlowState, MixRow } from './CreateItemFlow';
 import type { StrikeFinish } from '../../types/item.types';
@@ -29,13 +30,14 @@ export function CreateItemStep2({ state, update, onNext }: Props) {
     const mixValid = state.mode === 'mix' ? assigned === state.quantity && state.rows.length > 0 : true;
     const canNext = mixValid;
 
-    function setQty(raw: string) {
-        const n = parseInt(raw, 10);
-        update({ quantity: isNaN(n) || n < 1 ? 1 : Math.floor(n) });
-    }
+    // Drafts libres pendant la frappe — state.quantity/row.qty restent la
+    // source de vérité, résolus au blur uniquement (jamais à chaque frappe,
+    // sinon impossible de vider le champ pour retaper une valeur).
+    const [qtyDraft, setQtyDraft] = useState<string | null>(null);
+    const [rowQtyDrafts, setRowQtyDrafts] = useState<Record<string, string>>({});
 
     function addRow() {
-        update({ rows: [...state.rows, { id: generateUUID(), year: '', strikeFinish: null, qty: Math.max(1, remaining) }] });
+        update({ rows: [...state.rows, { id: generateUUID(), year: '', strikeFinish: null, qty: Math.max(1, remaining), priceText: '' }] });
     }
 
     function removeRow(id: string) {
@@ -44,6 +46,25 @@ export function CreateItemStep2({ state, update, onNext }: Props) {
 
     function patchRow(id: string, patch: Partial<MixRow>) {
         update({ rows: state.rows.map(r => r.id === id ? { ...r, ...patch } : r) });
+    }
+
+    // Résout tout draft encore en cours de frappe avant de quitter l'étape —
+    // filet de sécurité au cas où le blur n'aurait pas eu le temps de se
+    // déclencher avant le tap sur "Suivant".
+    function handleNext() {
+        if (qtyDraft !== null) {
+            update({ quantity: resolveQuantityDraft(qtyDraft) });
+            setQtyDraft(null);
+        }
+        if (Object.keys(rowQtyDrafts).length > 0) {
+            update({
+                rows: state.rows.map(r => rowQtyDrafts[r.id] !== undefined
+                    ? { ...r, qty: resolveQuantityDraft(rowQtyDrafts[r.id]) }
+                    : r),
+            });
+            setRowQtyDrafts({});
+        }
+        onNext();
     }
 
     return (
@@ -66,20 +87,26 @@ export function CreateItemStep2({ state, update, onNext }: Props) {
             <View style={styles.qtyRow}>
                 <Pressable
                     style={styles.qtyBtn}
-                    onPress={() => update({ quantity: Math.max(1, state.quantity - 1) })}
+                    onPress={() => { update({ quantity: Math.max(1, state.quantity - 1) }); setQtyDraft(null); }}
                 >
                     <Text style={styles.qtyBtnText}>−</Text>
                 </Pressable>
                 <TextInput
                     style={styles.qtyInput}
-                    value={String(state.quantity)}
-                    onChangeText={setQty}
+                    value={qtyDraft ?? String(state.quantity)}
+                    onChangeText={setQtyDraft}
+                    onBlur={() => {
+                        if (qtyDraft !== null) {
+                            update({ quantity: resolveQuantityDraft(qtyDraft) });
+                            setQtyDraft(null);
+                        }
+                    }}
                     keyboardType="number-pad"
                     selectTextOnFocus
                 />
                 <Pressable
                     style={styles.qtyBtn}
-                    onPress={() => update({ quantity: state.quantity + 1 })}
+                    onPress={() => { update({ quantity: state.quantity + 1 }); setQtyDraft(null); }}
                 >
                     <Text style={styles.qtyBtnText}>+</Text>
                 </Pressable>
@@ -172,10 +199,18 @@ export function CreateItemStep2({ state, update, onNext }: Props) {
                             </Pressable>
                             <TextInput
                                 style={[styles.matrixInput, { flex: 1 }]}
-                                value={String(row.qty)}
-                                onChangeText={v => {
-                                    const n = parseInt(v, 10);
-                                    patchRow(row.id, { qty: isNaN(n) || n < 1 ? 1 : n });
+                                value={rowQtyDrafts[row.id] ?? String(row.qty)}
+                                onChangeText={v => setRowQtyDrafts(prev => ({ ...prev, [row.id]: v }))}
+                                onBlur={() => {
+                                    const draft = rowQtyDrafts[row.id];
+                                    if (draft !== undefined) {
+                                        patchRow(row.id, { qty: resolveQuantityDraft(draft) });
+                                        setRowQtyDrafts(prev => {
+                                            const next = { ...prev };
+                                            delete next[row.id];
+                                            return next;
+                                        });
+                                    }
                                 }}
                                 keyboardType="number-pad"
                                 selectTextOnFocus
@@ -204,7 +239,7 @@ export function CreateItemStep2({ state, update, onNext }: Props) {
 
             <Pressable
                 style={[styles.btnNext, !canNext && styles.btnDisabled]}
-                onPress={canNext ? onNext : undefined}
+                onPress={canNext ? handleNext : undefined}
             >
                 <Text style={styles.btnNextText}>{t('common.next')} →</Text>
             </Pressable>

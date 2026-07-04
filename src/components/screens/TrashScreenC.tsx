@@ -31,8 +31,11 @@ export function TrashScreenC({ items, labName, onBack, onCancel, onDone }: Props
 
     const hasWishlist = items.some(i => i.status === 'wishlist');
     const hasActive = items.some(i => i.status === 'active');
-    const isMixed = hasWishlist && hasActive;
-    const destinationLabs = isMixed ? [] :
+    const hasSold = items.some(i => i.status === 'sold');
+    const isMixed = [hasWishlist, hasActive, hasSold].filter(Boolean).length > 1;
+    // trashedSale : pas de choix de lab — la vente retourne dans l'historique des
+    // ventes, pas dans un lab "actif" que l'utilisateur choisirait.
+    const destinationLabs = isMixed || hasSold ? [] :
         hasWishlist ? labs.filter(l => l.type === 'wishlist') :
         labs.filter(l => l.type === 'standard');
 
@@ -93,7 +96,12 @@ export function TrashScreenC({ items, labName, onBack, onCancel, onDone }: Props
 
                 <View style={styles.card}>
                     {action !== 'restore' && (
-                        <Pressable style={styles.action} onPress={() => { setAction('restore'); setTargetLabId(null); setError(null); }}>
+                        <Pressable style={styles.action} onPress={() => {
+                            setAction('restore');
+                            const standardLab = labs.find(l => l.type === 'standard');
+                            setTargetLabId(hasSold && !isMixed && standardLab ? standardLab.id : null);
+                            setError(null);
+                        }}>
                             <View style={styles.actionInfo}>
                                 <Text style={styles.actionTitle}>{t('item.actions.restore')}</Text>
                                 <Text style={styles.actionDesc}>{t('modifier.restoreDesc')}</Text>
@@ -107,17 +115,23 @@ export function TrashScreenC({ items, labName, onBack, onCancel, onDone }: Props
                                 <Text style={styles.errorText}>{t('modifier.mixedError')}</Text>
                             ) : (
                                 <>
-                                    <Text style={styles.subLabel}>{t('modifier.chooseDestLab')}</Text>
-                                    {destinationLabs.map(l => (
-                                        <Pressable
-                                            key={l.id}
-                                            style={[styles.labRow, targetLabId === l.id && styles.labRowSelected]}
-                                            onPress={() => setTargetLabId(l.id)}
-                                        >
-                                            <Text style={styles.labName}>{l.name}</Text>
-                                            {targetLabId === l.id && <Ionicons name="checkmark" size={18} color={colors.green} />}
-                                        </Pressable>
-                                    ))}
+                                    {hasSold ? (
+                                        <Text style={styles.subLabel}>{t('modifier.restoreSaleDesc')}</Text>
+                                    ) : (
+                                        <>
+                                            <Text style={styles.subLabel}>{t('modifier.chooseDestLab')}</Text>
+                                            {destinationLabs.map(l => (
+                                                <Pressable
+                                                    key={l.id}
+                                                    style={[styles.labRow, targetLabId === l.id && styles.labRowSelected]}
+                                                    onPress={() => setTargetLabId(l.id)}
+                                                >
+                                                    <Text style={styles.labName}>{l.name}</Text>
+                                                    {targetLabId === l.id && <Ionicons name="checkmark" size={18} color={colors.green} />}
+                                                </Pressable>
+                                            ))}
+                                        </>
+                                    )}
                                     {error !== null && <Text style={styles.errorText}>{error}</Text>}
                                     <Pressable
                                         style={[styles.confirmBtn, (!targetLabId || processing) && styles.disabled]}
@@ -125,7 +139,7 @@ export function TrashScreenC({ items, labName, onBack, onCancel, onDone }: Props
                                         disabled={!targetLabId || processing}
                                     >
                                         <Text style={styles.confirmBtnText}>
-                                            {processing ? t('modifier.restoring') : t('modifier.confirmRestore')}
+                                            {processing ? t('modifier.restoring') : (hasSold ? t('item.actions.restoreSale') : t('modifier.confirmRestore'))}
                                         </Text>
                                     </Pressable>
                                 </>

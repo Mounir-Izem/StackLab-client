@@ -36,6 +36,9 @@ export function CreateItemStep4({ state, update, itemStatus, onCreate, submittin
     const priceIsPerUnit = isWishlist ? state.observedPriceIsPerUnit : state.purchasePriceIsPerUnit;
 
     const showUnderMelt = (() => {
+        // En mode mix, le prix global (priceText) n'est plus renseigné par l'UI
+        // (chaque row a son propre prix) — un hint basé dessus serait trompeur.
+        if (state.mode === 'mix') return false;
         if (!spot || !state.metal) return false;
         const priceNum = parseFloat(priceText.replace(',', '.'));
         if (!isFinite(priceNum) || priceNum <= 0) return false;
@@ -46,6 +49,7 @@ export function CreateItemStep4({ state, update, itemStatus, onCreate, submittin
             priceCurrency,
             rates,
         );
+        if (spotInCurrency === null) return false;
         const meltPerUnit = calcMeltValue(
             calcFineWeightOz(toTroyOz(weightNum, state.weightUnit), state.purity),
             spotInCurrency,
@@ -64,11 +68,40 @@ export function CreateItemStep4({ state, update, itemStatus, onCreate, submittin
         >
             <Text style={styles.title}>{t(isWishlist ? 'item.observedPrice' : 'item.purchasePrice')}</Text>
             <Text style={styles.subtitle}>
-                {t(isWishlist ? 'create.step4SubtitleWishlist' : 'create.step4Subtitle')}
+                {state.mode === 'mix'
+                    ? t(isWishlist ? 'create.step4SubtitleMixWishlist' : 'create.step4SubtitleMix')
+                    : t(isWishlist ? 'create.step4SubtitleWishlist' : 'create.step4Subtitle')}
             </Text>
 
             <Text style={styles.label}>{t('create.priceHeading')}</Text>
-            {isWishlist ? (
+            {state.mode === 'mix' ? (
+                <View style={{ gap: 16 }}>
+                    {state.rows.map(row => (
+                        <View key={row.id} style={styles.rowPriceBlock}>
+                            <View style={styles.rowPriceHeader}>
+                                <Text style={styles.rowPriceTitle}>
+                                    {state.seriesName}{row.year ? ` ${row.year}` : ''}
+                                </Text>
+                                <Text style={styles.rowPriceQty}>{t('item.quantity')} : {row.qty}</Text>
+                            </View>
+                            {/* quantity=1 forcé : le prix par ligne est toujours le coût total
+                                de cette ligne, jamais un prix unitaire — pas de toggle nécessaire. */}
+                            <PurchasePriceField
+                                quantity={1}
+                                priceText={row.priceText}
+                                onPriceTextChange={v => update({
+                                    rows: state.rows.map(r => r.id === row.id
+                                        ? { ...r, priceText: v.replace(/[^0-9.,]/g, '') }
+                                        : r),
+                                })}
+                                isPerUnit={false}
+                                onIsPerUnitChange={() => {}}
+                                label={t(isWishlist ? 'create.observedPriceLabel' : 'create.paidPriceLabel')}
+                            />
+                        </View>
+                    ))}
+                </View>
+            ) : isWishlist ? (
                 <PurchasePriceField
                     quantity={recapQty}
                     priceText={state.observedPrice}
@@ -148,6 +181,10 @@ const styles = StyleSheet.create({
     title: { fontFamily: fonts.manrope, fontSize: 22, color: colors.text, marginBottom: 4 },
     subtitle: { fontFamily: fonts.outfit, fontSize: 13, color: colors.text2, marginBottom: 8 },
     label: { fontSize: 9, letterSpacing: 2, color: colors.text2, fontFamily: fonts.outfitSemiBold, marginTop: 12, marginBottom: 6 },
+    rowPriceBlock: { backgroundColor: colors.surface, borderRadius: 12, padding: 14, gap: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
+    rowPriceHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    rowPriceTitle: { fontFamily: fonts.outfitMedium, fontSize: 14, color: colors.text },
+    rowPriceQty: { fontFamily: fonts.outfit, fontSize: 12, color: colors.text2 },
     chipRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
     chip: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, backgroundColor: colors.surface, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
     chipActive: { backgroundColor: colors.violet, borderColor: colors.violet },

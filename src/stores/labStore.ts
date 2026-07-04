@@ -3,10 +3,14 @@ import { labService } from '../services/labService';
 import type { Lab, LabType } from '../types/lab.types';
 
 type LabSummary = { cards: number; units: number };
+// groupedLotCount = nombre de rows avec quantity > 1 (cf. labService.getActiveSummaryByLab).
+// Seule labActiveSummaries en a besoin — wishlist/trash comptent en "N souhait(s)"/"N objet(s)",
+// jamais en "lots", donc pas de notion de "lot groupé" pour elles.
+type ActiveLabSummary = LabSummary & { groupedLotCount: number };
 
 interface LabStore {
     labs: Lab[];
-    labActiveSummaries: Record<string, LabSummary>;
+    labActiveSummaries: Record<string, ActiveLabSummary>;
     wishlistSummary: LabSummary;
     trashSummary: LabSummary;
     soldSummary: {
@@ -75,7 +79,7 @@ export const useLabStore = create<LabStore>((set) => ({
             const lab = await labService.create(name, type);
             set(state => ({
                 labs: [...state.labs, lab],
-                labActiveSummaries: { ...state.labActiveSummaries, [lab.id]: { cards: 0, units: 0 } },
+                labActiveSummaries: { ...state.labActiveSummaries, [lab.id]: { cards: 0, units: 0, groupedLotCount: 0 } },
                 labOzTotals: { ...state.labOzTotals, [lab.id]: { gold: 0, silver: 0 } },
                 labInvestedTotals: { ...state.labInvestedTotals, [lab.id]: {} },
             }));

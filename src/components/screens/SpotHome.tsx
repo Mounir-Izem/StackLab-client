@@ -30,8 +30,9 @@ function formatSpotPrice(
     unit: DisplayUnit,
     currency: Currency,
     rates: Record<string, number>,
-): string {
+): string | null {
     const priceInCurrency = convertSpotPrice(priceUsd, currency, rates);
+    if (priceInCurrency === null) return null;
     const converted = priceInCurrency * UNIT_FACTOR[unit];
     const symbol = CURRENCY_SYMBOL[currency];
     if (converted >= 1000) return `${symbol}${converted.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -131,7 +132,7 @@ export function SpotHome() {
                             <Text style={styles.metalSub}>XAU</Text>
                         </View>
                         <Text style={[styles.price, { color: colors.gold }]}>
-                            {formatSpotPrice(spot.gold, unit, currency, rates)}
+                            {formatSpotPrice(spot.gold, unit, currency, rates) ?? '—'}
                         </Text>
                         <Text style={styles.perUnit}>{t('spot.perTroy', { unit })}</Text>
                     </View>
@@ -142,7 +143,7 @@ export function SpotHome() {
                             <Text style={styles.metalSub}>XAG</Text>
                         </View>
                         <Text style={[styles.price, { color: colors.silver }]}>
-                            {formatSpotPrice(spot.silver, unit, currency, rates)}
+                            {formatSpotPrice(spot.silver, unit, currency, rates) ?? '—'}
                         </Text>
                         <Text style={styles.perUnit}>{t('spot.perTroy', { unit })}</Text>
                     </View>
