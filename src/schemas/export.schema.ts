@@ -48,14 +48,20 @@ const ItemExportSchema = z.object({
     notes: z.string().nullable(),
     quantity: z.number().int().min(1),
     purchasePrice: z.number().min(0).nullable(),
+    // Basis absents des backups antérieurs au schéma V9 : optionnels avec
+    // default null — itemRepository.restore() backfille 'lotTotal' à l'import
+    // quand le prix correspondant est non-null (même règle que la migration V9).
+    purchasePriceBasis: z.enum(['unit', 'lotTotal']).nullable().default(null),
     purchaseCurrency: CurrencySchema.nullable(),
     purchaseExchangeRate: z.number().positive().nullable(),
     purchaseDate: z.string().nullable(),
     observedPrice: z.number().min(0).nullable(),
+    observedPriceBasis: z.enum(['unit', 'lotTotal']).nullable().default(null),
     observedCurrency: CurrencySchema.nullable(),
     observedPriceDate: z.string().nullable(),
     soldDate: z.string().nullable(),
     soldPrice: z.number().min(0).nullable(),
+    soldPriceBasis: z.enum(['unit', 'lotTotal']).nullable().default(null),
     soldCurrency: CurrencySchema.nullable(),
     photoUrl: z.string().nullable(),
     location: z.string().nullable(),

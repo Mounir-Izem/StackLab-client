@@ -42,6 +42,12 @@ export type ItemCondition =
     | 'damaged'
     | 'unknown';
 
+// Base de saisie d'un prix (BUSINESS_LOGIC §7). Le montant stocké reste
+// toujours le total normalisé du lot — le basis enregistre l'intention de
+// saisie ('unit' = prix tapé par unité) pour reconstruire les vues unité/total.
+// Invariant : prix null ⟺ basis null.
+export type PriceBasis = 'unit' | 'lotTotal';
+
 export type Item = {
     id: string;
     labId: string;
@@ -66,14 +72,17 @@ export type Item = {
     notes: string | null;
     quantity: number;
     purchasePrice: number | null;
+    purchasePriceBasis: PriceBasis | null;
     purchaseCurrency: Currency | null;
     purchaseExchangeRate: number | null;
     purchaseDate: string | null;
     observedPrice: number | null;
+    observedPriceBasis: PriceBasis | null;
     observedCurrency: Currency | null;
     observedPriceDate: string | null;
     soldDate: string | null;
     soldPrice: number | null;
+    soldPriceBasis: PriceBasis | null;
     soldCurrency: Currency | null;
     photoUrl: string | null;
     location: string | null;

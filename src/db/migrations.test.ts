@@ -81,3 +81,66 @@ describe('Migration V7 — repairWishlistPurchasePrice (logique SQL miroir)', ()
         expect(result.purchase_price).toBeNull();
     });
 });
+
+// Mirrors the SQL backfill logic in migrateV8toV9:
+//   UPDATE items SET <x>_price_basis = 'lotTotal' WHERE <x>_price IS NOT NULL
+// Les montants stockés sont déjà des totaux normalisés (invariant d'écriture),
+// donc 'lotTotal' décrit fidèlement la valeur — prix null → basis reste NULL.
+type PriceBasisBackfillRow = {
+    purchase_price: number | null;
+    observed_price: number | null;
+    sold_price: number | null;
+    purchase_price_basis: string | null;
+    observed_price_basis: string | null;
+    sold_price_basis: string | null;
+};
+
+function applyV9Backfill(row: PriceBasisBackfillRow): PriceBasisBackfillRow {
+    return {
+        ...row,
+        purchase_price_basis: row.purchase_price !== null ? 'lotTotal' : row.purchase_price_basis,
+        observed_price_basis: row.observed_price !== null ? 'lotTotal' : row.observed_price_basis,
+        sold_price_basis:     row.sold_price     !== null ? 'lotTotal' : row.sold_price_basis,
+    };
+}
+
+describe('Migration V9 — price basis backfill (logique SQL miroir)', () => {
+    const emptyBasis = { purchase_price_basis: null, observed_price_basis: null, sold_price_basis: null };
+
+    test('purchasePrice non-null → purchase_price_basis = lotTotal', () => {
+        const result = applyV9Backfill({ purchase_price: 120, observed_price: null, sold_price: null, ...emptyBasis });
+        expect(result.purchase_price_basis).toBe('lotTotal');
+        expect(result.observed_price_basis).toBeNull();
+        expect(result.sold_price_basis).toBeNull();
+    });
+
+    test('observedPrice non-null → observed_price_basis = lotTotal', () => {
+        const result = applyV9Backfill({ purchase_price: null, observed_price: 68, sold_price: null, ...emptyBasis });
+        expect(result.observed_price_basis).toBe('lotTotal');
+        expect(result.purchase_price_basis).toBeNull();
+    });
+
+    test('soldPrice non-null → sold_price_basis = lotTotal', () => {
+        const result = applyV9Backfill({ purchase_price: null, observed_price: null, sold_price: 250, ...emptyBasis });
+        expect(result.sold_price_basis).toBe('lotTotal');
+    });
+
+    test('prix 0 (cadeau/don) → basis lotTotal quand même — 0 est une valeur, pas null', () => {
+        const result = applyV9Backfill({ purchase_price: 0, observed_price: null, sold_price: null, ...emptyBasis });
+        expect(result.purchase_price_basis).toBe('lotTotal');
+    });
+
+    test('tous les prix null → tous les basis restent null', () => {
+        const result = applyV9Backfill({ purchase_price: null, observed_price: null, sold_price: null, ...emptyBasis });
+        expect(result.purchase_price_basis).toBeNull();
+        expect(result.observed_price_basis).toBeNull();
+        expect(result.sold_price_basis).toBeNull();
+    });
+
+    test('item vendu complet (purchase + sold) → les deux basis backfillés', () => {
+        const result = applyV9Backfill({ purchase_price: 104, observed_price: null, sold_price: 130, ...emptyBasis });
+        expect(result.purchase_price_basis).toBe('lotTotal');
+        expect(result.sold_price_basis).toBe('lotTotal');
+        expect(result.observed_price_basis).toBeNull();
+    });
+});

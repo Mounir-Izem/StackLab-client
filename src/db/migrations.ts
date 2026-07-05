@@ -1,7 +1,7 @@
 import * as SQLite from 'expo-sqlite';
 import { generateUUID } from '../utils/uuid';
 
-export const CURRENT_SCHEMA_VERSION = 8;
+export const CURRENT_SCHEMA_VERSION = 9;
 
 const MIGRATIONS: Record<number, (db: SQLite.SQLiteDatabase) => Promise<void>> = {
     1: migrateV0toV1,
@@ -12,6 +12,7 @@ const MIGRATIONS: Record<number, (db: SQLite.SQLiteDatabase) => Promise<void>> =
     6: migrateV5toV6,
     7: migrateV6toV7,
     8: migrateV7toV8,
+    9: migrateV8toV9,
 };
 
 export async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
@@ -366,4 +367,25 @@ async function migrateV7toV8(db: SQLite.SQLiteDatabase): Promise<void> {
     await db.execAsync(
         'ALTER TABLE settings ADD COLUMN screen_protection_enabled INTEGER NOT NULL DEFAULT 0'
     );
+}
+
+async function migrateV8toV9(db: SQLite.SQLiteDatabase): Promise<void> {
+    // Price basis (BUSINESS_LOGIC §7) : les montants stockés restent des totaux
+    // normalisés, le basis enregistre l'intention de saisie (unit | lotTotal).
+    // Backfill 'lotTotal' : les montants existants SONT déjà des totaux (invariant
+    // de normalisation à l'écriture) — l'intention historique est perdue, lotTotal
+    // décrit fidèlement la valeur stockée sans deviner une intention utilisateur.
+    await db.execAsync(`
+        ALTER TABLE items ADD COLUMN purchase_price_basis TEXT
+            CHECK (purchase_price_basis IN ('unit', 'lotTotal') OR purchase_price_basis IS NULL);
+        ALTER TABLE items ADD COLUMN observed_price_basis TEXT
+            CHECK (observed_price_basis IN ('unit', 'lotTotal') OR observed_price_basis IS NULL);
+        ALTER TABLE items ADD COLUMN sold_price_basis TEXT
+            CHECK (sold_price_basis IN ('unit', 'lotTotal') OR sold_price_basis IS NULL);
+    `);
+    await db.execAsync(`
+        UPDATE items SET purchase_price_basis = 'lotTotal' WHERE purchase_price IS NOT NULL;
+        UPDATE items SET observed_price_basis = 'lotTotal' WHERE observed_price IS NOT NULL;
+        UPDATE items SET sold_price_basis = 'lotTotal' WHERE sold_price IS NOT NULL;
+    `);
 }

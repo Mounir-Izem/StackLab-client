@@ -4,8 +4,18 @@ import { labRepository } from '../repositories/labRepository';
 import { withTransaction } from '../db/database';
 import { toTroyOz, generateFamilyKey, proratePurchasePrice } from '../utils/calculations';
 import { generateUUID } from '../utils/uuid';
-import type { Item, ItemMetal, ItemShape, ItemStatus, ItemWeightUnit, StrikeFinish, ItemCondition, ItemFeature, ItemPackaging } from '../types/item.types';
+import type { Item, ItemMetal, ItemShape, ItemStatus, ItemWeightUnit, StrikeFinish, ItemCondition, ItemFeature, ItemPackaging, PriceBasis } from '../types/item.types';
 import type { Currency } from '../types/settings.types';
+
+// Le basis persiste l'intention de saisie (BUSINESS_LOGIC §7). L'UI actuelle
+// transmet déjà cette intention via les flags perUnit — on la capture telle
+// quelle : perUnit → 'unit', sinon 'lotTotal'. Prix null → basis null
+// (invariant price ⟺ basis). L'obligation de choix explicite côté UI pour
+// quantity > 1 viendra au Lot D.
+function priceBasisOf(price: number | null | undefined, isPerUnit: boolean): PriceBasis | null {
+    if (price == null) return null;
+    return isPerUnit ? 'unit' : 'lotTotal';
+}
 
 type PurchasePriceInput =
     | { purchasePrice?: null; purchasePriceIsPerUnit?: never }
@@ -93,14 +103,17 @@ export const itemService = {
             notes: data.notes ?? null,
             quantity: data.quantity,
             purchasePrice,
+            purchasePriceBasis: priceBasisOf(data.purchasePrice, data.purchasePriceIsPerUnit ?? false),
             purchaseCurrency: data.purchaseCurrency ?? null,
             purchaseExchangeRate: data.purchaseExchangeRate ?? null,
             purchaseDate: data.purchaseDate ?? null,
             observedPrice,
+            observedPriceBasis: priceBasisOf(data.observedPrice, data.observedPriceIsPerUnit ?? false),
             observedCurrency: data.observedCurrency ?? null,
             observedPriceDate: data.observedPriceDate ?? null,
             soldDate: null,
             soldPrice: null,
+            soldPriceBasis: null,
             soldCurrency: null,
             photoUrl: data.photoUrl ?? null,
             location: data.location ?? null,
@@ -109,11 +122,12 @@ export const itemService = {
         });
     },
 
-    // purchasePrice est exclu volontairement : il doit toujours passer par updatePurchasePrice()
-    // pour être normalisé (total vs per-unit), jamais écrit brut. Garde runtime en plus du
-    // type, car un objet "data" externe peut contenir le champ sans que TS le détecte.
-    async update(id: string, data: Partial<Omit<Item, 'id' | 'familyKey' | 'createdAt' | 'updatedAt' | 'purchasePrice'>>): Promise<Item> {
-        if ('purchasePrice' in data) throw new Error('USE_UPDATE_PURCHASE_PRICE');
+    // purchasePrice (et son basis) sont exclus volontairement : ils doivent toujours passer
+    // par updatePurchasePrice() pour être normalisés (total vs per-unit) et rester cohérents
+    // entre eux, jamais écrits bruts. Garde runtime en plus du type, car un objet "data"
+    // externe peut contenir le champ sans que TS le détecte.
+    async update(id: string, data: Partial<Omit<Item, 'id' | 'familyKey' | 'createdAt' | 'updatedAt' | 'purchasePrice' | 'purchasePriceBasis'>>): Promise<Item> {
+        if ('purchasePrice' in data || 'purchasePriceBasis' in data) throw new Error('USE_UPDATE_PURCHASE_PRICE');
         return itemRepository.update(id, data);
     },
 
@@ -123,7 +137,10 @@ export const itemService = {
         const normalizedPurchasePrice = purchasePrice != null
             ? (purchasePriceIsPerUnit ? purchasePrice * item.quantity : purchasePrice)
             : null;
-        return itemRepository.update(id, { purchasePrice: normalizedPurchasePrice });
+        return itemRepository.update(id, {
+            purchasePrice: normalizedPurchasePrice,
+            purchasePriceBasis: priceBasisOf(normalizedPurchasePrice, purchasePriceIsPerUnit),
+        });
     },
 
     async updateObservedPrice(
@@ -141,6 +158,7 @@ export const itemService = {
             : null;
         return itemRepository.update(id, {
             observedPrice: normalizedObservedPrice,
+            observedPriceBasis: priceBasisOf(normalizedObservedPrice, observedPriceIsPerUnit),
             observedCurrency: normalizedObservedPrice != null ? observedCurrency : null,
             observedPriceDate: normalizedObservedPrice != null ? observedPriceDate : null,
         });
@@ -161,15 +179,17 @@ export const itemService = {
         if (qty > item.quantity) throw new Error('QTY_EXCEEDS_STOCK');
 
         const finalSoldPrice = soldPrice !== null && perUnit ? soldPrice * qty : soldPrice;
+        const soldPriceBasis = priceBasisOf(finalSoldPrice, perUnit);
 
         if (qty === item.quantity) {
-            await itemRepository.update(id, { status: 'sold', soldDate, soldPrice: finalSoldPrice, soldCurrency });
+            await itemRepository.update(id, { status: 'sold', soldDate, soldPrice: finalSoldPrice, soldPriceBasis, soldCurrency });
             return;
         }
 
         const { extracted, remaining } = proratePurchasePrice(item.purchasePrice, qty, item.quantity);
         const { createdAt: _c, updatedAt: _u, ...base } = item;
         await withTransaction(async () => {
+            // Le prorata conserve le purchasePriceBasis du parent (non modifié ici).
             await itemRepository.update(id, { quantity: item.quantity - qty, purchasePrice: remaining });
             await itemRepository.create({
                 ...base,
@@ -179,8 +199,10 @@ export const itemService = {
                 status: 'sold',
                 soldDate,
                 soldPrice: finalSoldPrice,
+                soldPriceBasis,
                 soldCurrency,
                 observedPrice: null,
+                observedPriceBasis: null,
                 observedCurrency: null,
                 observedPriceDate: null,
             });
@@ -212,12 +234,14 @@ export const itemService = {
                 const finalSoldPrice = sell.soldPrice !== null && sell.perUnit
                     ? sell.soldPrice * sell.qty
                     : sell.soldPrice;
+                const soldPriceBasis = priceBasisOf(finalSoldPrice, sell.perUnit);
 
                 if (sell.qty === item.quantity) {
                     await itemRepository.update(item.id, {
                         status: 'sold',
                         soldDate: sell.soldDate,
                         soldPrice: finalSoldPrice,
+                        soldPriceBasis,
                         soldCurrency: sell.soldCurrency,
                     });
                 } else {
@@ -232,8 +256,10 @@ export const itemService = {
                         status: 'sold',
                         soldDate: sell.soldDate,
                         soldPrice: finalSoldPrice,
+                        soldPriceBasis,
                         soldCurrency: sell.soldCurrency,
                         observedPrice: null,
+                        observedPriceBasis: null,
                         observedCurrency: null,
                         observedPriceDate: null,
                     });
@@ -342,6 +368,7 @@ export const itemService = {
         const normalizedPurchasePrice = purchasePrice != null
             ? (purchasePriceIsPerUnit ? purchasePrice * qty : purchasePrice)
             : null;
+        const purchasePriceBasis = priceBasisOf(normalizedPurchasePrice, purchasePriceIsPerUnit);
 
         if (qty === item.quantity) {
             await itemRepository.update(id, {
@@ -349,9 +376,11 @@ export const itemService = {
                 labId: targetLabId,
                 deckId: targetDeckId,
                 observedPrice: null,
+                observedPriceBasis: null,
                 observedCurrency: null,
                 observedPriceDate: null,
                 purchasePrice: normalizedPurchasePrice,
+                purchasePriceBasis,
                 purchaseCurrency: purchaseCurrency ?? null,
             });
             return;
@@ -359,11 +388,12 @@ export const itemService = {
 
         const { createdAt: _c, updatedAt: _u, ...base } = item;
         // Prorata observedPrice pour la part Wishlist restante (même logique que purchasePrice).
+        // Son observedPriceBasis existant est conservé (le prorata ne change pas l'intention de saisie).
         const { remaining: remainingObservedPrice } = proratePurchasePrice(item.observedPrice, qty, item.quantity);
         await withTransaction(async () => {
             // La part qui reste en Wishlist n'est pas encore achetée : elle ne doit
-            // jamais hériter d'un purchasePrice, même si le row source en avait un.
-            await itemRepository.update(id, { quantity: item.quantity - qty, purchasePrice: null, observedPrice: remainingObservedPrice });
+            // jamais hériter d'un purchasePrice (ni de son basis), même si le row source en avait un.
+            await itemRepository.update(id, { quantity: item.quantity - qty, purchasePrice: null, purchasePriceBasis: null, observedPrice: remainingObservedPrice });
             await itemRepository.create({
                 ...base,
                 id: generateUUID(),
@@ -372,9 +402,11 @@ export const itemService = {
                 labId: targetLabId,
                 deckId: targetDeckId,
                 observedPrice: null,
+                observedPriceBasis: null,
                 observedCurrency: null,
                 observedPriceDate: null,
                 purchasePrice: normalizedPurchasePrice,
+                purchasePriceBasis,
                 purchaseCurrency: purchaseCurrency ?? null,
             });
         });

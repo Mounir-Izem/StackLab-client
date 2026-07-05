@@ -221,3 +221,37 @@ describe('ExportSchema — intégrité référentielle items (superRefine)', () 
         expect(() => ExportSchema.parse(data)).not.toThrow();
     });
 });
+
+// Lot B — price basis : les backups antérieurs au schéma V9 n'ont pas les
+// champs basis (optionnels, default null au parse) ; les nouveaux backups
+// les transportent tels quels. Le backfill conditionnel 'lotTotal' vit dans
+// itemRepository.restore(), pas dans le schéma.
+describe('ExportSchema — price basis (rétrocompatibilité)', () => {
+    test('ancien backup sans champs basis → accepté, basis null en sortie', () => {
+        const data = makeValidExport();
+        const parsed = ExportSchema.parse(data);
+        expect(parsed.items[0].purchasePriceBasis).toBeNull();
+        expect(parsed.items[0].observedPriceBasis).toBeNull();
+        expect(parsed.items[0].soldPriceBasis).toBeNull();
+    });
+
+    test('backup avec basis → valeurs préservées au parse', () => {
+        const item = {
+            ...makeItem(),
+            purchasePrice: 120,
+            purchasePriceBasis: 'unit' as const,
+            observedPrice: null,
+            observedPriceBasis: null,
+        };
+        const data = { ...makeValidExport(), items: [item] };
+        const parsed = ExportSchema.parse(data);
+        expect(parsed.items[0].purchasePriceBasis).toBe('unit');
+        expect(parsed.items[0].observedPriceBasis).toBeNull();
+    });
+
+    test('basis invalide → rejeté', () => {
+        const item = { ...makeItem(), purchasePriceBasis: 'perUnit' };
+        const data = { ...makeValidExport(), items: [item] };
+        expect(() => ExportSchema.parse(data)).toThrow();
+    });
+});

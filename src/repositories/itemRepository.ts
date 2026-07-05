@@ -1,5 +1,5 @@
 import { getDatabase } from '../db/database';
-import type { Item, ItemStatus, ItemMetal, ItemShape, ItemWeightUnit, StrikeFinish, ItemCondition, ItemFeature, ItemPackaging } from '../types/item.types';
+import type { Item, ItemStatus, ItemMetal, ItemShape, ItemWeightUnit, StrikeFinish, ItemCondition, ItemFeature, ItemPackaging, PriceBasis } from '../types/item.types';
 import type { Currency } from '../types/settings.types';
 
 type RawItem = {
@@ -24,14 +24,17 @@ type RawItem = {
     notes: string | null;
     quantity: number;
     purchase_price: number | null;
+    purchase_price_basis: string | null;
     purchase_currency: string | null;
     purchase_exchange_rate: number | null;
     purchase_date: string | null;
     observed_price: number | null;
+    observed_price_basis: string | null;
     observed_currency: string | null;
     observed_price_date: string | null;
     sold_date: string | null;
     sold_price: number | null;
+    sold_price_basis: string | null;
     sold_currency: string | null;
     photo_url: string | null;
     location: string | null;
@@ -66,14 +69,17 @@ function mapRowToItem(row: RawItem): Item {
         notes: row.notes,
         quantity: row.quantity,
         purchasePrice: row.purchase_price,
+        purchasePriceBasis: row.purchase_price_basis as PriceBasis | null,
         purchaseCurrency: row.purchase_currency as Currency | null,
         purchaseExchangeRate: row.purchase_exchange_rate,
         purchaseDate: row.purchase_date,
         observedPrice: row.observed_price,
+        observedPriceBasis: row.observed_price_basis as PriceBasis | null,
         observedCurrency: row.observed_currency as Currency | null,
         observedPriceDate: row.observed_price_date,
         soldDate: row.sold_date,
         soldPrice: row.sold_price,
+        soldPriceBasis: row.sold_price_basis as PriceBasis | null,
         soldCurrency: row.sold_currency as Currency | null,
         photoUrl: row.photo_url,
         location: row.location,
@@ -158,17 +164,19 @@ export const itemRepository = {
                     id, lab_id, deck_id, status, name, family_key, metal, mint_name,
                     shape, shape_description, weight_oz, weight_unit_input, purity,
                     year, strike_finish, condition, grading_company, grade_value,
-                    notes, quantity, purchase_price, purchase_currency, purchase_exchange_rate,
-                    purchase_date, observed_price, observed_currency, observed_price_date,
-                    sold_date, sold_price, sold_currency, photo_url, location,
+                    notes, quantity,
+                    purchase_price, purchase_price_basis, purchase_currency, purchase_exchange_rate,
+                    purchase_date, observed_price, observed_price_basis, observed_currency, observed_price_date,
+                    sold_date, sold_price, sold_price_basis, sold_currency, photo_url, location,
                     created_at, updated_at
                 ) VALUES (
                     ?, ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?,
+                    ?, ?,
                     ?, ?, ?, ?,
                     ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?,
                     ?, ?
                 )`,
                 [
@@ -179,11 +187,13 @@ export const itemRepository = {
                     data.year ?? null, data.strikeFinish ?? null, data.condition ?? null,
                     data.gradingCompany ?? null, data.gradeValue ?? null,
                     data.notes ?? null, data.quantity,
-                    data.purchasePrice ?? null, data.purchaseCurrency ?? null,
+                    data.purchasePrice ?? null, data.purchasePriceBasis ?? null,
+                    data.purchaseCurrency ?? null,
                     data.purchaseExchangeRate ?? null, data.purchaseDate ?? null,
-                    data.observedPrice ?? null, data.observedCurrency ?? null,
-                    data.observedPriceDate ?? null,
+                    data.observedPrice ?? null, data.observedPriceBasis ?? null,
+                    data.observedCurrency ?? null, data.observedPriceDate ?? null,
                     data.soldDate ?? null, data.soldPrice ?? null,
+                    data.soldPriceBasis ?? null,
                     data.soldCurrency ?? null, data.photoUrl ?? null,
                     data.location ?? null,
                     now, now,
@@ -217,6 +227,16 @@ export const itemRepository = {
     async restore(data: Item): Promise<void> {
         const db = getDatabase();
 
+        // Backups antérieurs au schéma V9 : prix présents sans basis. Backfill
+        // 'lotTotal' à l'import — même règle que la migration V9 (le montant
+        // stocké est déjà le total normalisé). Prix null → basis null.
+        const purchasePriceBasis = data.purchasePriceBasis
+            ?? (data.purchasePrice != null ? 'lotTotal' : null);
+        const observedPriceBasis = data.observedPriceBasis
+            ?? (data.observedPrice != null ? 'lotTotal' : null);
+        const soldPriceBasis = data.soldPriceBasis
+            ?? (data.soldPrice != null ? 'lotTotal' : null);
+
         await db.execAsync('SAVEPOINT sp_item_restore');
         try {
             await db.runAsync(
@@ -224,17 +244,19 @@ export const itemRepository = {
                     id, lab_id, deck_id, status, name, family_key, metal, mint_name,
                     shape, shape_description, weight_oz, weight_unit_input, purity,
                     year, strike_finish, condition, grading_company, grade_value,
-                    notes, quantity, purchase_price, purchase_currency, purchase_exchange_rate,
-                    purchase_date, observed_price, observed_currency, observed_price_date,
-                    sold_date, sold_price, sold_currency, photo_url, location,
+                    notes, quantity,
+                    purchase_price, purchase_price_basis, purchase_currency, purchase_exchange_rate,
+                    purchase_date, observed_price, observed_price_basis, observed_currency, observed_price_date,
+                    sold_date, sold_price, sold_price_basis, sold_currency, photo_url, location,
                     created_at, updated_at
                 ) VALUES (
                     ?, ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?,
+                    ?, ?,
                     ?, ?, ?, ?,
                     ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?,
                     ?, ?
                 )`,
                 [
@@ -245,11 +267,13 @@ export const itemRepository = {
                     data.year ?? null, data.strikeFinish ?? null, data.condition ?? null,
                     data.gradingCompany ?? null, data.gradeValue ?? null,
                     data.notes ?? null, data.quantity,
-                    data.purchasePrice ?? null, data.purchaseCurrency ?? null,
+                    data.purchasePrice ?? null, purchasePriceBasis,
+                    data.purchaseCurrency ?? null,
                     data.purchaseExchangeRate ?? null, data.purchaseDate ?? null,
-                    data.observedPrice ?? null, data.observedCurrency ?? null,
-                    data.observedPriceDate ?? null,
+                    data.observedPrice ?? null, observedPriceBasis,
+                    data.observedCurrency ?? null, data.observedPriceDate ?? null,
                     data.soldDate ?? null, data.soldPrice ?? null,
+                    soldPriceBasis,
                     data.soldCurrency ?? null, data.photoUrl ?? null,
                     data.location ?? null,
                     data.createdAt, data.updatedAt,
@@ -295,11 +319,14 @@ export const itemRepository = {
                 year: 'year', strikeFinish: 'strike_finish', condition: 'condition',
                 gradingCompany: 'grading_company', gradeValue: 'grade_value',
                 notes: 'notes', quantity: 'quantity',
-                purchasePrice: 'purchase_price', purchaseCurrency: 'purchase_currency',
+                purchasePrice: 'purchase_price', purchasePriceBasis: 'purchase_price_basis',
+                purchaseCurrency: 'purchase_currency',
                 purchaseExchangeRate: 'purchase_exchange_rate', purchaseDate: 'purchase_date',
-                observedPrice: 'observed_price', observedCurrency: 'observed_currency',
+                observedPrice: 'observed_price', observedPriceBasis: 'observed_price_basis',
+                observedCurrency: 'observed_currency',
                 observedPriceDate: 'observed_price_date',
-                soldDate: 'sold_date', soldPrice: 'sold_price', soldCurrency: 'sold_currency',
+                soldDate: 'sold_date', soldPrice: 'sold_price', soldPriceBasis: 'sold_price_basis',
+                soldCurrency: 'sold_currency',
                 photoUrl: 'photo_url', location: 'location',
             };
 

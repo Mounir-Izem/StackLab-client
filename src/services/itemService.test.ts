@@ -56,14 +56,17 @@ const makeItem = (overrides: Partial<Item> = {}): Item => ({
     notes: null,
     quantity: 7,
     purchasePrice: null,
+    purchasePriceBasis: null,
     purchaseCurrency: null,
     purchaseExchangeRate: null,
     purchaseDate: null,
     observedPrice: null,
+    observedPriceBasis: null,
     observedCurrency: null,
     observedPriceDate: null,
     soldDate: null,
     soldPrice: null,
+    soldPriceBasis: null,
     soldCurrency: null,
     photoUrl: null,
     location: null,
@@ -360,7 +363,7 @@ describe('itemService — edge case quantity = 1', () => {
         await itemService.sell('item-uuid-1', 1, 60, false, 'USD', '2026-04-24');
 
         expect(mockRepo.update).toHaveBeenCalledWith('item-uuid-1', {
-            status: 'sold', soldDate: '2026-04-24', soldPrice: 60, soldCurrency: 'USD',
+            status: 'sold', soldDate: '2026-04-24', soldPrice: 60, soldPriceBasis: 'lotTotal', soldCurrency: 'USD',
         });
         expect(mockRepo.create).not.toHaveBeenCalled();
     });
@@ -375,8 +378,8 @@ describe('itemService.acquire', () => {
 
         expect(mockRepo.update).toHaveBeenCalledWith('item-uuid-1', {
             status: 'active', labId: 'lab-2', deckId: null,
-            observedPrice: null, observedCurrency: null, observedPriceDate: null,
-            purchasePrice: 104, purchaseCurrency: 'USD',
+            observedPrice: null, observedPriceBasis: null, observedCurrency: null, observedPriceDate: null,
+            purchasePrice: 104, purchasePriceBasis: 'lotTotal', purchaseCurrency: 'USD',
         });
     });
 
@@ -397,7 +400,7 @@ describe('itemService.acquire', () => {
 
         await itemService.acquire('item-uuid-1', 3, 'lab-2', null, 39, 'USD', false);
 
-        expect(mockRepo.update).toHaveBeenCalledWith('item-uuid-1', { quantity: 5, purchasePrice: null, observedPrice: null });
+        expect(mockRepo.update).toHaveBeenCalledWith('item-uuid-1', { quantity: 5, purchasePrice: null, purchasePriceBasis: null, observedPrice: null });
         const created = mockRepo.create.mock.calls[0][0];
         expect(created.purchasePrice).toBe(39);
         expect(created.status).toBe('active');
@@ -411,7 +414,7 @@ describe('itemService.acquire', () => {
         await itemService.acquire('item-uuid-1', 3, 'lab-2', null, 39, 'USD', false);
 
         // ×8 observedPrice 104 → acquire ×3 → remaining ×5 observedPrice 65
-        expect(mockRepo.update).toHaveBeenCalledWith('item-uuid-1', { quantity: 5, purchasePrice: null, observedPrice: 65 });
+        expect(mockRepo.update).toHaveBeenCalledWith('item-uuid-1', { quantity: 5, purchasePrice: null, purchasePriceBasis: null, observedPrice: 65 });
         const created = mockRepo.create.mock.calls[0][0];
         expect(created.observedPrice).toBeNull();
         expect(created.status).toBe('active');
@@ -435,7 +438,7 @@ describe('itemService.updatePurchasePrice', () => {
 
         await itemService.updatePurchasePrice('item-uuid-1', 104, false);
 
-        expect(mockRepo.update).toHaveBeenCalledWith('item-uuid-1', { purchasePrice: 104 });
+        expect(mockRepo.update).toHaveBeenCalledWith('item-uuid-1', { purchasePrice: 104, purchasePriceBasis: 'lotTotal' });
     });
 
     test('mode per-unit → multiplie par la quantity actuelle du row', async () => {
@@ -444,7 +447,7 @@ describe('itemService.updatePurchasePrice', () => {
 
         await itemService.updatePurchasePrice('item-uuid-1', 13, true);
 
-        expect(mockRepo.update).toHaveBeenCalledWith('item-uuid-1', { purchasePrice: 104 });
+        expect(mockRepo.update).toHaveBeenCalledWith('item-uuid-1', { purchasePrice: 104, purchasePriceBasis: 'unit' });
     });
 
     test('null → écrit null, jamais 0', async () => {
@@ -453,7 +456,7 @@ describe('itemService.updatePurchasePrice', () => {
 
         await itemService.updatePurchasePrice('item-uuid-1', null, false);
 
-        expect(mockRepo.update).toHaveBeenCalledWith('item-uuid-1', { purchasePrice: null });
+        expect(mockRepo.update).toHaveBeenCalledWith('item-uuid-1', { purchasePrice: null, purchasePriceBasis: null });
     });
 
     test('ITEM_NOT_FOUND si item inexistant', async () => {
@@ -479,6 +482,7 @@ describe('itemService.updateObservedPrice', () => {
 
         expect(mockRepo.update).toHaveBeenCalledWith('item-uuid-1', {
             observedPrice: 200,
+            observedPriceBasis: 'lotTotal',
             observedCurrency: 'EUR',
             observedPriceDate: '2026-01-01',
         });
@@ -492,6 +496,7 @@ describe('itemService.updateObservedPrice', () => {
 
         expect(mockRepo.update).toHaveBeenCalledWith('item-uuid-1', {
             observedPrice: 250,
+            observedPriceBasis: 'unit',
             observedCurrency: 'USD',
             observedPriceDate: null,
         });
@@ -505,6 +510,7 @@ describe('itemService.updateObservedPrice', () => {
 
         expect(mockRepo.update).toHaveBeenCalledWith('item-uuid-1', {
             observedPrice: null,
+            observedPriceBasis: null,
             observedCurrency: null,
             observedPriceDate: null,
         });
@@ -533,5 +539,145 @@ describe('itemService.updateObservedPrice', () => {
     test('ITEM_NOT_WISHLIST si item est sold', async () => {
         mockRepo.findById.mockResolvedValue(makeItem({ status: 'sold' }));
         await expect(itemService.updateObservedPrice('item-uuid-1', 100, false, 'USD', null)).rejects.toThrow('ITEM_NOT_WISHLIST');
+    });
+});
+
+// Lot B — price basis : le montant stocké reste le total normalisé, le basis
+// capture l'intention de saisie déjà transmise par les flags perUnit existants
+// (perUnit → 'unit', sinon 'lotTotal' ; prix null → basis null).
+describe('itemService — price basis (Lot B)', () => {
+    const baseCreateInput = {
+        labId: 'lab-uuid-1',
+        status: 'active' as const,
+        name: 'Maple Leaf',
+        metal: 'silver' as const,
+        shape: 'coin' as const,
+        weightInput: 1,
+        weightUnit: 'oz' as const,
+        purity: 0.9999,
+        quantity: 5,
+    };
+
+    test('create actif, prix per-unit → purchasePriceBasis = unit (total normalisé conservé)', async () => {
+        mockRepo.create.mockResolvedValue(makeItem());
+        await itemService.create({ ...baseCreateInput, purchasePrice: 24, purchasePriceIsPerUnit: true });
+        const created = mockRepo.create.mock.calls[0][0];
+        expect(created.purchasePrice).toBe(120);
+        expect(created.purchasePriceBasis).toBe('unit');
+    });
+
+    test('create actif, prix lot → purchasePriceBasis = lotTotal', async () => {
+        mockRepo.create.mockResolvedValue(makeItem());
+        await itemService.create({ ...baseCreateInput, purchasePrice: 120, purchasePriceIsPerUnit: false });
+        const created = mockRepo.create.mock.calls[0][0];
+        expect(created.purchasePrice).toBe(120);
+        expect(created.purchasePriceBasis).toBe('lotTotal');
+    });
+
+    test('create actif sans prix → purchasePriceBasis null (invariant prix ⟺ basis)', async () => {
+        mockRepo.create.mockResolvedValue(makeItem());
+        await itemService.create({ ...baseCreateInput });
+        const created = mockRepo.create.mock.calls[0][0];
+        expect(created.purchasePrice).toBeNull();
+        expect(created.purchasePriceBasis).toBeNull();
+        expect(created.observedPriceBasis).toBeNull();
+        expect(created.soldPriceBasis).toBeNull();
+    });
+
+    test('create wishlist, prix observé per-unit → observedPriceBasis = unit', async () => {
+        mockRepo.create.mockResolvedValue(makeItem());
+        await itemService.create({ ...baseCreateInput, status: 'wishlist', observedPrice: 68, observedPriceIsPerUnit: true });
+        const created = mockRepo.create.mock.calls[0][0];
+        expect(created.observedPrice).toBe(340);
+        expect(created.observedPriceBasis).toBe('unit');
+    });
+
+    test('create wishlist, prix observé lot → observedPriceBasis = lotTotal', async () => {
+        mockRepo.create.mockResolvedValue(makeItem());
+        await itemService.create({ ...baseCreateInput, status: 'wishlist', observedPrice: 340, observedPriceIsPerUnit: false });
+        const created = mockRepo.create.mock.calls[0][0];
+        expect(created.observedPrice).toBe(340);
+        expect(created.observedPriceBasis).toBe('lotTotal');
+    });
+
+    test('sell partiel per-unit → soldPriceBasis = unit sur le sold record, observedPriceBasis nettoyé', async () => {
+        mockRepo.findById.mockResolvedValue(makeItem({
+            quantity: 7, purchasePrice: 104, purchasePriceBasis: 'unit',
+        }));
+        mockRepo.update.mockResolvedValue(makeItem({ quantity: 5 }));
+        mockRepo.create.mockResolvedValue(makeItem({ quantity: 2, status: 'sold' }));
+
+        await itemService.sell('item-uuid-1', 2, 75, true, 'USD', '2026-04-24');
+
+        const created = mockRepo.create.mock.calls[0][0];
+        expect(created.soldPriceBasis).toBe('unit');
+        expect(created.observedPriceBasis).toBeNull();
+        // Le prorata conserve l'intention de saisie du parent sur le cost basis.
+        expect(created.purchasePriceBasis).toBe('unit');
+    });
+
+    test('sell partiel, soldPrice null → soldPriceBasis null', async () => {
+        mockRepo.findById.mockResolvedValue(makeItem({ quantity: 7 }));
+        mockRepo.update.mockResolvedValue(makeItem({ quantity: 5 }));
+        mockRepo.create.mockResolvedValue(makeItem({ quantity: 2, status: 'sold' }));
+
+        await itemService.sell('item-uuid-1', 2, null, false, 'USD', '2026-04-24');
+
+        const created = mockRepo.create.mock.calls[0][0];
+        expect(created.soldPrice).toBeNull();
+        expect(created.soldPriceBasis).toBeNull();
+    });
+
+    test('acquire per-unit → purchasePriceBasis = unit sur la part acquise', async () => {
+        mockRepo.findById.mockResolvedValue(makeItem({
+            status: 'wishlist', quantity: 8, purchasePrice: null,
+            observedPrice: 104, observedPriceBasis: 'unit',
+        }));
+        mockRepo.update.mockResolvedValue(makeItem({ quantity: 5 }));
+        mockRepo.create.mockResolvedValue(makeItem({ quantity: 3, status: 'active' }));
+
+        await itemService.acquire('item-uuid-1', 3, 'lab-2', null, 13, 'USD', true);
+
+        const created = mockRepo.create.mock.calls[0][0];
+        expect(created.purchasePrice).toBe(39);
+        expect(created.purchasePriceBasis).toBe('unit');
+        expect(created.observedPriceBasis).toBeNull();
+        // La part Wishlist restante garde son observedPriceBasis (payload update
+        // ne touche pas la clé) et n'hérite d'aucun basis d'achat.
+        const updatePayload = mockRepo.update.mock.calls[0][1];
+        expect(updatePayload.purchasePriceBasis).toBeNull();
+        expect(updatePayload).not.toHaveProperty('observedPriceBasis');
+    });
+
+    test('duplicate conserve les prix ET leurs basis', async () => {
+        mockRepo.findById.mockResolvedValue(makeItem({
+            purchasePrice: 120, purchasePriceBasis: 'unit',
+            observedPrice: null, observedPriceBasis: null,
+        }));
+        mockRepo.create.mockResolvedValue(makeItem());
+
+        await itemService.duplicate('item-uuid-1');
+
+        const created = mockRepo.create.mock.calls[0][0];
+        expect(created.purchasePrice).toBe(120);
+        expect(created.purchasePriceBasis).toBe('unit');
+        expect(created.observedPriceBasis).toBeNull();
+    });
+
+    test('update() rejette purchasePriceBasis comme purchasePrice (USE_UPDATE_PURCHASE_PRICE)', async () => {
+        const data = { purchasePriceBasis: 'unit' } as unknown as Parameters<typeof itemService.update>[1];
+        await expect(itemService.update('item-uuid-1', data)).rejects.toThrow('USE_UPDATE_PURCHASE_PRICE');
+    });
+
+    test('soft delete vers Trash ne touche pas aux prix ni aux basis', async () => {
+        mockRepo.findById.mockResolvedValue(makeItem({
+            purchasePrice: 120, purchasePriceBasis: 'unit', photoUrl: null,
+        }));
+        mockLabRepo.findByType.mockResolvedValue(makeLab({ id: 'trash-lab', type: 'trash' }));
+        mockRepo.update.mockResolvedValue(makeItem());
+
+        await itemService.delete('item-uuid-1');
+
+        expect(mockRepo.update).toHaveBeenCalledWith('item-uuid-1', { labId: 'trash-lab', deckId: null });
     });
 });
