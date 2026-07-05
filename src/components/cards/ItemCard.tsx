@@ -15,12 +15,16 @@ import {
 } from '../../utils/theme';
 import { formatCardValue, formatStrikeLabel, formatWeight } from '../../utils/formatters';
 import { useSpotStore } from '../../stores/spotStore';
+import { getObservedPremium } from '../../domain/valueSemantics';
+import type { CurrencyRates } from '../../domain/valueSemantics';
+import type { BusinessItemRole } from '../../domain/itemSemantics';
 import type { Item } from '../../types/item.types';
-import type { WeightUnit } from '../../types/settings.types';
+import type { Currency, WeightUnit } from '../../types/settings.types';
 import type { MeltBadge } from '../../utils/meltAnalysis';
 
 type ItemCardProps = {
     item: Item;
+    role?: BusinessItemRole | null;
     meltValue?: number | null;
     currency?: string;
     weightUnit?: WeightUnit;
@@ -35,7 +39,7 @@ type ItemCardProps = {
 };
 
 function ItemCardComponent({
-    item, meltValue, currency = 'USD', weightUnit = 'oz', onPress,
+    item, role = null, meltValue, currency = 'USD', weightUnit = 'oz', onPress,
     isNew = false, onNewAnimationEnd, menuActions = [], noAutoShare = false,
     meltBadge = null, showMissingPrice = false, showYearDot = false,
 }: ItemCardProps) {
@@ -115,20 +119,17 @@ function ItemCardComponent({
     const isSold = item.status === 'sold';
     const isWishlist = item.status === 'wishlist';
 
-    const observedPremiumAmount = (() => {
-        if (!isWishlist || item.observedPrice == null || meltValue == null || meltValue <= 0) return null;
-        const obsCur = item.observedCurrency ?? 'USD';
-        const obsInUsd = obsCur === 'USD' ? item.observedPrice
-            : (rates[obsCur] ? item.observedPrice * rates[obsCur] : null);
-        if (obsInUsd === null) return null;
-        const obsInDisplay = currency === 'USD' ? obsInUsd
-            : (rates[currency] ? obsInUsd / rates[currency] : null);
-        if (obsInDisplay === null) return null;
-        return obsInDisplay - meltValue;
-    })();
-    const observedPremiumPct = observedPremiumAmount !== null && meltValue != null
-        ? observedPremiumAmount / meltValue
-        : null;
+    // Prime observée centralisée (Lot 6) — role est requis pour l'autoriser :
+    // remplace l'ancien calcul local gated sur isWishlist (status), qui restait
+    // vrai pour un item wishlist déplacé en Trash et affichait à tort une prime.
+    const observedPremium = getObservedPremium({
+        role: role ?? 'invalid',
+        observedPrice: item.observedPrice,
+        observedCurrency: item.observedCurrency ?? 'USD',
+        currentMeltValue: meltValue ?? null,
+        displayCurrency: currency as Currency,
+        rates: rates as CurrencyRates,
+    });
 
     const { cardRef, canvasRef, canvasOpacity, gesture, animatedStyle, glowAnim, handleShare } = useCardGestures({
         onPress,
@@ -260,12 +261,12 @@ function ItemCardComponent({
                         <Text style={[styles.mainVal, { color: valueColor }]}>{displayValue}</Text>
                     </View>
                 </View>
-                {isWishlist && observedPremiumAmount !== null && observedPremiumPct !== null ? (
+                {observedPremium ? (
                     <View style={styles.meltBadgeWrap}>
                         <Text style={styles.meltBadgeText}>
-                            {observedPremiumAmount >= 0 ? '+' : ''}{(observedPremiumPct * 100).toFixed(1)}%
+                            {observedPremium.amount >= 0 ? '+' : ''}{(observedPremium.percent * 100).toFixed(1)}%
                             {' · '}
-                            {observedPremiumAmount >= 0 ? '+' : '-'}{formatCardValue(Math.abs(observedPremiumAmount), currency)}
+                            {observedPremium.amount >= 0 ? '+' : '-'}{formatCardValue(Math.abs(observedPremium.amount), currency)}
                         </Text>
                     </View>
                 ) : meltBadge ? (

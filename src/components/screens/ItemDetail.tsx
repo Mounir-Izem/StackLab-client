@@ -21,6 +21,8 @@ import { metalTokens, colors, fonts, fontSize } from '../../utils/theme';
 import { MoveItemModal } from '../modals/MoveItemModal';
 import { getItemRole } from '../../domain/itemSemantics';
 import { canPerformAction } from '../../domain/actionSemantics';
+import { getObservedPremium } from '../../domain/valueSemantics';
+import type { CurrencyRates } from '../../domain/valueSemantics';
 import { resolveQuantityDraft } from '../../utils/quantityInput';
 import type { LabsStackScreenProps } from '../../navigation/types';
 import type { Currency } from '../../types/settings.types';
@@ -125,8 +127,12 @@ export function ItemDetail({ route, navigation }: Props) {
     const metal = metalTokens[item.metal];
     const fineOz = calcFineWeightOz(item.weightOz, item.purity);
     const spotPrice = spot ? (item.metal === 'gold' ? spot.gold : spot.silver) : null;
-    const meltValueUsd = spotPrice !== null ? calcMeltValue(fineOz, spotPrice) : null;
-    const meltValue = meltValueUsd !== null ? convertSpotPrice(meltValueUsd, currency, rates) : null;
+    // unitMeltValue = valeur melt d'une seule unité du lot ; observedPrice /
+    // purchasePrice / soldPrice sont toujours le total du lot (BUSINESS_LOGIC
+    // §11) — donc toute comparaison avec ces montants doit utiliser
+    // totalMeltValue, jamais unitMeltValue (Lot 6.1, cf. NATIVE_BUSINESS_SEMANTICS §5).
+    const unitMeltValueUsd = spotPrice !== null ? calcMeltValue(fineOz, spotPrice) : null;
+    const unitMeltValue = unitMeltValueUsd !== null ? convertSpotPrice(unitMeltValueUsd, currency, rates) : null;
 
     const purchaseUsd = item.purchasePrice !== null
         ? (!item.purchaseCurrency || item.purchaseCurrency === 'USD'
@@ -135,7 +141,7 @@ export function ItemDetail({ route, navigation }: Props) {
         : null;
     const purchaseInDisplay = purchaseUsd !== null ? convertSpotPrice(purchaseUsd, currency, rates) : null;
 
-    const totalMeltValue = meltValue !== null ? meltValue * item.quantity : null;
+    const totalMeltValue = unitMeltValue !== null ? unitMeltValue * item.quantity : null;
     const meltColor = totalMeltValue === null ? colors.text3
         : purchaseInDisplay === null ? colors.text
         : totalMeltValue > purchaseInDisplay ? colors.green
@@ -165,18 +171,18 @@ export function ItemDetail({ route, navigation }: Props) {
     // périmètre de ce lot).
     const role = lab ? getItemRole(item, lab) : null;
 
-    const observedUsd = isWishlist && item.observedPrice !== null
-        ? (!item.observedCurrency || item.observedCurrency === 'USD'
-            ? item.observedPrice
-            : (rates[item.observedCurrency] ? item.observedPrice * rates[item.observedCurrency] : null))
-        : null;
-    const observedInDisplay = observedUsd !== null ? convertSpotPrice(observedUsd, currency, rates) : null;
-    const observedPremiumAmount = observedInDisplay !== null && meltValue !== null && meltValue > 0
-        ? observedInDisplay - meltValue
-        : null;
-    const observedPremiumPct = observedPremiumAmount !== null && meltValue !== null
-        ? observedPremiumAmount / meltValue
-        : null;
+    // Prime observée centralisée (Lot 6) — remplace le calcul local dupliqué
+    // (identique à celui d'ItemCard) qui gated sur isWishlist (status) plutôt
+    // que sur role, et affichait donc à tort une prime pour un item wishlist
+    // déplacé en Trash. getObservedPremium() s'auto-limite à role === 'wish'.
+    const observedPremium = getObservedPremium({
+        role: role ?? 'invalid',
+        observedPrice: item.observedPrice,
+        observedCurrency: item.observedCurrency ?? 'USD',
+        currentMeltValue: totalMeltValue,
+        displayCurrency: currency as Currency,
+        rates: rates as CurrencyRates,
+    });
 
     return (
         <View style={styles.screen}>
@@ -243,7 +249,7 @@ export function ItemDetail({ route, navigation }: Props) {
                     <View style={styles.stat}>
                         <Text style={styles.statLabel}>{t('item.meltValue')}</Text>
                         <Text style={[styles.statVal, { color: meltColor }]}>
-                            {meltValue !== null ? formatCurrency(meltValue, currency as Currency) : '—'}
+                            {unitMeltValue !== null ? formatCurrency(unitMeltValue, currency as Currency) : '—'}
                         </Text>
                     </View>
                 </View>
@@ -277,14 +283,14 @@ export function ItemDetail({ route, navigation }: Props) {
                         )}
                     </View>
                 )}
-                {isWishlist && observedPremiumAmount !== null && observedPremiumPct !== null && (
+                {observedPremium && (
                     <View style={styles.row2}>
                         <View style={styles.stat}>
                             <Text style={styles.statLabel}>{t('item.observedPremiumLabel')}</Text>
                             <Text style={styles.statVal}>
-                                {observedPremiumAmount >= 0 ? '+' : ''}{formatCurrency(Math.abs(observedPremiumAmount), currency as Currency)}
+                                {observedPremium.amount >= 0 ? '+' : '-'}{formatCurrency(Math.abs(observedPremium.amount), currency as Currency)}
                                 {' ('}
-                                {observedPremiumAmount >= 0 ? '+' : ''}{(observedPremiumPct * 100).toFixed(1)}%
+                                {observedPremium.amount >= 0 ? '+' : ''}{(observedPremium.percent * 100).toFixed(1)}%
                                 {')'}
                             </Text>
                         </View>

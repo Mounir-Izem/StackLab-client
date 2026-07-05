@@ -17,6 +17,7 @@ import { triggerSuccess } from '../../utils/haptics';
 import { animationState } from '../../utils/animationState';
 import { getMeltBadge } from '../../utils/meltAnalysis';
 import type { MeltBadge } from '../../utils/meltAnalysis';
+import { getItemRole } from '../../domain/itemSemantics';
 import { DeckCard } from '../cards/DeckCard';
 import { ItemCard } from '../cards/ItemCard';
 import { NewDeckModal } from '../modals/NewDeckModal';
@@ -82,6 +83,7 @@ export function LabDetail({ route, navigation }: Props) {
     }, [lab, navigation]);
 
     const renderItem = useCallback(({ item }: { item: Item }) => {
+        const role = lab ? getItemRole(item, lab) : null;
         const spotPrice = item.metal === 'gold' ? spotGold : spotSilver;
         const meltValue = spotPrice !== null
             ? calcMeltValue(calcFineWeightOz(item.weightOz, item.purity), spotPrice) * item.quantity
@@ -127,6 +129,7 @@ export function LabDetail({ route, navigation }: Props) {
             <View style={styles.col}>
                 <ItemCard
                     item={item}
+                    role={role}
                     meltValue={meltValue}
                     currency={currency}
                     weightUnit={weightUnit}
@@ -140,7 +143,7 @@ export function LabDetail({ route, navigation }: Props) {
                 />
             </View>
         );
-    }, [currency, weightUnit, navigation, spotGold, spotSilver, isTrash, newItemId, labId, t, deleteItem]);
+    }, [currency, weightUnit, navigation, spotGold, spotSilver, isTrash, newItemId, labId, t, deleteItem, lab]);
 
     if (!lab) return (
         <View style={[styles.screen, styles.center]}>
