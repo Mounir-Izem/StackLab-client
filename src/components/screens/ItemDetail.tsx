@@ -21,9 +21,10 @@ import { metalTokens, colors, fonts, fontSize } from '../../utils/theme';
 import { MoveItemModal } from '../modals/MoveItemModal';
 import { getItemRole } from '../../domain/itemSemantics';
 import { canPerformAction } from '../../domain/actionSemantics';
-import { getObservedPremium } from '../../domain/valueSemantics';
+import { convertCurrencyAmount } from '../../domain/valueSemantics';
 import type { CurrencyRates } from '../../domain/valueSemantics';
 import { resolvePriceEntry } from '../../domain/lotUnitValueSemantics';
+import { getItemValueDisplayModel } from '../../domain/itemValueDisplaySemantics';
 import { resolveQuantityDraft } from '../../utils/quantityInput';
 import type { LabsStackScreenProps } from '../../navigation/types';
 import type { Currency } from '../../types/settings.types';
@@ -177,18 +178,30 @@ export function ItemDetail({ route, navigation }: Props) {
     // périmètre de ce lot).
     const role = lab ? getItemRole(item, lab) : null;
 
-    // Prime observée centralisée (Lot 6) — remplace le calcul local dupliqué
-    // (identique à celui d'ItemCard) qui gated sur isWishlist (status) plutôt
-    // que sur role, et affichait donc à tort une prime pour un item wishlist
-    // déplacé en Trash. getObservedPremium() s'auto-limite à role === 'wish'.
-    const observedPremium = getObservedPremium({
-        role: role ?? 'invalid',
-        observedPrice: item.observedPrice,
-        observedCurrency: item.observedCurrency ?? 'USD',
-        currentMeltValue: totalMeltValue,
-        displayCurrency: currency as Currency,
-        rates: rates as CurrencyRates,
-    });
+    // Wishlist (Lot E1) — modèle d'affichage centralisé (itemValueDisplaySemantics),
+    // remplace le calcul local observedUsd/observedInDisplay/observedPremiumAmount/
+    // observedPremiumPct (Lot 6/6.1). Ne concerne que role === 'wish' — active/sold
+    // gardent meltColor/purchase/sold existants, inchangés (isolation par rôle).
+    // itemValueDisplaySemantics ne convertit aucune devise : observedPrice doit être
+    // converti en devise d'affichage avant d'entrer dans le modèle.
+    const observedPriceInDisplay = item.observedPrice != null
+        ? convertCurrencyAmount(item.observedPrice, item.observedCurrency ?? 'USD', currency as Currency, rates as CurrencyRates)
+        : null;
+    const wishModel = role === 'wish' ? getItemValueDisplayModel({
+        role: 'wish',
+        quantity: item.quantity,
+        currency: currency as Currency,
+        unitMeltValue,
+        purchasePrice: null,
+        purchasePriceBasis: null,
+        observedPrice: observedPriceInDisplay,
+        observedPriceBasis: item.observedPriceBasis,
+        soldPrice: null,
+        soldPriceBasis: null,
+    }) : null;
+    const wishMeltSection = wishModel?.sections.find(s => s.kind === 'melt') ?? null;
+    const wishObservedSection = wishModel?.sections.find(s => s.kind === 'observed') ?? null;
+    const wishPremiumSection = wishModel?.sections.find(s => s.kind === 'premium') ?? null;
 
     return (
         <View style={styles.screen}>
@@ -250,15 +263,36 @@ export function ItemDetail({ route, navigation }: Props) {
                     </View>
                 </View>
 
-                {/* Melt value */}
-                <View style={styles.row2}>
-                    <View style={styles.stat}>
-                        <Text style={styles.statLabel}>{t('item.meltValue')}</Text>
-                        <Text style={[styles.statVal, { color: meltColor }]}>
-                            {unitMeltValue !== null ? formatCurrency(unitMeltValue, currency as Currency) : '—'}
-                        </Text>
+                {/* Melt value — Wishlist (Lot E1) isolée du reste : modèle centralisé,
+                    unité + total si quantity > 1. Active/Sold gardent meltColor inchangé. */}
+                {isWishlist ? (
+                    <View style={styles.row2}>
+                        <View style={styles.stat}>
+                            <Text style={styles.statLabel}>
+                                {item.quantity > 1 ? `${t('item.meltValue')} · ${t('item.purchasePerUnit')}` : t('item.meltValue')}
+                            </Text>
+                            <Text style={styles.statVal}>
+                                {wishMeltSection?.completeness === 'complete'
+                                    ? formatCurrency(wishMeltSection.unitAmount!, currency as Currency) : '—'}
+                            </Text>
+                        </View>
+                        {item.quantity > 1 && wishMeltSection?.completeness === 'complete' && (
+                            <View style={styles.stat}>
+                                <Text style={styles.statLabel}>{t('item.meltValue')} · {t('item.totalLot')}</Text>
+                                <Text style={styles.statVal}>{formatCurrency(wishMeltSection.totalAmount!, currency as Currency)}</Text>
+                            </View>
+                        )}
                     </View>
-                </View>
+                ) : (
+                    <View style={styles.row2}>
+                        <View style={styles.stat}>
+                            <Text style={styles.statLabel}>{t('item.meltValue')}</Text>
+                            <Text style={[styles.statVal, { color: meltColor }]}>
+                                {unitMeltValue !== null ? formatCurrency(unitMeltValue, currency as Currency) : '—'}
+                            </Text>
+                        </View>
+                    </View>
+                )}
 
                 {/* Financial */}
                 {!isWishlist && item.purchasePrice !== null && (
@@ -275,31 +309,76 @@ export function ItemDetail({ route, navigation }: Props) {
                         )}
                     </View>
                 )}
-                {isWishlist && item.observedPrice !== null && (
-                    <View style={styles.row2}>
-                        <View style={styles.stat}>
-                            <Text style={styles.statLabel}>{t('item.observedLabel')}</Text>
-                            <Text style={styles.statVal}>{formatCurrency(item.observedPrice, item.observedCurrency ?? currency)}</Text>
-                        </View>
-                        {item.observedPriceDate && (
+                {/* Prix observé — Wishlist (Lot E1) : unité + total si quantity > 1 via le
+                    modèle centralisé. completeness 'missingData' (aucun prix saisi) → rien,
+                    comme avant. completeness 'invalid' (prix sans basis, legacy) → '—' visible
+                    plutôt qu'une disparition silencieuse (pas de calcul local dans les deux cas). */}
+                {isWishlist && wishObservedSection && wishObservedSection.completeness !== 'missingData' && wishObservedSection.completeness !== 'notApplicable' && (
+                    <>
+                        <View style={styles.row2}>
                             <View style={styles.stat}>
-                                <Text style={styles.statLabel}>{t('item.dateLabel')}</Text>
-                                <Text style={styles.statVal}>{formatDate(item.observedPriceDate)}</Text>
+                                <Text style={styles.statLabel}>
+                                    {item.quantity > 1 ? `${t('item.observedLabel')} · ${t('item.purchasePerUnit')}` : t('item.observedLabel')}
+                                </Text>
+                                <Text style={styles.statVal}>
+                                    {wishObservedSection.completeness === 'complete'
+                                        ? formatCurrency(wishObservedSection.unitAmount!, currency as Currency) : '—'}
+                                </Text>
+                            </View>
+                            {item.quantity > 1 && wishObservedSection.completeness === 'complete' ? (
+                                <View style={styles.stat}>
+                                    <Text style={styles.statLabel}>{t('item.observedLabel')} · {t('item.totalLot')}</Text>
+                                    <Text style={styles.statVal}>{formatCurrency(wishObservedSection.totalAmount!, currency as Currency)}</Text>
+                                </View>
+                            ) : item.observedPriceDate ? (
+                                <View style={styles.stat}>
+                                    <Text style={styles.statLabel}>{t('item.dateLabel')}</Text>
+                                    <Text style={styles.statVal}>{formatDate(item.observedPriceDate)}</Text>
+                                </View>
+                            ) : null}
+                        </View>
+                        {item.quantity > 1 && item.observedPriceDate && (
+                            <View style={styles.row2}>
+                                <View style={styles.stat}>
+                                    <Text style={styles.statLabel}>{t('item.dateLabel')}</Text>
+                                    <Text style={styles.statVal}>{formatDate(item.observedPriceDate)}</Text>
+                                </View>
                             </View>
                         )}
-                    </View>
+                    </>
                 )}
-                {observedPremium && (
+                {/* Prime observée — Wishlist (Lot E1) : unité + total si quantity > 1,
+                    pourcentage affiché une seule fois (identique aux deux niveaux sur un
+                    batch homogène). N'affiche rien si incomplet — pas de fausse prime
+                    (missingData/invalid/unavailable), jamais de rouge (BUSINESS_LOGIC §11). */}
+                {isWishlist && wishPremiumSection?.completeness === 'complete' && (
                     <View style={styles.row2}>
                         <View style={styles.stat}>
-                            <Text style={styles.statLabel}>{t('item.observedPremiumLabel')}</Text>
+                            <Text style={styles.statLabel}>
+                                {item.quantity > 1 ? `${t('item.observedPremiumLabel')} · ${t('item.purchasePerUnit')}` : t('item.observedPremiumLabel')}
+                            </Text>
                             <Text style={styles.statVal}>
-                                {observedPremium.amount >= 0 ? '+' : '-'}{formatCurrency(Math.abs(observedPremium.amount), currency as Currency)}
-                                {' ('}
-                                {observedPremium.amount >= 0 ? '+' : ''}{(observedPremium.percent * 100).toFixed(1)}%
-                                {')'}
+                                {wishPremiumSection.unitAmount! >= 0 ? '+' : '-'}{formatCurrency(Math.abs(wishPremiumSection.unitAmount!), currency as Currency)}
+                                {item.quantity <= 1 && wishPremiumSection.percent != null && (
+                                    <>
+                                        {' ('}{wishPremiumSection.unitAmount! >= 0 ? '+' : ''}{(wishPremiumSection.percent * 100).toFixed(1)}%{')'}
+                                    </>
+                                )}
                             </Text>
                         </View>
+                        {item.quantity > 1 && (
+                            <View style={styles.stat}>
+                                <Text style={styles.statLabel}>{t('item.observedPremiumLabel')} · {t('item.totalLot')}</Text>
+                                <Text style={styles.statVal}>
+                                    {wishPremiumSection.totalAmount! >= 0 ? '+' : '-'}{formatCurrency(Math.abs(wishPremiumSection.totalAmount!), currency as Currency)}
+                                    {wishPremiumSection.percent != null && (
+                                        <>
+                                            {' ('}{wishPremiumSection.totalAmount! >= 0 ? '+' : ''}{(wishPremiumSection.percent * 100).toFixed(1)}%{')'}
+                                        </>
+                                    )}
+                                </Text>
+                            </View>
+                        )}
                     </View>
                 )}
                 {isSold && item.soldPrice !== null && (

@@ -505,6 +505,7 @@ export function EditItemFlow({ route, navigation }: Props) {
                             onPriceTextChange={v => patch({ observedPrice: v.replace(/[^0-9.,]/g, '') })}
                             basis={state.observedPriceBasis}
                             onBasisChange={v => patch({ observedPriceBasis: v })}
+                            label={t('create.observedPriceLabel')}
                         />
                     ) : (
                         <PurchasePriceField
@@ -513,6 +514,7 @@ export function EditItemFlow({ route, navigation }: Props) {
                             onPriceTextChange={v => patch({ purchasePrice: v.replace(/[^0-9.,]/g, '') })}
                             basis={state.purchasePriceBasis}
                             onBasisChange={v => patch({ purchasePriceBasis: v })}
+                            label={t('create.paidPriceLabel')}
                         />
                     )}
 

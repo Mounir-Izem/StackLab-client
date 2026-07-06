@@ -15,8 +15,9 @@ import {
 } from '../../utils/theme';
 import { formatCardValue, formatStrikeLabel, formatWeight } from '../../utils/formatters';
 import { useSpotStore } from '../../stores/spotStore';
-import { getObservedPremium } from '../../domain/valueSemantics';
+import { convertCurrencyAmount } from '../../domain/valueSemantics';
 import type { CurrencyRates } from '../../domain/valueSemantics';
+import { getItemValueDisplayModel } from '../../domain/itemValueDisplaySemantics';
 import type { BusinessItemRole } from '../../domain/itemSemantics';
 import type { Item } from '../../types/item.types';
 import type { Currency, WeightUnit } from '../../types/settings.types';
@@ -119,17 +120,32 @@ function ItemCardComponent({
     const isSold = item.status === 'sold';
     const isWishlist = item.status === 'wishlist';
 
-    // Prime observée centralisée (Lot 6) — role est requis pour l'autoriser :
-    // remplace l'ancien calcul local gated sur isWishlist (status), qui restait
-    // vrai pour un item wishlist déplacé en Trash et affichait à tort une prime.
-    const observedPremium = getObservedPremium({
-        role: role ?? 'invalid',
-        observedPrice: item.observedPrice,
-        observedCurrency: item.observedCurrency ?? 'USD',
-        currentMeltValue: meltValue ?? null,
-        displayCurrency: currency as Currency,
-        rates: rates as CurrencyRates,
-    });
+    // Prime observée — Wishlist (Lot E1) : modèle centralisé (itemValueDisplaySemantics),
+    // remplace le calcul local via getObservedPremium (Lot 6). meltValue reçu ici est
+    // déjà le TOTAL du lot (multiplié par quantity par l'appelant, LabDetail/DeckDetail)
+    // — le modèle attend une melt value UNITAIRE, d'où la division par quantity.
+    // observedPrice doit être converti en devise d'affichage avant d'entrer dans le
+    // modèle (itemValueDisplaySemantics ne convertit aucune devise).
+    const unitMeltValueForModel = meltValue != null && item.quantity > 0 ? meltValue / item.quantity : null;
+    const observedPriceInDisplay = item.observedPrice != null
+        ? convertCurrencyAmount(item.observedPrice, item.observedCurrency ?? 'USD', currency as Currency, rates as CurrencyRates)
+        : null;
+    const wishModel = role === 'wish' ? getItemValueDisplayModel({
+        role: 'wish',
+        quantity: item.quantity,
+        currency: currency as Currency,
+        unitMeltValue: unitMeltValueForModel,
+        purchasePrice: null,
+        purchasePriceBasis: null,
+        observedPrice: observedPriceInDisplay,
+        observedPriceBasis: item.observedPriceBasis,
+        soldPrice: null,
+        soldPriceBasis: null,
+    }) : null;
+    const wishPremiumSection = wishModel?.sections.find(s => s.kind === 'premium') ?? null;
+    const observedPremium = wishPremiumSection?.completeness === 'complete'
+        ? { amount: wishPremiumSection.totalAmount!, percent: wishPremiumSection.percent! }
+        : null;
 
     const { cardRef, canvasRef, canvasOpacity, gesture, animatedStyle, glowAnim, handleShare } = useCardGestures({
         onPress,
@@ -210,9 +226,20 @@ function ItemCardComponent({
             )}
 
             {isWishlist ? (
-                <View style={styles.wishlistIcon}>
-                    <Ionicons name="cloud-outline" size={13} color="rgba(255,255,255,0.85)" />
-                </View>
+                <>
+                    {/* Badge quantité Wishlist (QA E1) — l'icône cloud masquait totalement
+                        ×N pour un souhait quantity > 1. Positionné à gauche de l'icône,
+                        sans toucher au branch Active/Sold ci-dessous. Polish avancé (position
+                        définitive, cohabitation visuelle fine) différé à E3. */}
+                    {item.quantity > 1 && (
+                        <View style={[styles.qtyBadge, styles.qtyBadgeWishlist]}>
+                            <Text style={styles.qtyText}>×{item.quantity}</Text>
+                        </View>
+                    )}
+                    <View style={styles.wishlistIcon}>
+                        <Ionicons name="cloud-outline" size={13} color="rgba(255,255,255,0.85)" />
+                    </View>
+                </>
             ) : item.quantity > 1 ? (
                 <View style={[styles.qtyBadge, isSold && styles.qtyBadgeSold]}>
                     <Text style={[styles.qtyText, isSold && styles.qtyTextSold]}>×{item.quantity}</Text>
@@ -416,6 +443,11 @@ const styles = StyleSheet.create({
         borderWidth: 0.5,
         borderColor: 'rgba(255,255,255,0.20)',
         zIndex: 3,
+    },
+    // À gauche de wishlistIcon (26px + 6px de marge) — même slot top-right,
+    // sans recouvrir l'icône cloud. Positionnement provisoire (E3 : polish avancé).
+    qtyBadgeWishlist: {
+        right: card.badgeOffset + 32,
     },
     qtyText: {
         fontSize: fontSize.cardQtyBadge,
