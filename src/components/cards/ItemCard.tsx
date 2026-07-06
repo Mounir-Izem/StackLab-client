@@ -143,9 +143,13 @@ function ItemCardComponent({
         soldPriceBasis: null,
     }) : null;
     const wishPremiumSection = wishModel?.sections.find(s => s.kind === 'premium') ?? null;
+    // Lot E2 : signal consommé tel quel depuis le modèle (buyOpportunity |
+    // nearMeltOpportunity | neutral) — jamais recalculé localement.
     const observedPremium = wishPremiumSection?.completeness === 'complete'
-        ? { amount: wishPremiumSection.totalAmount!, percent: wishPremiumSection.percent! }
+        ? { amount: wishPremiumSection.totalAmount!, percent: wishPremiumSection.percent!, signal: wishPremiumSection.signal }
         : null;
+    const isBuyOpportunity = observedPremium?.signal === 'buyOpportunity';
+    const isNearMeltOpportunity = observedPremium?.signal === 'nearMeltOpportunity';
 
     const { cardRef, canvasRef, canvasOpacity, gesture, animatedStyle, glowAnim, handleShare } = useCardGestures({
         onPress,
@@ -172,7 +176,11 @@ function ItemCardComponent({
         <Animated.View
             ref={cardRef as any}
             style={[styles.wrapper, animatedStyle, {
-                borderColor: metal.frameBorder,
+                // Lot E2 : bordure violette pour une opportunité d'achat Wishlist
+                // (prime négative) — jamais pour nearMeltOpportunity/neutral, jamais
+                // de couleur d'alerte. Statique (pas de pulse/glow animé — E2.1/E3
+                // si nécessaire, pour éviter un risque d'animation fragile en E2).
+                borderColor: isBuyOpportunity ? colors.violet : metal.frameBorder,
                 shadowColor: metal.color,
             }]}
         >
@@ -289,7 +297,11 @@ function ItemCardComponent({
                     </View>
                 </View>
                 {observedPremium ? (
-                    <View style={styles.meltBadgeWrap}>
+                    <View style={[
+                        styles.meltBadgeWrap,
+                        isBuyOpportunity && styles.meltBadgeBuyOpportunity,
+                        isNearMeltOpportunity && styles.meltBadgeUnder,
+                    ]}>
                         <Text style={styles.meltBadgeText}>
                             {observedPremium.amount >= 0 ? '+' : ''}{(observedPremium.percent * 100).toFixed(1)}%
                             {' · '}
@@ -553,6 +565,13 @@ const styles = StyleSheet.create({
     meltBadgeUnder: {
         backgroundColor: 'rgba(80,200,120,0.15)',
         borderColor: 'rgba(80,200,120,0.40)',
+    },
+    // Lot E2 — même gabarit d'alpha que meltBadgeUnder (0.15 bg / 0.40 border),
+    // teinte violette (colors.violet = #9945FF = rgb(153,69,255)) au lieu de
+    // vert, pour l'opportunité d'achat Wishlist (prime négative).
+    meltBadgeBuyOpportunity: {
+        backgroundColor: 'rgba(153,69,255,0.15)',
+        borderColor: 'rgba(153,69,255,0.40)',
     },
     meltBadgeText: {
         fontSize: 8,

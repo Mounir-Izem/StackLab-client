@@ -202,6 +202,11 @@ export function ItemDetail({ route, navigation }: Props) {
     const wishMeltSection = wishModel?.sections.find(s => s.kind === 'melt') ?? null;
     const wishObservedSection = wishModel?.sections.find(s => s.kind === 'observed') ?? null;
     const wishPremiumSection = wishModel?.sections.find(s => s.kind === 'premium') ?? null;
+    // Lot E2 : signal consommé tel quel depuis le modèle (buyOpportunity |
+    // nearMeltOpportunity | neutral) — jamais recalculé localement, jamais rouge.
+    const premiumSignalColor = wishPremiumSection?.signal === 'buyOpportunity' ? colors.violet
+        : wishPremiumSection?.signal === 'nearMeltOpportunity' ? colors.green
+        : colors.text;
 
     return (
         <View style={styles.screen}>
@@ -352,12 +357,16 @@ export function ItemDetail({ route, navigation }: Props) {
                     batch homogène). N'affiche rien si incomplet — pas de fausse prime
                     (missingData/invalid/unavailable), jamais de rouge (BUSINESS_LOGIC §11). */}
                 {isWishlist && wishPremiumSection?.completeness === 'complete' && (
-                    <View style={styles.row2}>
+                    <View style={[
+                        styles.row2,
+                        wishPremiumSection.signal === 'buyOpportunity' && styles.row2BuyOpportunity,
+                        wishPremiumSection.signal === 'nearMeltOpportunity' && styles.row2NearMelt,
+                    ]}>
                         <View style={styles.stat}>
                             <Text style={styles.statLabel}>
                                 {item.quantity > 1 ? `${t('item.observedPremiumLabel')} · ${t('item.purchasePerUnit')}` : t('item.observedPremiumLabel')}
                             </Text>
-                            <Text style={styles.statVal}>
+                            <Text style={[styles.statVal, { color: premiumSignalColor }]}>
                                 {wishPremiumSection.unitAmount! >= 0 ? '+' : '-'}{formatCurrency(Math.abs(wishPremiumSection.unitAmount!), currency as Currency)}
                                 {item.quantity <= 1 && wishPremiumSection.percent != null && (
                                     <>
@@ -369,7 +378,7 @@ export function ItemDetail({ route, navigation }: Props) {
                         {item.quantity > 1 && (
                             <View style={styles.stat}>
                                 <Text style={styles.statLabel}>{t('item.observedPremiumLabel')} · {t('item.totalLot')}</Text>
-                                <Text style={styles.statVal}>
+                                <Text style={[styles.statVal, { color: premiumSignalColor }]}>
                                     {wishPremiumSection.totalAmount! >= 0 ? '+' : '-'}{formatCurrency(Math.abs(wishPremiumSection.totalAmount!), currency as Currency)}
                                     {wishPremiumSection.percent != null && (
                                         <>
@@ -867,6 +876,16 @@ const styles = StyleSheet.create({
     row2: {
         flexDirection: 'row', gap: 20,
         backgroundColor: colors.surface, borderRadius: 12, padding: 14,
+    },
+    // Lot E2 — teinte discrète de la ligne Prime selon le signal Wishlist
+    // (jamais de rouge). buyOpportunity : bordure violette visible mais légère.
+    // nearMeltOpportunity : fond vert discret, pas de bordure (moins marqué).
+    row2BuyOpportunity: {
+        backgroundColor: 'rgba(153,69,255,0.08)',
+        borderWidth: 1, borderColor: 'rgba(153,69,255,0.35)',
+    },
+    row2NearMelt: {
+        backgroundColor: 'rgba(80,200,120,0.06)',
     },
     stat: { gap: 4 },
     statLabel: { fontSize: 9, letterSpacing: 1.5, color: colors.text2, fontFamily: fonts.outfitSemiBold },
