@@ -63,7 +63,9 @@ export type PremiumSignal =
 // Seuil "near melt" : +2 % exprimé en ratio.
 const NEAR_MELT_MAX_RATIO = 0.02;
 
-function isValidQuantity(quantity: number): boolean {
+// Exporté (Lot C.1) : itemValueDisplaySemantics réutilise cette garde plutôt
+// que de la redéfinir — même règle de validité de quantity partout.
+export function isValidQuantity(quantity: number): boolean {
     return Number.isInteger(quantity) && quantity >= 1;
 }
 
@@ -261,4 +263,40 @@ export function getPremiumSignal(input: {
     if (percent < 0) return 'buyOpportunity';
     if (percent <= NEAR_MELT_MAX_RATIO) return 'nearMeltOpportunity';
     return 'neutral';
+}
+
+export type ComparableDelta = {
+    unitAmount: number;
+    totalAmount: number;
+    // Ratio, jamais des points de pourcentage. null si la référence (base) est 0.
+    unitPercent: number | null;
+    totalPercent: number | null;
+};
+
+function amountsOf(x: PriceBreakdown | MeltBreakdown): { unit: number; total: number } {
+    if ('unitMeltValue' in x) return { unit: x.unitMeltValue, total: x.totalMeltValue };
+    return { unit: x.unitAmount, total: x.totalAmount };
+}
+
+// Écart générique entre deux breakdowns du MÊME référentiel (même quantity) —
+// brique commune à toute comparaison "valeur actuelle vs coût" (P&L non réalisé
+// = melt − achat, P&L réalisé = vendu − achat). Retourne compared − base, avec
+// percent relatif à base (jamais de division par zéro : null si base = 0).
+// null si les quantités divergent (référentiels incohérents).
+export function deriveComparableDelta(input: {
+    base: PriceBreakdown | MeltBreakdown;
+    compared: PriceBreakdown | MeltBreakdown;
+}): ComparableDelta | null {
+    const { base, compared } = input;
+    if (base.quantity !== compared.quantity) return null;
+    const baseAmounts = amountsOf(base);
+    const comparedAmounts = amountsOf(compared);
+    const unitAmount = comparedAmounts.unit - baseAmounts.unit;
+    const totalAmount = comparedAmounts.total - baseAmounts.total;
+    return {
+        unitAmount,
+        totalAmount,
+        unitPercent: baseAmounts.unit !== 0 ? unitAmount / baseAmounts.unit : null,
+        totalPercent: baseAmounts.total !== 0 ? totalAmount / baseAmounts.total : null,
+    };
 }

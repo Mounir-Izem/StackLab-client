@@ -8,6 +8,8 @@ import {
     derivePremiumBreakdown,
     deriveObservedPremiumBreakdown,
     getPremiumSignal,
+    deriveComparableDelta,
+    isValidQuantity,
 } from './lotUnitValueSemantics';
 
 describe('getValuePerspectiveForRole', () => {
@@ -357,5 +359,62 @@ describe('getPremiumSignal', () => {
         expect(getPremiumSignal({
             role: 'trashedWish', observedTotalPrice: 99, observedPriceBasis: 'lotTotal', unitMeltValue: 100, quantity: 1,
         })).toBe('unavailable');
+    });
+});
+
+describe('isValidQuantity (Lot C.1 — exportée)', () => {
+    test('entiers >= 1 → true', () => {
+        expect(isValidQuantity(1)).toBe(true);
+        expect(isValidQuantity(5)).toBe(true);
+    });
+    test('0, négatif, décimal → false', () => {
+        expect(isValidQuantity(0)).toBe(false);
+        expect(isValidQuantity(-1)).toBe(false);
+        expect(isValidQuantity(2.5)).toBe(false);
+    });
+});
+
+describe('deriveComparableDelta (Lot C.1)', () => {
+    test('unrealizedPnL-like : compared (melt) − base (achat), percent relatif à la base', () => {
+        const base = deriveUnitTotalPriceBreakdown({ totalAmount: 100, basis: 'lotTotal', quantity: 5 })!; // achat, unit 20
+        const compared = deriveMeltValueBreakdown({ unitMeltValue: 24, quantity: 5 })!; // melt, unit 24, total 120
+        const delta = deriveComparableDelta({ base, compared });
+        expect(delta).not.toBeNull();
+        expect(delta!.unitAmount).toBeCloseTo(4, 6);
+        expect(delta!.totalAmount).toBeCloseTo(20, 6);
+        expect(delta!.unitPercent).toBeCloseTo(4 / 20, 6);
+        expect(delta!.totalPercent).toBeCloseTo(20 / 100, 6);
+    });
+
+    test('realizedPnL-like : compared (vendu) − base (achat), les deux PriceBreakdown', () => {
+        const base = deriveUnitTotalPriceBreakdown({ totalAmount: 100, basis: 'lotTotal', quantity: 2 })!;
+        const compared = deriveUnitTotalPriceBreakdown({ totalAmount: 130, basis: 'lotTotal', quantity: 2 })!;
+        const delta = deriveComparableDelta({ base, compared });
+        expect(delta).not.toBeNull();
+        expect(delta!.totalAmount).toBe(30);
+        expect(delta!.unitAmount).toBe(15);
+        expect(delta!.totalPercent).toBeCloseTo(0.3, 6);
+    });
+
+    test('perte : compared < base → montant négatif', () => {
+        const base = deriveUnitTotalPriceBreakdown({ totalAmount: 100, basis: 'lotTotal', quantity: 1 })!;
+        const compared = deriveUnitTotalPriceBreakdown({ totalAmount: 80, basis: 'lotTotal', quantity: 1 })!;
+        const delta = deriveComparableDelta({ base, compared });
+        expect(delta!.totalAmount).toBe(-20);
+        expect(delta!.totalPercent).toBeCloseTo(-0.2, 6);
+    });
+
+    test('quantités divergentes → null (référentiels incohérents)', () => {
+        const base = deriveUnitTotalPriceBreakdown({ totalAmount: 100, basis: 'lotTotal', quantity: 5 })!;
+        const compared = deriveMeltValueBreakdown({ unitMeltValue: 24, quantity: 4 })!;
+        expect(deriveComparableDelta({ base, compared })).toBeNull();
+    });
+
+    test('base = 0 → percent null (pas de division par zéro), montant reste défini', () => {
+        const base = deriveUnitTotalPriceBreakdown({ totalAmount: 0, basis: 'lotTotal', quantity: 1 })!;
+        const compared = deriveMeltValueBreakdown({ unitMeltValue: 10, quantity: 1 })!;
+        const delta = deriveComparableDelta({ base, compared });
+        expect(delta!.totalAmount).toBe(10);
+        expect(delta!.totalPercent).toBeNull();
     });
 });
