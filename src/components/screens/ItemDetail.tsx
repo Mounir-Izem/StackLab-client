@@ -208,6 +208,30 @@ export function ItemDetail({ route, navigation }: Props) {
         : wishPremiumSection?.signal === 'nearMeltOpportunity' ? colors.green
         : colors.text;
 
+    // Active/Holding (Lot F1) — modèle centralisé, isolé du reste (isSold/isWishlist
+    // inchangés). purchaseInDisplay est déjà le total converti en devise d'affichage
+    // (calcul existant plus bas, partagé avec meltColor/soldColor, non dupliqué ici).
+    const activeModel = role === 'activeHolding' ? getItemValueDisplayModel({
+        role: 'activeHolding',
+        quantity: item.quantity,
+        currency: currency as Currency,
+        unitMeltValue,
+        purchasePrice: purchaseInDisplay,
+        purchasePriceBasis: item.purchasePriceBasis,
+        observedPrice: null,
+        observedPriceBasis: null,
+        soldPrice: null,
+        soldPriceBasis: null,
+    }) : null;
+    const activeMeltSection = activeModel?.sections.find(s => s.kind === 'melt') ?? null;
+    const activePurchaseSection = activeModel?.sections.find(s => s.kind === 'purchase') ?? null;
+    const activePnLSection = activeModel?.sections.find(s => s.kind === 'unrealizedPnL') ?? null;
+    // signal vient du modèle (favorable | unfavorable | neutral) — jamais recalculé
+    // localement, contrairement à l'ancien meltColor (comparaison ad hoc melt vs achat).
+    const activePnLColor = activePnLSection?.signal === 'favorable' ? colors.green
+        : activePnLSection?.signal === 'unfavorable' ? colors.crimson
+        : colors.text;
+
     return (
         <View style={styles.screen}>
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -268,8 +292,9 @@ export function ItemDetail({ route, navigation }: Props) {
                     </View>
                 </View>
 
-                {/* Melt value — Wishlist (Lot E1) isolée du reste : modèle centralisé,
-                    unité + total si quantity > 1. Active/Sold gardent meltColor inchangé. */}
+                {/* Melt value — Wishlist (Lot E1) et Active/Holding (Lot F1) isolés du
+                    reste via le modèle centralisé, unité + total si quantity > 1. Sold
+                    et Trash gardent l'ancien affichage (meltColor) inchangé. */}
                 {isWishlist ? (
                     <View style={styles.row2}>
                         <View style={styles.stat}>
@@ -288,6 +313,24 @@ export function ItemDetail({ route, navigation }: Props) {
                             </View>
                         )}
                     </View>
+                ) : role === 'activeHolding' ? (
+                    <View style={styles.row2}>
+                        <View style={styles.stat}>
+                            <Text style={styles.statLabel}>
+                                {item.quantity > 1 ? `${t('item.meltValue')} · ${t('item.purchasePerUnit')}` : t('item.meltValue')}
+                            </Text>
+                            <Text style={[styles.statVal, { color: activePnLColor }]}>
+                                {activeMeltSection?.completeness === 'complete'
+                                    ? formatCurrency(activeMeltSection.unitAmount!, currency as Currency) : '—'}
+                            </Text>
+                        </View>
+                        {item.quantity > 1 && activeMeltSection?.completeness === 'complete' && (
+                            <View style={styles.stat}>
+                                <Text style={styles.statLabel}>{t('item.meltValue')} · {t('item.totalLot')}</Text>
+                                <Text style={[styles.statVal, { color: activePnLColor }]}>{formatCurrency(activeMeltSection.totalAmount!, currency as Currency)}</Text>
+                            </View>
+                        )}
+                    </View>
                 ) : (
                     <View style={styles.row2}>
                         <View style={styles.stat}>
@@ -300,7 +343,30 @@ export function ItemDetail({ route, navigation }: Props) {
                 )}
 
                 {/* Financial */}
-                {!isWishlist && item.purchasePrice !== null && (
+                {!isWishlist && role === 'activeHolding' ? (
+                    <View style={styles.row2}>
+                        <View style={styles.stat}>
+                            <Text style={styles.statLabel}>
+                                {item.quantity > 1 ? `${t('item.purchasedLabel')} · ${t('item.purchasePerUnit')}` : t('item.purchasedLabel')}
+                            </Text>
+                            <Text style={styles.statVal}>
+                                {activePurchaseSection?.completeness === 'complete'
+                                    ? formatCurrency(activePurchaseSection.unitAmount!, currency as Currency) : '—'}
+                            </Text>
+                        </View>
+                        {item.quantity > 1 && activePurchaseSection?.completeness === 'complete' ? (
+                            <View style={styles.stat}>
+                                <Text style={styles.statLabel}>{t('item.purchasedLabel')} · {t('item.totalLot')}</Text>
+                                <Text style={styles.statVal}>{formatCurrency(activePurchaseSection.totalAmount!, currency as Currency)}</Text>
+                            </View>
+                        ) : item.purchaseDate ? (
+                            <View style={styles.stat}>
+                                <Text style={styles.statLabel}>{t('item.dateLabel')}</Text>
+                                <Text style={styles.statVal}>{formatDate(item.purchaseDate)}</Text>
+                            </View>
+                        ) : null}
+                    </View>
+                ) : !isWishlist && item.purchasePrice !== null && (
                     <View style={styles.row2}>
                         <View style={styles.stat}>
                             <Text style={styles.statLabel}>{t('item.purchasedLabel')}</Text>
@@ -310,6 +376,39 @@ export function ItemDetail({ route, navigation }: Props) {
                             <View style={styles.stat}>
                                 <Text style={styles.statLabel}>{t('item.dateLabel')}</Text>
                                 <Text style={styles.statVal}>{formatDate(item.purchaseDate)}</Text>
+                            </View>
+                        )}
+                    </View>
+                )}
+                {/* P&L non réalisé — Active/Holding (Lot F1), nouveau, pas de recalcul
+                    local : rien si incomplet (purchasePrice ou melt manquant), jamais de
+                    faux P&L. */}
+                {role === 'activeHolding' && activePnLSection?.completeness === 'complete' && (
+                    <View style={styles.row2}>
+                        <View style={styles.stat}>
+                            <Text style={styles.statLabel}>
+                                {item.quantity > 1 ? `${t('item.pnl')} · ${t('item.purchasePerUnit')}` : t('item.pnl')}
+                            </Text>
+                            <Text style={[styles.statVal, { color: activePnLColor }]}>
+                                {activePnLSection.unitAmount! >= 0 ? '+' : '-'}{formatCurrency(Math.abs(activePnLSection.unitAmount!), currency as Currency)}
+                                {item.quantity <= 1 && activePnLSection.percent != null && (
+                                    <>
+                                        {' ('}{activePnLSection.unitAmount! >= 0 ? '+' : ''}{(activePnLSection.percent * 100).toFixed(1)}%{')'}
+                                    </>
+                                )}
+                            </Text>
+                        </View>
+                        {item.quantity > 1 && (
+                            <View style={styles.stat}>
+                                <Text style={styles.statLabel}>{t('item.pnl')} · {t('item.totalLot')}</Text>
+                                <Text style={[styles.statVal, { color: activePnLColor }]}>
+                                    {activePnLSection.totalAmount! >= 0 ? '+' : '-'}{formatCurrency(Math.abs(activePnLSection.totalAmount!), currency as Currency)}
+                                    {activePnLSection.percent != null && (
+                                        <>
+                                            {' ('}{activePnLSection.totalAmount! >= 0 ? '+' : ''}{(activePnLSection.percent * 100).toFixed(1)}%{')'}
+                                        </>
+                                    )}
+                                </Text>
                             </View>
                         )}
                     </View>

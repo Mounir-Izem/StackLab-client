@@ -102,8 +102,34 @@ function ItemCardComponent({
         displayValue = formatCardValue(numericValue, currency);
     }
 
+    // Active/Holding (Lot F1) : couleur sourcée du modèle centralisé (signal
+    // unrealizedPnL), remplace la comparaison locale melt vs achat (pont USD manuel).
+    // Repli sur l'ancienne logique si role n'est pas fourni par l'appelant (garde
+    // défensive, LabDetail/DeckDetail passent toujours role pour les items actifs).
+    const activeUnitMeltValueForModel = meltValue != null && item.quantity > 0 ? meltValue / item.quantity : null;
+    const activeModel = role === 'activeHolding' ? getItemValueDisplayModel({
+        role: 'activeHolding',
+        quantity: item.quantity,
+        currency: currency as Currency,
+        unitMeltValue: activeUnitMeltValueForModel,
+        purchasePrice: item.purchasePrice != null
+            ? convertCurrencyAmount(item.purchasePrice, item.purchaseCurrency ?? 'USD', currency as Currency, rates as CurrencyRates)
+            : null,
+        purchasePriceBasis: item.purchasePriceBasis,
+        observedPrice: null,
+        observedPriceBasis: null,
+        soldPrice: null,
+        soldPriceBasis: null,
+    }) : null;
+    const activePnLSection = activeModel?.sections.find(s => s.kind === 'unrealizedPnL') ?? null;
+
     const valueColor = (() => {
         if (numericValue === null) return colors.text;
+        if (role === 'activeHolding') {
+            if (activePnLSection?.signal === 'favorable') return colors.green;
+            if (activePnLSection?.signal === 'unfavorable') return colors.crimson;
+            return colors.text;
+        }
         if (item.status !== 'active' || meltValue == null || item.purchasePrice === null) return colors.text;
         const purchaseCur = item.purchaseCurrency ?? 'USD';
         const purchaseUsd = purchaseCur === 'USD' ? item.purchasePrice
