@@ -331,7 +331,8 @@
       "observed": "Observé",
       "sold": "Vendu",
       "value": "Valeur",
-      "addPhoto": "+ Photo"
+      "addPhoto": "+ Photo",
+      "perUnitShort": "/unité"
     }
   },
   "create": {

@@ -143,6 +143,20 @@ function ItemCardComponent({
         soldPriceBasis: null,
     }) : null;
     const wishPremiumSection = wishModel?.sections.find(s => s.kind === 'premium') ?? null;
+    const wishObservedSection = wishModel?.sections.find(s => s.kind === 'observed') ?? null;
+    // Lot E3 QA patch — aligner la devise de la card Wishlist : quand le modèle
+    // a une section observed complète, la valeur principale ET le hint unitaire
+    // viennent tous deux de wishObservedSection (même devise d'affichage,
+    // `currency`) — élimine le mélange item.observedCurrency (total) vs
+    // currency (hint/prime) qui pouvait produire une card avec deux devises
+    // différentes sur la même lecture de prix. Si observed est incomplet
+    // (prix manquant, basis manquant), on garde l'affichage neutre existant
+    // (item.observedPrice / item.observedCurrency) et aucun hint n'apparaît
+    // déjà (gated plus bas) — jamais de card confuse.
+    if (isWishlist && wishObservedSection?.completeness === 'complete') {
+        numericValue = wishObservedSection.totalAmount;
+        displayValue = formatCardValue(wishObservedSection.totalAmount, currency);
+    }
     // Lot E2 : signal consommé tel quel depuis le modèle (buyOpportunity |
     // nearMeltOpportunity | neutral) — jamais recalculé localement.
     const observedPremium = wishPremiumSection?.completeness === 'complete'
@@ -150,6 +164,12 @@ function ItemCardComponent({
         : null;
     const isBuyOpportunity = observedPremium?.signal === 'buyOpportunity';
     const isNearMeltOpportunity = observedPremium?.signal === 'nearMeltOpportunity';
+    // Lot E3 : hint unitaire compact — unitAmount vient du modèle (jamais
+    // observedPrice / quantity recalculé ici). Même devise que la valeur
+    // principale ci-dessus (les deux viennent de wishObservedSection).
+    const wishUnitHint = isWishlist && item.quantity > 1 && wishObservedSection?.completeness === 'complete'
+        ? formatCardValue(wishObservedSection.unitAmount!, currency)
+        : null;
 
     const { cardRef, canvasRef, canvasOpacity, gesture, animatedStyle, glowAnim, handleShare } = useCardGestures({
         onPress,
@@ -294,6 +314,14 @@ function ItemCardComponent({
                             {isWishlist ? t('item.card.observed') : isSold ? t('item.card.sold') : t('item.card.value')}
                         </Text>
                         <Text style={[styles.mainVal, { color: valueColor }]}>{displayValue}</Text>
+                        {/* Lot E3 — hint unitaire compact : total reste la valeur principale
+                            (badge ×N déjà visible), le hint précise juste le prix par objet.
+                            wishUnitHint vient uniquement de itemValueDisplaySemantics. */}
+                        {wishUnitHint && (
+                            <Text style={styles.unitHint} numberOfLines={1}>
+                                {wishUnitHint} {t('item.card.perUnitShort')}
+                            </Text>
+                        )}
                     </View>
                 </View>
                 {observedPremium ? (
@@ -612,6 +640,13 @@ const styles = StyleSheet.create({
     mainVal: {
         fontFamily: fonts.dmMono,
         fontSize: fontSize.cardMainValue,
+    },
+    // Lot E3 — hint unitaire compact (Wishlist quantity > 1 uniquement).
+    unitHint: {
+        fontFamily: fonts.outfit,
+        fontSize: 8,
+        color: 'rgba(255,255,255,0.45)',
+        marginTop: 1,
     },
     soldVeil: {
         position: 'absolute',
