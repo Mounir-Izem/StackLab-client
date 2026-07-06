@@ -6,6 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { PurchasePriceField } from '../common/PurchasePriceField';
+import { resolvePriceEntry } from '../../domain/lotUnitValueSemantics';
 import { useSpotStore } from '../../stores/spotStore';
 import { toTroyOz, calcFineWeightOz, calcMeltValue, convertSpotPrice } from '../../utils/calculations';
 import { colors, fonts } from '../../utils/theme';
@@ -33,7 +34,7 @@ export function CreateItemStep4({ state, update, itemStatus, onCreate, submittin
 
     const priceCurrency = isWishlist ? state.observedCurrency : state.purchaseCurrency;
     const priceText = isWishlist ? state.observedPrice : state.purchasePrice;
-    const priceIsPerUnit = isWishlist ? state.observedPriceIsPerUnit : state.purchasePriceIsPerUnit;
+    const priceBasis = isWishlist ? state.observedPriceBasis : state.purchasePriceBasis;
 
     const showUnderMelt = (() => {
         // En mode mix, le prix global (priceText) n'est plus renseigné par l'UI
@@ -55,8 +56,13 @@ export function CreateItemStep4({ state, update, itemStatus, onCreate, submittin
             spotInCurrency,
         );
         const meltTotal = meltPerUnit * recapQty;
-        const effectiveTotalPrice = priceIsPerUnit ? priceNum * recapQty : priceNum;
-        return meltTotal > 0 && effectiveTotalPrice > 0 && effectiveTotalPrice < meltTotal;
+        // Résolution du prix saisi via le domain (Lot D3) — remplace l'ancienne
+        // conversion basis→total inline. resolvePriceEntry gère à la fois le cas
+        // quantity=1 (base 'unit' automatique) et l'absence de base sur qty>1
+        // (résolution 'needsBasis' → pas de hint, valeur ambiguë).
+        const resolution = resolvePriceEntry({ amount: priceNum, basis: priceBasis, quantity: recapQty });
+        if (resolution.status !== 'ok') return false;
+        return meltTotal > 0 && resolution.total > 0 && resolution.total < meltTotal;
     })();
 
     return (
@@ -84,18 +90,23 @@ export function CreateItemStep4({ state, update, itemStatus, onCreate, submittin
                                 </Text>
                                 <Text style={styles.rowPriceQty}>{t('item.quantity')} : {row.qty}</Text>
                             </View>
-                            {/* quantity=1 forcé : le prix par ligne est toujours le coût total
-                                de cette ligne, jamais un prix unitaire — pas de toggle nécessaire. */}
+                            {/* Lot D2 : le champ utilise la vraie quantité de la ligne — pour
+                                row.qty > 1, PurchasePriceField affiche le toggle unité/ligne
+                                (base obligatoire) ; row.qty = 1 → simple champ, base 'unit' auto. */}
                             <PurchasePriceField
-                                quantity={1}
+                                quantity={row.qty}
                                 priceText={row.priceText}
                                 onPriceTextChange={v => update({
                                     rows: state.rows.map(r => r.id === row.id
                                         ? { ...r, priceText: v.replace(/[^0-9.,]/g, '') }
                                         : r),
                                 })}
-                                isPerUnit={false}
-                                onIsPerUnitChange={() => {}}
+                                basis={row.priceBasis}
+                                onBasisChange={v => update({
+                                    rows: state.rows.map(r => r.id === row.id ? { ...r, priceBasis: v } : r),
+                                })}
+                                lotLabel={t('item.rowWhole')}
+                                basisPromptText={t('item.priceBasisRowRequired')}
                                 label={t(isWishlist ? 'create.observedPriceLabel' : 'create.paidPriceLabel')}
                             />
                         </View>
@@ -106,8 +117,8 @@ export function CreateItemStep4({ state, update, itemStatus, onCreate, submittin
                     quantity={recapQty}
                     priceText={state.observedPrice}
                     onPriceTextChange={v => update({ observedPrice: v.replace(/[^0-9.,]/g, '') })}
-                    isPerUnit={state.observedPriceIsPerUnit}
-                    onIsPerUnitChange={v => update({ observedPriceIsPerUnit: v })}
+                    basis={state.observedPriceBasis}
+                    onBasisChange={v => update({ observedPriceBasis: v })}
                     label={t('create.observedPriceLabel')}
                 />
             ) : (
@@ -115,8 +126,8 @@ export function CreateItemStep4({ state, update, itemStatus, onCreate, submittin
                     quantity={recapQty}
                     priceText={state.purchasePrice}
                     onPriceTextChange={v => update({ purchasePrice: v.replace(/[^0-9.,]/g, '') })}
-                    isPerUnit={state.purchasePriceIsPerUnit}
-                    onIsPerUnitChange={v => update({ purchasePriceIsPerUnit: v })}
+                    basis={state.purchasePriceBasis}
+                    onBasisChange={v => update({ purchasePriceBasis: v })}
                     label={t('create.paidPriceLabel')}
                 />
             )}

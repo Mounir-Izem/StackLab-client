@@ -1,106 +1,118 @@
-import { resolveCreationPriceAllocation } from './createFlowSemantics';
+import { resolveMixPriceAllocation } from './createFlowSemantics';
 
-describe('resolveCreationPriceAllocation', () => {
-    test('un seul item généré — quantity 2, purchasePrice total 54 → 1 item, price 54', () => {
-        const result = resolveCreationPriceAllocation({
-            mode: 'simple', quantity: 2, priceText: '54', isPerUnit: false,
+describe('resolveMixPriceAllocation', () => {
+    test('row quantity 1 + prix → base unit auto, montant brut transmis (price × 1 côté service)', () => {
+        const result = resolveMixPriceAllocation([
+            { id: 'a', quantity: 1, priceText: '30', priceBasis: null },
+        ]);
+        expect(result).toEqual({
+            status: 'ok',
+            allocations: [{ id: 'a', quantity: 1, price: 30, isPerUnit: true }],
         });
-        expect(result).toEqual([{ id: 'single', quantity: 2, price: 54 }]);
     });
 
-    test('deux items générés, années différentes, prix par ligne → chacun son prix, total 54', () => {
-        const result = resolveCreationPriceAllocation({
-            mode: 'mix',
-            rows: [
-                { id: 'maple-2020', quantity: 1, priceText: '24' },
-                { id: 'maple-2015', quantity: 1, priceText: '30' },
+    test('row quantity > 1 + prix + base unit → isPerUnit true (service fera price × quantity)', () => {
+        const result = resolveMixPriceAllocation([
+            { id: 'a', quantity: 2, priceText: '10', priceBasis: 'unit' },
+        ]);
+        expect(result).toEqual({
+            status: 'ok',
+            allocations: [{ id: 'a', quantity: 2, price: 10, isPerUnit: true }],
+        });
+    });
+
+    test('row quantity > 1 + prix + base lotTotal → isPerUnit false (total inchangé)', () => {
+        const result = resolveMixPriceAllocation([
+            { id: 'a', quantity: 5, priceText: '120', priceBasis: 'lotTotal' },
+        ]);
+        expect(result).toEqual({
+            status: 'ok',
+            allocations: [{ id: 'a', quantity: 5, price: 120, isPerUnit: false }],
+        });
+    });
+
+    test('row quantity > 1 + prix + base absente → needsBasis avec l\'id de la ligne', () => {
+        const result = resolveMixPriceAllocation([
+            { id: 'a', quantity: 5, priceText: '120', priceBasis: null },
+        ]);
+        expect(result).toEqual({ status: 'needsBasis', rowIds: ['a'] });
+    });
+
+    test('row quantity > 1 + prix 0 + base unit → valide, 0 n\'est pas null', () => {
+        const result = resolveMixPriceAllocation([
+            { id: 'a', quantity: 5, priceText: '0', priceBasis: 'unit' },
+        ]);
+        expect(result).toEqual({
+            status: 'ok',
+            allocations: [{ id: 'a', quantity: 5, price: 0, isPerUnit: true }],
+        });
+    });
+
+    test('row sans prix → price null, isPerUnit false, jamais de blocage même si base absente', () => {
+        const result = resolveMixPriceAllocation([
+            { id: 'a', quantity: 5, priceText: '', priceBasis: null },
+            { id: 'b', quantity: 3, priceText: '   ', priceBasis: null },
+        ]);
+        expect(result).toEqual({
+            status: 'ok',
+            allocations: [
+                { id: 'a', quantity: 5, price: null, isPerUnit: false },
+                { id: 'b', quantity: 3, price: null, isPerUnit: false },
             ],
         });
-        expect(result).toEqual([
-            { id: 'maple-2020', quantity: 1, price: 24 },
-            { id: 'maple-2015', quantity: 1, price: 30 },
-        ]);
-        const total = result.reduce((sum, r) => sum + (r.price ?? 0), 0);
-        expect(total).toBe(54);
     });
 
-    test('prix global ambigu — le mode mix ne peut structurellement pas dupliquer un prix global : deux lignes sans prix ligne restent chacune null, jamais 54/54', () => {
-        const result = resolveCreationPriceAllocation({
-            mode: 'mix',
-            rows: [
-                { id: 'a', quantity: 1, priceText: '' },
-                { id: 'b', quantity: 1, priceText: '' },
+    test('pas de prix global : deux lignes sans prix restent chacune null, jamais 54/54 (Lot 5.2 préservé)', () => {
+        const result = resolveMixPriceAllocation([
+            { id: 'a', quantity: 1, priceText: '', priceBasis: null },
+            { id: 'b', quantity: 1, priceText: '', priceBasis: null },
+        ]);
+        expect(result.status).toBe('ok');
+        if (result.status === 'ok') {
+            expect(result.allocations.some(a => a.price === 54)).toBe(false);
+            expect(result.allocations.every(a => a.price === null)).toBe(true);
+        }
+    });
+
+    test('plusieurs lignes hétérogènes → chacune son montant + son isPerUnit', () => {
+        const result = resolveMixPriceAllocation([
+            { id: 'a', quantity: 1, priceText: '30', priceBasis: null },       // qty 1 → unit auto
+            { id: 'b', quantity: 2, priceText: '10', priceBasis: 'unit' },     // 10/unité
+            { id: 'c', quantity: 5, priceText: '100', priceBasis: 'lotTotal' },// 100 la ligne
+        ]);
+        expect(result).toEqual({
+            status: 'ok',
+            allocations: [
+                { id: 'a', quantity: 1, price: 30, isPerUnit: true },
+                { id: 'b', quantity: 2, price: 10, isPerUnit: true },
+                { id: 'c', quantity: 5, price: 100, isPerUnit: false },
             ],
         });
-        expect(result).toEqual([
-            { id: 'a', quantity: 1, price: null },
-            { id: 'b', quantity: 1, price: null },
+    });
+
+    test('blocage global : une seule ligne ambiguë suffit à renvoyer needsBasis', () => {
+        const result = resolveMixPriceAllocation([
+            { id: 'a', quantity: 1, priceText: '30', priceBasis: null },
+            { id: 'b', quantity: 5, priceText: '100', priceBasis: null }, // ambiguë
         ]);
-        expect(result.some(r => r.price === 54)).toBe(false);
+        expect(result).toEqual({ status: 'needsBasis', rowIds: ['b'] });
     });
 
-    test('prix par ligne null (vide) → price reste null, jamais 0', () => {
-        const result = resolveCreationPriceAllocation({
-            mode: 'mix',
-            rows: [
-                { id: 'a', quantity: 1, priceText: '' },
-                { id: 'b', quantity: 1, priceText: '   ' },
-            ],
-        });
-        expect(result).toEqual([
-            { id: 'a', quantity: 1, price: null },
-            { id: 'b', quantity: 1, price: null },
+    test('plusieurs lignes ambiguës → tous les ids remontés', () => {
+        const result = resolveMixPriceAllocation([
+            { id: 'a', quantity: 3, priceText: '30', priceBasis: null },
+            { id: 'b', quantity: 5, priceText: '100', priceBasis: null },
         ]);
-    });
-
-    test('ligne quantity > 1 → price est le total de la ligne, pas un prix unitaire recalculé', () => {
-        const result = resolveCreationPriceAllocation({
-            mode: 'mix',
-            rows: [{ id: 'a', quantity: 10, priceText: '240' }],
-        });
-        expect(result).toEqual([{ id: 'a', quantity: 10, price: 240 }]);
-    });
-
-    test('mix quantity=1 et quantity>1 → chaque ligne garde son propre prix total', () => {
-        const result = resolveCreationPriceAllocation({
-            mode: 'mix',
-            rows: [
-                { id: 'a', quantity: 1, priceText: '24' },
-                { id: 'b', quantity: 10, priceText: '240' },
-            ],
-        });
-        expect(result).toEqual([
-            { id: 'a', quantity: 1, price: 24 },
-            { id: 'b', quantity: 10, price: 240 },
-        ]);
-    });
-
-    test('régression — création standard simple avec prix : comportement inchangé', () => {
-        const result = resolveCreationPriceAllocation({
-            mode: 'simple', quantity: 1, priceText: '99.90', isPerUnit: false,
-        });
-        expect(result).toEqual([{ id: 'single', quantity: 1, price: 99.9 }]);
-    });
-
-    test('prix vide (mode simple) → price null, jamais 0', () => {
-        const result = resolveCreationPriceAllocation({
-            mode: 'simple', quantity: 1, priceText: '', isPerUnit: false,
-        });
-        expect(result).toEqual([{ id: 'single', quantity: 1, price: null }]);
-    });
-
-    test('mode simple, isPerUnit=true → price = prix unitaire × quantity (total du lot)', () => {
-        const result = resolveCreationPriceAllocation({
-            mode: 'simple', quantity: 3, priceText: '10', isPerUnit: true,
-        });
-        expect(result).toEqual([{ id: 'single', quantity: 3, price: 30 }]);
+        expect(result).toEqual({ status: 'needsBasis', rowIds: ['a', 'b'] });
     });
 
     test('virgule décimale acceptée (saisie FR)', () => {
-        const result = resolveCreationPriceAllocation({
-            mode: 'mix',
-            rows: [{ id: 'a', quantity: 1, priceText: '24,50' }],
+        const result = resolveMixPriceAllocation([
+            { id: 'a', quantity: 1, priceText: '24,50', priceBasis: null },
+        ]);
+        expect(result).toEqual({
+            status: 'ok',
+            allocations: [{ id: 'a', quantity: 1, price: 24.5, isPerUnit: true }],
         });
-        expect(result).toEqual([{ id: 'a', quantity: 1, price: 24.5 }]);
     });
 });

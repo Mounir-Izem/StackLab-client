@@ -23,9 +23,11 @@ import { getItemRole } from '../../domain/itemSemantics';
 import { canPerformAction } from '../../domain/actionSemantics';
 import { getObservedPremium } from '../../domain/valueSemantics';
 import type { CurrencyRates } from '../../domain/valueSemantics';
+import { resolvePriceEntry } from '../../domain/lotUnitValueSemantics';
 import { resolveQuantityDraft } from '../../utils/quantityInput';
 import type { LabsStackScreenProps } from '../../navigation/types';
 import type { Currency } from '../../types/settings.types';
+import type { PriceBasis } from '../../types/item.types';
 
 type Props = LabsStackScreenProps<'ItemDetail'>;
 
@@ -51,13 +53,17 @@ export function ItemDetail({ route, navigation }: Props) {
     const [sellQtyDraft, setSellQtyDraft] = useState<string | null>(null);
     const [acquireQtyDraft, setAcquireQtyDraft] = useState<string | null>(null);
     const [sellPrice, setSellPrice] = useState('');
-    const [sellPerUnit, setSellPerUnit] = useState(true);
+    // Base de saisie (Lot D) — null = pas encore choisie. Bloque la vente si
+    // quantity vendue > 1 et prix saisi sans base. Remplace l'ancien flag booléen.
+    const [sellBasis, setSellBasis] = useState<PriceBasis | null>(null);
+    const [sellBasisError, setSellBasisError] = useState(false);
     const [sellCurrency, setSellCurrency] = useState<Currency>(currency as Currency);
     const [showSellCurrencyPicker, setShowSellCurrencyPicker] = useState(false);
     const [showAcquireModal, setShowAcquireModal] = useState(false);
     const [acquireQty, setAcquireQty] = useState(1);
     const [acquirePrice, setAcquirePrice] = useState('');
-    const [acquirePerUnit, setAcquirePerUnit] = useState(false);
+    const [acquireBasis, setAcquireBasis] = useState<PriceBasis | null>(null);
+    const [acquireBasisError, setAcquireBasisError] = useState(false);
     const [acquireCurrency, setAcquireCurrency] = useState<Currency>(currency as Currency);
     const [acquireTargetLabId, setAcquireTargetLabId] = useState<string | null>(null);
     const [showAcquireCurrencyPicker, setShowAcquireCurrencyPicker] = useState(false);
@@ -341,7 +347,7 @@ export function ItemDetail({ route, navigation }: Props) {
                     </>
                 ) : isWishlist ? (
                     <>
-                        <ActionBtn icon="bag-check-outline" label={t('item.actions.acquireBtn')} onPress={() => { setAcquireQty(item.quantity); setAcquirePrice(''); setAcquirePerUnit(false); setAcquireCurrency(currency as Currency); setAcquireTargetLabId(labs.find(l => l.type === 'standard')?.id ?? null); setShowAcquireModal(true); }} />
+                        <ActionBtn icon="bag-check-outline" label={t('item.actions.acquireBtn')} onPress={() => { setAcquireQty(item.quantity); setAcquirePrice(''); setAcquireBasis(null); setAcquireBasisError(false); setAcquireCurrency(currency as Currency); setAcquireTargetLabId(labs.find(l => l.type === 'standard')?.id ?? null); setShowAcquireModal(true); }} />
                         <ActionBtn icon="close-circle-outline" label={t('item.actions.remove')} danger onPress={() => setShowRemoveConfirm(true)} />
                         <ActionBtn icon="create-outline" label={t('item.actions.edit')} onPress={() => navigation.navigate('EditItem', { itemId: item.id })} />
                     </>
@@ -354,7 +360,7 @@ export function ItemDetail({ route, navigation }: Props) {
                 ) : (
                     <>
                         <ActionBtn icon="create-outline" label={t('item.actions.edit')} onPress={() => navigation.navigate('EditItem', { itemId: item.id })} />
-                        <ActionBtn icon="cash-outline" label={t('item.actions.sell')} onPress={() => { setSellQty(item.quantity); setSellPrice(''); setSellPerUnit(true); setSellCurrency(currency as Currency); setShowSellModal(true); }} />
+                        <ActionBtn icon="cash-outline" label={t('item.actions.sell')} onPress={() => { setSellQty(item.quantity); setSellPrice(''); setSellBasis(null); setSellBasisError(false); setSellCurrency(currency as Currency); setShowSellModal(true); }} />
                         <ActionBtn icon="copy-outline" label={t('item.actions.duplicate')} disabled />
                         <ActionBtn icon="git-branch-outline" label={t('item.actions.extract')} disabled />
                         <ActionBtn icon="arrow-forward-outline" label={t('item.actions.move')} onPress={() => setShowMoveModal(true)} />
@@ -428,11 +434,25 @@ export function ItemDetail({ route, navigation }: Props) {
                                     <Text style={styles.currencyBtnText}>{acquireCurrency} ▾</Text>
                                 </Pressable>
                                 {acquireQty > 1 && (
-                                    <Pressable style={styles.perUnitBtn} onPress={() => setAcquirePerUnit(p => !p)}>
-                                        <Text style={styles.perUnitText}>{acquirePerUnit ? t('item.purchasePerUnit') : t('item.totalLot')} ▾</Text>
-                                    </Pressable>
+                                    <>
+                                        <Pressable
+                                            style={[styles.perUnitBtn, acquireBasis === 'lotTotal' && styles.perUnitBtnActive]}
+                                            onPress={() => { setAcquireBasis('lotTotal'); setAcquireBasisError(false); }}
+                                        >
+                                            <Text style={[styles.perUnitText, acquireBasis === 'lotTotal' && styles.perUnitTextActive]}>{t('item.totalLot')}</Text>
+                                        </Pressable>
+                                        <Pressable
+                                            style={[styles.perUnitBtn, acquireBasis === 'unit' && styles.perUnitBtnActive]}
+                                            onPress={() => { setAcquireBasis('unit'); setAcquireBasisError(false); }}
+                                        >
+                                            <Text style={[styles.perUnitText, acquireBasis === 'unit' && styles.perUnitTextActive]}>{t('item.purchasePerUnit')}</Text>
+                                        </Pressable>
+                                    </>
                                 )}
                             </View>
+                            {acquireBasisError && (
+                                <Text style={styles.basisPrompt}>{t('item.priceBasisRequired')}</Text>
+                            )}
                         </View>
 
                         <Pressable
@@ -440,10 +460,12 @@ export function ItemDetail({ route, navigation }: Props) {
                             disabled={!acquireTargetLabId}
                             onPress={async () => {
                                 if (!acquireTargetLabId) return;
-                                setShowAcquireModal(false);
                                 const finalQty = acquireQtyDraft !== null ? resolveQuantityDraft(acquireQtyDraft, item.quantity) : acquireQty;
                                 const price = acquirePrice.trim() ? parseFloat(acquirePrice.replace(',', '.')) : null;
-                                await acquireItem(item.id, finalQty, acquireTargetLabId, null, price, price ? acquireCurrency : null, acquirePerUnit);
+                                const resolution = resolvePriceEntry({ amount: price, basis: acquireBasis, quantity: finalQty });
+                                if (resolution.status === 'needsBasis') { setAcquireBasisError(true); return; }
+                                setShowAcquireModal(false);
+                                await acquireItem(item.id, finalQty, acquireTargetLabId, null, price, price ? acquireCurrency : null, resolution.status === 'ok' ? resolution.isPerUnit : false);
                                 navigation.goBack();
                             }}
                         >
@@ -512,17 +534,35 @@ export function ItemDetail({ route, navigation }: Props) {
                                 <Pressable style={styles.currencyBtn} onPress={() => setShowSellCurrencyPicker(true)}>
                                     <Text style={styles.currencyBtnText}>{sellCurrency} ▾</Text>
                                 </Pressable>
-                                <Pressable style={styles.perUnitBtn} onPress={() => setSellPerUnit(p => !p)}>
-                                    <Text style={styles.perUnitText}>{sellPerUnit ? t('item.purchasePerUnit') : t('item.perLot')} ▾</Text>
-                                </Pressable>
+                                {sellQty > 1 && (
+                                    <>
+                                        <Pressable
+                                            style={[styles.perUnitBtn, sellBasis === 'lotTotal' && styles.perUnitBtnActive]}
+                                            onPress={() => { setSellBasis('lotTotal'); setSellBasisError(false); }}
+                                        >
+                                            <Text style={[styles.perUnitText, sellBasis === 'lotTotal' && styles.perUnitTextActive]}>{t('item.perLot')}</Text>
+                                        </Pressable>
+                                        <Pressable
+                                            style={[styles.perUnitBtn, sellBasis === 'unit' && styles.perUnitBtnActive]}
+                                            onPress={() => { setSellBasis('unit'); setSellBasisError(false); }}
+                                        >
+                                            <Text style={[styles.perUnitText, sellBasis === 'unit' && styles.perUnitTextActive]}>{t('item.purchasePerUnit')}</Text>
+                                        </Pressable>
+                                    </>
+                                )}
                             </View>
+                            {sellBasisError && (
+                                <Text style={styles.basisPrompt}>{t('item.priceBasisRequired')}</Text>
+                            )}
                         </View>
 
                         <Pressable style={styles.sellConfirmBtn} onPress={async () => {
-                            setShowSellModal(false);
                             const finalQty = sellQtyDraft !== null ? resolveQuantityDraft(sellQtyDraft, item.quantity) : sellQty;
                             const price = sellPrice.trim() ? parseFloat(sellPrice.replace(',', '.')) : null;
-                            await sellItem(item.id, finalQty, price, sellPerUnit, sellCurrency, new Date().toISOString());
+                            const resolution = resolvePriceEntry({ amount: price, basis: sellBasis, quantity: finalQty });
+                            if (resolution.status === 'needsBasis') { setSellBasisError(true); return; }
+                            setShowSellModal(false);
+                            await sellItem(item.id, finalQty, price, resolution.status === 'ok' ? resolution.isPerUnit : false, sellCurrency, new Date().toISOString());
                             navigation.goBack();
                         }}>
                             <Text style={styles.sellConfirmText}>{t('sell.confirm')}</Text>
@@ -797,8 +837,11 @@ const styles = StyleSheet.create({
     priceInput: { flex: 1, height: 40, backgroundColor: colors.surface2, borderRadius: 8, paddingHorizontal: 12, color: colors.text, fontFamily: fonts.dmMono, fontSize: 15 },
     currencyBtn: { paddingHorizontal: 8, paddingVertical: 6 },
     currencyBtnText: { fontFamily: fonts.outfit, fontSize: 13, color: colors.text2 },
-    perUnitBtn: { paddingHorizontal: 10, paddingVertical: 8, backgroundColor: colors.surface2, borderRadius: 8 },
+    perUnitBtn: { paddingHorizontal: 10, paddingVertical: 8, backgroundColor: colors.surface2, borderRadius: 8, borderWidth: 1, borderColor: 'transparent' },
+    perUnitBtnActive: { backgroundColor: colors.violet, borderColor: colors.violet },
     perUnitText: { fontFamily: fonts.outfit, fontSize: 12, color: colors.text2 },
+    perUnitTextActive: { color: colors.text },
+    basisPrompt: { fontFamily: fonts.outfit, fontSize: 12, color: 'rgba(255,200,100,0.85)', marginTop: 6 },
     sellConfirmBtn: { margin: 16, marginTop: 4, backgroundColor: colors.green, borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
     sellConfirmText: { fontFamily: fonts.outfitSemiBold, fontSize: 15, color: '#0A1A0F' },
     labChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

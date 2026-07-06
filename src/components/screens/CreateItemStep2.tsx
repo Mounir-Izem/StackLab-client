@@ -37,7 +37,7 @@ export function CreateItemStep2({ state, update, onNext }: Props) {
     const [rowQtyDrafts, setRowQtyDrafts] = useState<Record<string, string>>({});
 
     function addRow() {
-        update({ rows: [...state.rows, { id: generateUUID(), year: '', strikeFinish: null, qty: Math.max(1, remaining), priceText: '' }] });
+        update({ rows: [...state.rows, { id: generateUUID(), year: '', strikeFinish: null, qty: Math.max(1, remaining), priceText: '', priceBasis: null }] });
     }
 
     function removeRow(id: string) {

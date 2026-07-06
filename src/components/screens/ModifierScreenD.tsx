@@ -5,12 +5,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useItemStore } from '../../stores/itemStore';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { resolvePriceEntry } from '../../domain/lotUnitValueSemantics';
 import { colors, fonts, metalTokens } from '../../utils/theme';
-import type { Item } from '../../types/item.types';
+import type { Item, PriceBasis } from '../../types/item.types';
 import type { Currency } from '../../types/settings.types';
 
 
-type SellRow = { itemId: string; qty: number; price: string; perUnit: boolean };
+// Base de saisie par row (Lot D3) — null = pas encore choisie. Bloque la vente
+// en masse si qty > 1 et prix saisi sans base. Remplace l'ancien flag perUnit
+// présélectionné à true, qui devinait silencieusement l'intention utilisateur.
+type SellRow = { itemId: string; qty: number; price: string; basis: PriceBasis | null };
 
 type Props = {
     items: Item[];
@@ -23,10 +27,11 @@ type Props = {
 export function ModifierScreenD({ items, labName, deckName, onBack, onDone }: Props) {
     const { t } = useTranslation();
     const [rows, setRows] = useState<SellRow[]>(() =>
-        items.map(i => ({ itemId: i.id, qty: 0, price: '', perUnit: true }))
+        items.map(i => ({ itemId: i.id, qty: 0, price: '', basis: null }))
     );
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [basisErrorRowIds, setBasisErrorRowIds] = useState<Set<string>>(new Set());
     const insets = useSafeAreaInsets();
     const { sellManyItems } = useItemStore();
     const currency = useSettingsStore(s => s.settings?.currency ?? 'USD');
@@ -36,6 +41,15 @@ export function ModifierScreenD({ items, labName, deckName, onBack, onDone }: Pr
 
     function updateRow(itemId: string, patch: Partial<SellRow>) {
         setRows(prev => prev.map(r => r.itemId === itemId ? { ...r, ...patch } : r));
+        // Un edit sur la row (prix, qty, ou base) invalide un éventuel blocage
+        // précédent — l'utilisateur retente, ne pas afficher une erreur périmée.
+        if (basisErrorRowIds.has(itemId)) {
+            setBasisErrorRowIds(prev => {
+                const next = new Set(prev);
+                next.delete(itemId);
+                return next;
+            });
+        }
     }
 
     function setQty(itemId: string, raw: string) {
@@ -46,19 +60,44 @@ export function ModifierScreenD({ items, labName, deckName, onBack, onDone }: Pr
 
     async function handleConfirm() {
         if (submitting) return;
-        setSubmitting(true);
         setError(null);
-        const soldDate = new Date().toISOString();
-        const sells = rows
-            .filter(row => row.qty > 0)
-            .map(row => ({
-                id: row.itemId,
+
+        // Résolution via resolvePriceEntry (Lot D) — ne pas refaire la règle
+        // unit/lot à la main. Bloque toute la vente si une seule row qty > 1
+        // a un prix sans base choisie : aucune vente partielle n'est envoyée.
+        const errorRowIds = new Set<string>();
+        const resolved: Array<{ itemId: string; qty: number; price: number | null; isPerUnit: boolean }> = [];
+        for (const row of rows) {
+            if (row.qty <= 0) continue;
+            const price = row.price.trim() ? parseFloat(row.price.replace(',', '.')) : null;
+            const resolution = resolvePriceEntry({ amount: price, basis: row.basis, quantity: row.qty });
+            if (resolution.status === 'needsBasis') {
+                errorRowIds.add(row.itemId);
+                continue;
+            }
+            resolved.push({
+                itemId: row.itemId,
                 qty: row.qty,
-                soldPrice: row.price.trim() ? parseFloat(row.price.replace(',', '.')) : null,
-                perUnit: row.perUnit,
-                soldCurrency: selectedCurrency,
-                soldDate,
-            }));
+                price,
+                isPerUnit: resolution.status === 'ok' ? resolution.isPerUnit : false,
+            });
+        }
+        if (errorRowIds.size > 0) {
+            setBasisErrorRowIds(errorRowIds);
+            setError(t('item.priceBasisRequired'));
+            return;
+        }
+
+        setSubmitting(true);
+        const soldDate = new Date().toISOString();
+        const sells = resolved.map(r => ({
+            id: r.itemId,
+            qty: r.qty,
+            soldPrice: r.price,
+            perUnit: r.isPerUnit,
+            soldCurrency: selectedCurrency,
+            soldDate,
+        }));
         await sellManyItems(sells);
         if (useItemStore.getState().error) {
             setError(t('modifier.saleFailed'));
@@ -149,13 +188,26 @@ export function ModifierScreenD({ items, labName, deckName, onBack, onDone }: Pr
                                         <Text style={styles.priceCurrency}>{selectedCurrency} ▾</Text>
                                     </Pressable>
 
-                                    <Pressable
-                                        style={styles.perUnitBtn}
-                                        onPress={() => updateRow(item.id, { perUnit: !row.perUnit })}
-                                    >
-                                        <Text style={styles.perUnitText}>{row.perUnit ? t('item.purchasePerUnit') : t('item.perLot')} ▾</Text>
-                                    </Pressable>
+                                    {row.qty > 1 && (
+                                        <>
+                                            <Pressable
+                                                style={[styles.perUnitBtn, row.basis === 'lotTotal' && styles.perUnitBtnActive]}
+                                                onPress={() => updateRow(item.id, { basis: 'lotTotal' })}
+                                            >
+                                                <Text style={[styles.perUnitText, row.basis === 'lotTotal' && styles.perUnitTextActive]}>{t('item.perLot')}</Text>
+                                            </Pressable>
+                                            <Pressable
+                                                style={[styles.perUnitBtn, row.basis === 'unit' && styles.perUnitBtnActive]}
+                                                onPress={() => updateRow(item.id, { basis: 'unit' })}
+                                            >
+                                                <Text style={[styles.perUnitText, row.basis === 'unit' && styles.perUnitTextActive]}>{t('item.purchasePerUnit')}</Text>
+                                            </Pressable>
+                                        </>
+                                    )}
                                 </View>
+                                {basisErrorRowIds.has(item.id) && (
+                                    <Text style={styles.basisPrompt}>{t('item.priceBasisRequired')}</Text>
+                                )}
                             </View>
                         </View>
                     );
@@ -238,8 +290,11 @@ const styles = StyleSheet.create({
     priceInput: { flex: 1, height: 40, backgroundColor: colors.surface2, borderRadius: 8, paddingHorizontal: 12, color: colors.text, fontFamily: fonts.dmMono, fontSize: 15 },
     priceCurrency: { fontFamily: fonts.outfit, fontSize: 13, color: colors.text2 },
     currencyBtn: { paddingHorizontal: 8, paddingVertical: 6 },
-    perUnitBtn: { paddingHorizontal: 10, paddingVertical: 8, backgroundColor: colors.surface2, borderRadius: 8 },
+    perUnitBtn: { paddingHorizontal: 10, paddingVertical: 8, backgroundColor: colors.surface2, borderRadius: 8, borderWidth: 1, borderColor: 'transparent' },
+    perUnitBtnActive: { backgroundColor: colors.violet, borderColor: colors.violet },
     perUnitText: { fontFamily: fonts.outfit, fontSize: 12, color: colors.text2 },
+    perUnitTextActive: { color: colors.text },
+    basisPrompt: { fontFamily: fonts.outfit, fontSize: 12, color: 'rgba(255,200,100,0.85)', marginTop: 4 },
     summary: { backgroundColor: colors.surface, borderRadius: 12, padding: 14 },
     summaryText: { fontFamily: fonts.outfit, fontSize: 13, color: colors.text2 },
     errorText: { fontFamily: fonts.outfit, fontSize: 12, color: colors.crimson, textAlign: 'center' },

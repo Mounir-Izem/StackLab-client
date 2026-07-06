@@ -1,21 +1,31 @@
 import React from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { normalizePriceInputToTotal } from '../../domain/lotUnitValueSemantics';
 import { colors, fonts } from '../../utils/theme';
+import type { PriceBasis } from '../../types/item.types';
 
 type Props = {
     quantity: number;
     priceText: string;
     onPriceTextChange: (v: string) => void;
-    isPerUnit: boolean;
-    onIsPerUnitChange: (v: boolean) => void;
+    // Base de saisie (Lot D). null = pas encore choisie : pour quantity > 1, aucun
+    // bouton n'est présélectionné — l'utilisateur DOIT choisir. Optionnel car la
+    // branche quantity <= 1 n'affiche pas de toggle (unité == lot).
+    basis?: PriceBasis | null;
+    onBasisChange?: (v: PriceBasis) => void;
     label?: string;
+    // Personnalisation du contexte "ligne" (mix, Lot D2) : libellé du bouton
+    // "total" et message de blocage. Défaut = wording "lot".
+    lotLabel?: string;
+    basisPromptText?: string;
 };
 
 // quantity=1 : per-unit et per-lot sont mathématiquement identiques, donc on
 // n'affiche pas le toggle — un seul champ simple évite toute confusion UX.
 export function PurchasePriceField({
-    quantity, priceText, onPriceTextChange, isPerUnit, onIsPerUnitChange, label,
+    quantity, priceText, onPriceTextChange, basis = null, onBasisChange, label,
+    lotLabel, basisPromptText,
 }: Props) {
     const { t } = useTranslation();
     const parsed = parseFloat(priceText.replace(',', '.'));
@@ -36,23 +46,25 @@ export function PurchasePriceField({
         );
     }
 
-    const total = hasValue ? (isPerUnit ? parsed * quantity : parsed) : null;
-    const perUnit = hasValue ? (isPerUnit ? parsed : parsed / quantity) : null;
+    // Aperçu total/unité seulement une fois la base choisie — sinon la valeur
+    // saisie est ambiguë et ne doit pas produire de calcul.
+    const total = hasValue && basis ? normalizePriceInputToTotal({ amount: parsed, basis, quantity }) : null;
+    const perUnit = hasValue && basis ? (basis === 'unit' ? parsed : parsed / quantity) : null;
 
     return (
         <View style={{ gap: 8 }}>
             <View style={styles.toggleRow}>
                 <Pressable
-                    style={[styles.toggleBtn, !isPerUnit && styles.toggleBtnActive]}
-                    onPress={() => onIsPerUnitChange(false)}
+                    style={[styles.toggleBtn, basis === 'lotTotal' && styles.toggleBtnActive]}
+                    onPress={() => onBasisChange?.('lotTotal')}
                 >
-                    <Text style={[styles.toggleText, !isPerUnit && styles.toggleTextActive]}>{t('item.totalLot')}</Text>
+                    <Text style={[styles.toggleText, basis === 'lotTotal' && styles.toggleTextActive]}>{lotLabel ?? t('item.totalLot')}</Text>
                 </Pressable>
                 <Pressable
-                    style={[styles.toggleBtn, isPerUnit && styles.toggleBtnActive]}
-                    onPress={() => onIsPerUnitChange(true)}
+                    style={[styles.toggleBtn, basis === 'unit' && styles.toggleBtnActive]}
+                    onPress={() => onBasisChange?.('unit')}
                 >
-                    <Text style={[styles.toggleText, isPerUnit && styles.toggleTextActive]}>{t('item.purchasePerUnit')}</Text>
+                    <Text style={[styles.toggleText, basis === 'unit' && styles.toggleTextActive]}>{t('item.purchasePerUnit')}</Text>
                 </Pressable>
             </View>
             <TextInput
@@ -63,10 +75,13 @@ export function PurchasePriceField({
                 placeholder="0.00"
                 placeholderTextColor={colors.text3}
             />
-            {hasValue && (
+            {hasValue && !basis && (
+                <Text style={styles.basisPrompt}>{basisPromptText ?? t('item.priceBasisRequired')}</Text>
+            )}
+            {hasValue && basis && total !== null && (
                 <Text style={styles.hint}>
-                    {isPerUnit
-                        ? t('create.totalForItems', { count: quantity, amount: total!.toFixed(2) })
+                    {basis === 'unit'
+                        ? t('create.totalForItems', { count: quantity, amount: total.toFixed(2) })
                         : t('create.averagePerItem', { amount: perUnit!.toFixed(2) })}
                 </Text>
             )}
@@ -89,4 +104,5 @@ const styles = StyleSheet.create({
     toggleText: { fontFamily: fonts.outfitMedium, fontSize: 13, color: colors.text2 },
     toggleTextActive: { color: colors.text },
     hint: { fontFamily: fonts.outfit, fontSize: 12, color: colors.text3 },
+    basisPrompt: { fontFamily: fonts.outfit, fontSize: 12, color: 'rgba(255,200,100,0.85)' },
 });

@@ -7,13 +7,14 @@ import { useLabStore } from '../../stores/labStore';
 import { triggerSuccess } from '../../utils/haptics';
 import { animationState } from '../../utils/animationState';
 import { playCreationSound } from '../../utils/sound';
-import { resolveCreationPriceAllocation } from '../../domain/createFlowSemantics';
+import { resolveMixPriceAllocation } from '../../domain/createFlowSemantics';
+import { resolvePriceEntry } from '../../domain/lotUnitValueSemantics';
 import { colors, fonts } from '../../utils/theme';
 import { CreateItemStep1 } from './CreateItemStep1';
 import { CreateItemStep2 } from './CreateItemStep2';
 import { CreateItemStep3 } from './CreateItemStep3';
 import { CreateItemStep4 } from './CreateItemStep4';
-import type { ItemMetal, ItemShape, ItemWeightUnit, StrikeFinish } from '../../types/item.types';
+import type { ItemMetal, ItemShape, ItemWeightUnit, StrikeFinish, PriceBasis } from '../../types/item.types';
 import type { Currency } from '../../types/settings.types';
 
 export type MixRow = {
@@ -21,10 +22,12 @@ export type MixRow = {
     year: string;
     strikeFinish: StrikeFinish | null;
     qty: number;
-    // Prix (achat ou observé selon itemStatus) propre à cette ligne — le coût
-    // total de cette ligne/item, jamais un prix unitaire. Jamais de prix
-    // global partagé entre rows : voir NATIVE_BUSINESS_SEMANTICS.md §13.
+    // Prix (achat ou observé selon itemStatus) propre à cette ligne — jamais un
+    // prix global partagé entre rows : voir NATIVE_BUSINESS_SEMANTICS.md §13.
     priceText: string;
+    // Base de saisie de cette ligne (Lot D2). null = prix vide OU (qty > 1) base
+    // pas encore choisie → bloque la création. qty === 1 → 'unit' auto.
+    priceBasis: PriceBasis | null;
 };
 
 export type FlowState = {
@@ -43,11 +46,14 @@ export type FlowState = {
     weightUnit: ItemWeightUnit;
     purity: number;
     purchasePrice: string;
-    purchasePriceIsPerUnit: boolean;
+    // Base de saisie du prix (Lot D) — null = pas encore choisie (bloque la
+    // validation si un prix est saisi avec quantity > 1). Remplace l'ancien flag
+    // booléen isPerUnit qui présélectionnait silencieusement "total lot".
+    purchasePriceBasis: PriceBasis | null;
     purchaseCurrency: Currency;
     purchaseDate: string;
     observedPrice: string;
-    observedPriceIsPerUnit: boolean;
+    observedPriceBasis: PriceBasis | null;
     observedCurrency: Currency;
     observedPriceDate: string;
 };
@@ -57,8 +63,8 @@ const INITIAL: FlowState = {
     mintName: '', mintVisible: false,
     quantity: 1, mode: 'simple', year: '', strikeFinish: null, rows: [],
     weightInput: '1', weightUnit: 'oz', purity: 0.9999,
-    purchasePrice: '', purchasePriceIsPerUnit: false, purchaseCurrency: 'USD', purchaseDate: '',
-    observedPrice: '', observedPriceIsPerUnit: false, observedCurrency: 'USD', observedPriceDate: '',
+    purchasePrice: '', purchasePriceBasis: null, purchaseCurrency: 'USD', purchaseDate: '',
+    observedPrice: '', observedPriceBasis: null, observedCurrency: 'USD', observedPriceDate: '',
 };
 
 type Props = {
@@ -103,26 +109,46 @@ export function CreateItemFlow({ route, navigation }: Props) {
             ? { observedCurrency: state.observedCurrency, observedPriceDate: state.observedPriceDate.trim() || null }
             : { purchaseCurrency: state.purchaseCurrency, purchaseDate: state.purchaseDate.trim() || null };
 
-        const allocations = state.mode === 'simple'
-            ? resolveCreationPriceAllocation({
-                mode: 'simple',
-                quantity: state.quantity,
-                priceText: itemStatus === 'wishlist' ? state.observedPrice : state.purchasePrice,
-                isPerUnit: itemStatus === 'wishlist' ? state.observedPriceIsPerUnit : state.purchasePriceIsPerUnit,
-            })
-            : resolveCreationPriceAllocation({
-                mode: 'mix',
-                rows: state.rows.map(r => ({ id: r.id, quantity: r.qty, priceText: r.priceText })),
-            });
+        // Mode mix (Lot D2) : chaque row porte sa propre base. resolveMixPriceAllocation
+        // bloque si une row quantity > 1 a un prix sans base choisie. Le montant BRUT
+        // + isPerUnit par row sont transmis au service, qui normalise et dérive le
+        // basis (Lot B) — jamais de prix global dupliqué (Lot 5.2 préservé par construction).
+        const mixResult = state.mode === 'mix'
+            ? resolveMixPriceAllocation(
+                state.rows.map(r => ({ id: r.id, quantity: r.qty, priceText: r.priceText, priceBasis: r.priceBasis })))
+            : null;
+        if (mixResult?.status === 'needsBasis') {
+            setSubmitError(t('item.priceBasisRowRequired'));
+            setSubmitting(false);
+            return;
+        }
 
-        // price est déjà le total résolu (isPerUnit déjà appliqué pour le mode
-        // simple) — toujours false ici pour ne pas le faire remultiplier par
-        // quantity dans itemService.create().
-        function priceFieldsFor(price: number | null) {
+        function mixPriceFieldsFor(price: number | null, isPerUnit: boolean) {
             if (price === null) return {};
             return itemStatus === 'wishlist'
-                ? { observedPrice: price, observedPriceIsPerUnit: false, ...priceMeta }
-                : { purchasePrice: price, purchasePriceIsPerUnit: false, ...priceMeta };
+                ? { observedPrice: price, observedPriceIsPerUnit: isPerUnit, ...priceMeta }
+                : { purchasePrice: price, purchasePriceIsPerUnit: isPerUnit, ...priceMeta };
+        }
+
+        // Mode simple : résolution de la saisie via resolvePriceEntry — bloque si
+        // quantity > 1 et prix saisi sans base choisie. On transmet le montant BRUT
+        // + isPerUnit au service, qui normalise et dérive le basis lui-même (Lot B).
+        let simplePriceFields: Record<string, unknown> = {};
+        if (state.mode === 'simple') {
+            const priceText = itemStatus === 'wishlist' ? state.observedPrice : state.purchasePrice;
+            const basis = itemStatus === 'wishlist' ? state.observedPriceBasis : state.purchasePriceBasis;
+            const parsed = priceText.trim() ? parseFloat(priceText.replace(',', '.')) : null;
+            const resolution = resolvePriceEntry({ amount: parsed, basis, quantity: state.quantity });
+            if (resolution.status === 'needsBasis') {
+                setSubmitError(t('item.priceBasisRequired'));
+                setSubmitting(false);
+                return;
+            }
+            if (resolution.status === 'ok') {
+                simplePriceFields = itemStatus === 'wishlist'
+                    ? { observedPrice: parsed, observedPriceIsPerUnit: resolution.isPerUnit, ...priceMeta }
+                    : { purchasePrice: parsed, purchasePriceIsPerUnit: resolution.isPerUnit, ...priceMeta };
+            }
         }
 
         const base = {
@@ -146,7 +172,7 @@ export function CreateItemFlow({ route, navigation }: Props) {
                     quantity: state.quantity,
                     year: state.year ? parseInt(state.year, 10) : null,
                     strikeFinish: state.strikeFinish,
-                    ...priceFieldsFor(allocations[0].price),
+                    ...simplePriceFields,
                 });
                 if (useItemStore.getState().error) {
                     setSubmitError(t('create.creationFailed'));
@@ -156,6 +182,7 @@ export function CreateItemFlow({ route, navigation }: Props) {
                 if (newId) animationState.lastCreatedItemId = newId;
             } else {
                 let lastId: string | null = null;
+                const allocations = mixResult?.status === 'ok' ? mixResult.allocations : [];
                 for (const row of state.rows) {
                     const allocation = allocations.find(a => a.id === row.id);
                     await createItem({
@@ -163,7 +190,7 @@ export function CreateItemFlow({ route, navigation }: Props) {
                         quantity: row.qty,
                         year: row.year ? parseInt(row.year, 10) : null,
                         strikeFinish: row.strikeFinish,
-                        ...priceFieldsFor(allocation?.price ?? null),
+                        ...mixPriceFieldsFor(allocation?.price ?? null, allocation?.isPerUnit ?? false),
                     });
                     if (useItemStore.getState().error) {
                         setSubmitError(t('create.creationFailedRows'));

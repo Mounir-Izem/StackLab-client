@@ -82,7 +82,7 @@ export function getValuePerspectiveForRole(role: BusinessItemRole): ValuePerspec
 }
 
 // Convertit un montant saisi (avec sa base) en total normalisé stocké.
-// Destiné au futur flow de création/édition (Lot D). Ne devine jamais : un
+// Destiné au flow de création/édition (Lot D). Ne devine jamais : un
 // montant fourni sans base explicite retourne null (pas de fallback silencieux).
 export function normalizePriceInputToTotal(input: {
     amount: number | null | undefined;
@@ -94,6 +94,50 @@ export function normalizePriceInputToTotal(input: {
     if (!isValidQuantity(quantity)) return null;
     if (basis == null) return null;
     return basis === 'unit' ? amount * quantity : amount;
+}
+
+// Résolution d'une saisie de prix côté UI (Lot D). Distingue trois issues :
+//  - 'empty'      : aucun montant → rien à persister (prix null, basis null)
+//  - 'needsBasis' : montant présent + quantity > 1 mais base non choisie → bloquer
+//                   la validation (message pédagogique, ne rien sauvegarder)
+//  - 'ok'         : résolu — expose le total normalisé, la base retenue, et
+//                   isPerUnit (pour les signatures de service existantes qui
+//                   normalisent elles-mêmes à partir du flag perUnit).
+// quantity = 1 : unité et lot sont identiques → base 'unit' automatique, jamais
+// de blocage. quantity invalide : bloque par sécurité (ne résout jamais en aveugle).
+export type PriceEntryResolution =
+    | { status: 'empty' }
+    | { status: 'needsBasis' }
+    | { status: 'ok'; total: number; basis: PriceBasis; isPerUnit: boolean };
+
+export function resolvePriceEntry(input: {
+    amount: number | null | undefined;
+    basis: PriceBasis | null | undefined;
+    quantity: number;
+}): PriceEntryResolution {
+    const { amount, basis, quantity } = input;
+    if (amount == null || !Number.isFinite(amount)) return { status: 'empty' };
+    if (!isValidQuantity(quantity)) return { status: 'needsBasis' };
+    if (quantity === 1) return { status: 'ok', total: amount, basis: 'unit', isPerUnit: true };
+    if (basis == null) return { status: 'needsBasis' };
+    const total = basis === 'unit' ? amount * quantity : amount;
+    return { status: 'ok', total, basis, isPerUnit: basis === 'unit' };
+}
+
+// Inverse de la saisie : à partir d'un total normalisé stocké + sa base, produit
+// la valeur à ré-afficher dans le champ d'édition et la base à présélectionner
+// (Lot D — pré-remplissage Edit). base 'unit' → montant unitaire (total/quantity) ;
+// base 'lotTotal' ou absente (legacy) → total. Prix null → null (champ vide).
+export function deriveEditablePriceInput(input: {
+    total: number | null | undefined;
+    basis: PriceBasis | null | undefined;
+    quantity: number;
+}): { amount: number; basis: PriceBasis } | null {
+    const { total, basis, quantity } = input;
+    if (total == null || !Number.isFinite(total)) return null;
+    if (!isValidQuantity(quantity)) return null;
+    if (basis === 'unit') return { amount: total / quantity, basis: 'unit' };
+    return { amount: total, basis: 'lotTotal' };
 }
 
 // À partir d'un total normalisé stocké + sa base, produit les deux niveaux.

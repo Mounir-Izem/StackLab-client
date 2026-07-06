@@ -8,9 +8,10 @@ import { useTranslation } from 'react-i18next';
 import { useItemStore } from '../../stores/itemStore';
 import { PurchasePriceField } from '../common/PurchasePriceField';
 import { resolveQuantityDraft } from '../../utils/quantityInput';
+import { resolvePriceEntry, deriveEditablePriceInput } from '../../domain/lotUnitValueSemantics';
 import { colors, fonts } from '../../utils/theme';
 import type { LabsStackScreenProps } from '../../navigation/types';
-import type { ItemMetal, ItemShape, StrikeFinish, ItemCondition, ItemFeature, ItemWeightUnit } from '../../types/item.types';
+import type { ItemMetal, ItemShape, StrikeFinish, ItemCondition, ItemFeature, ItemWeightUnit, PriceBasis } from '../../types/item.types';
 import type { Currency } from '../../types/settings.types';
 
 type Props = LabsStackScreenProps<'EditItem'>;
@@ -28,11 +29,11 @@ type EditState = {
     purity: number;
     quantity: number;
     purchasePrice: string;
-    purchasePriceIsPerUnit: boolean;
+    purchasePriceBasis: PriceBasis | null;
     purchaseCurrency: Currency;
     purchaseDate: string;
     observedPrice: string;
-    observedPriceIsPerUnit: boolean;
+    observedPriceBasis: PriceBasis | null;
     observedCurrency: Currency;
     observedPriceDate: string;
     condition: ItemCondition | null;
@@ -141,11 +142,21 @@ export function EditItemFlow({ route, navigation }: Props) {
             mintName: '', year: '', strikeFinish: null,
             weightInput: '1', weightUnit: 'oz', purity: 0.9999,
             quantity: 1,
-            purchasePrice: '', purchasePriceIsPerUnit: false, purchaseCurrency: 'USD', purchaseDate: '',
-            observedPrice: '', observedPriceIsPerUnit: false, observedCurrency: 'USD', observedPriceDate: '',
+            purchasePrice: '', purchasePriceBasis: null, purchaseCurrency: 'USD', purchaseDate: '',
+            observedPrice: '', observedPriceBasis: null, observedCurrency: 'USD', observedPriceDate: '',
             condition: null, location: '', features: [], notes: '',
         };
         const weightUnit = item.weightUnitInput ?? 'oz';
+        // Pré-remplissage (Lot D) : ré-affiche le prix dans la base d'origine —
+        // base 'unit' → montant unitaire (total/quantity) + toggle "par unité" ;
+        // base 'lotTotal' ou legacy → total + toggle "total lot". Le champ montre
+        // exactement ce que l'utilisateur avait saisi, pas systématiquement le total.
+        const purchaseEdit = deriveEditablePriceInput({
+            total: item.purchasePrice, basis: item.purchasePriceBasis, quantity: item.quantity,
+        });
+        const observedEdit = deriveEditablePriceInput({
+            total: item.observedPrice, basis: item.observedPriceBasis, quantity: item.quantity,
+        });
         return {
             name: item.name,
             metal: item.metal,
@@ -158,12 +169,12 @@ export function EditItemFlow({ route, navigation }: Props) {
             weightUnit,
             purity: item.purity,
             quantity: item.quantity,
-            purchasePrice: item.purchasePrice?.toString() ?? '',
-            purchasePriceIsPerUnit: false,
+            purchasePrice: purchaseEdit ? String(purchaseEdit.amount) : '',
+            purchasePriceBasis: purchaseEdit ? purchaseEdit.basis : null,
             purchaseCurrency: item.purchaseCurrency ?? 'USD',
             purchaseDate: item.purchaseDate ?? '',
-            observedPrice: item.observedPrice?.toString() ?? '',
-            observedPriceIsPerUnit: false,
+            observedPrice: observedEdit ? String(observedEdit.amount) : '',
+            observedPriceBasis: observedEdit ? observedEdit.basis : null,
             observedCurrency: item.observedCurrency ?? 'USD',
             observedPriceDate: item.observedPriceDate ?? '',
             condition: item.condition ?? null,
@@ -239,12 +250,21 @@ export function EditItemFlow({ route, navigation }: Props) {
             }
 
             // Called after updateItem so per-unit normalisation uses the updated quantity.
+            // Résolution de la saisie via resolvePriceEntry — bloque si quantity > 1
+            // et prix saisi sans base choisie. Montant BRUT + isPerUnit transmis au
+            // service qui normalise et dérive le basis (Lot B). Prix vidé → null → basis null.
             if (isWishlistItem) {
+                const parsed = state.observedPrice.trim() ? parseFloat(state.observedPrice.replace(',', '.')) : null;
+                const resolution = resolvePriceEntry({ amount: parsed, basis: state.observedPriceBasis, quantity: finalQuantity });
+                if (resolution.status === 'needsBasis') {
+                    setSubmitError(t('item.priceBasisRequired'));
+                    return;
+                }
                 await updateObservedPrice(
                     item.id,
-                    state.observedPrice.trim() ? parseFloat(state.observedPrice.replace(',', '.')) : null,
-                    state.observedPriceIsPerUnit,
-                    state.observedPrice.trim() ? state.observedCurrency : null,
+                    parsed,
+                    resolution.status === 'ok' ? resolution.isPerUnit : false,
+                    parsed !== null ? state.observedCurrency : null,
                     (() => {
                         const d = state.observedPriceDate.trim().replace(/\//g, '-');
                         if (/^\d{4}$/.test(d)) return d;
@@ -254,10 +274,16 @@ export function EditItemFlow({ route, navigation }: Props) {
                     })(),
                 );
             } else {
+                const parsed = state.purchasePrice.trim() ? parseFloat(state.purchasePrice.replace(',', '.')) : null;
+                const resolution = resolvePriceEntry({ amount: parsed, basis: state.purchasePriceBasis, quantity: finalQuantity });
+                if (resolution.status === 'needsBasis') {
+                    setSubmitError(t('item.priceBasisRequired'));
+                    return;
+                }
                 await updatePurchasePrice(
                     item.id,
-                    state.purchasePrice.trim() ? parseFloat(state.purchasePrice.replace(',', '.')) : null,
-                    state.purchasePriceIsPerUnit,
+                    parsed,
+                    resolution.status === 'ok' ? resolution.isPerUnit : false,
                 );
             }
             if (useItemStore.getState().error) {
@@ -477,16 +503,16 @@ export function EditItemFlow({ route, navigation }: Props) {
                             quantity={state.quantity}
                             priceText={state.observedPrice}
                             onPriceTextChange={v => patch({ observedPrice: v.replace(/[^0-9.,]/g, '') })}
-                            isPerUnit={state.observedPriceIsPerUnit}
-                            onIsPerUnitChange={v => patch({ observedPriceIsPerUnit: v })}
+                            basis={state.observedPriceBasis}
+                            onBasisChange={v => patch({ observedPriceBasis: v })}
                         />
                     ) : (
                         <PurchasePriceField
                             quantity={state.quantity}
                             priceText={state.purchasePrice}
                             onPriceTextChange={v => patch({ purchasePrice: v.replace(/[^0-9.,]/g, '') })}
-                            isPerUnit={state.purchasePriceIsPerUnit}
-                            onIsPerUnitChange={v => patch({ purchasePriceIsPerUnit: v })}
+                            basis={state.purchasePriceBasis}
+                            onBasisChange={v => patch({ purchasePriceBasis: v })}
                         />
                     )}
 

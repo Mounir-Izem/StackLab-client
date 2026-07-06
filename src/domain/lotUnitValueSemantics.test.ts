@@ -1,6 +1,8 @@
 import {
     getValuePerspectiveForRole,
     normalizePriceInputToTotal,
+    resolvePriceEntry,
+    deriveEditablePriceInput,
     deriveUnitTotalPriceBreakdown,
     deriveMeltValueBreakdown,
     derivePremiumBreakdown,
@@ -56,6 +58,74 @@ describe('normalizePriceInputToTotal', () => {
     test('amount non fini → null', () => {
         expect(normalizePriceInputToTotal({ amount: NaN, basis: 'unit', quantity: 5 })).toBeNull();
         expect(normalizePriceInputToTotal({ amount: Infinity, basis: 'lotTotal', quantity: 5 })).toBeNull();
+    });
+});
+
+describe('resolvePriceEntry (Lot D)', () => {
+    test('aucun montant → empty', () => {
+        expect(resolvePriceEntry({ amount: null, basis: null, quantity: 5 })).toEqual({ status: 'empty' });
+        expect(resolvePriceEntry({ amount: NaN, basis: 'unit', quantity: 5 })).toEqual({ status: 'empty' });
+    });
+    test('quantity 1 → base unit automatique, jamais de blocage', () => {
+        expect(resolvePriceEntry({ amount: 24, basis: null, quantity: 1 })).toEqual({
+            status: 'ok', total: 24, basis: 'unit', isPerUnit: true,
+        });
+    });
+    test('quantity 5 + base unit → total ×5, isPerUnit true', () => {
+        expect(resolvePriceEntry({ amount: 24, basis: 'unit', quantity: 5 })).toEqual({
+            status: 'ok', total: 120, basis: 'unit', isPerUnit: true,
+        });
+    });
+    test('quantity 5 + base lotTotal → total inchangé, isPerUnit false', () => {
+        expect(resolvePriceEntry({ amount: 120, basis: 'lotTotal', quantity: 5 })).toEqual({
+            status: 'ok', total: 120, basis: 'lotTotal', isPerUnit: false,
+        });
+    });
+    test('quantity 5 + prix présent + base absente → needsBasis (bloque)', () => {
+        expect(resolvePriceEntry({ amount: 24, basis: null, quantity: 5 })).toEqual({ status: 'needsBasis' });
+    });
+    test('prix 0 est une vraie valeur → résolu, jamais empty', () => {
+        expect(resolvePriceEntry({ amount: 0, basis: 'lotTotal', quantity: 5 })).toEqual({
+            status: 'ok', total: 0, basis: 'lotTotal', isPerUnit: false,
+        });
+        // quantity 1 + prix 0 → ok/unit
+        expect(resolvePriceEntry({ amount: 0, basis: null, quantity: 1 })).toEqual({
+            status: 'ok', total: 0, basis: 'unit', isPerUnit: true,
+        });
+    });
+    test('quantity invalide → needsBasis (blocage défensif, ne résout jamais en aveugle)', () => {
+        expect(resolvePriceEntry({ amount: 24, basis: 'unit', quantity: 0 })).toEqual({ status: 'needsBasis' });
+    });
+});
+
+describe('deriveEditablePriceInput (Lot D — pré-remplissage Edit)', () => {
+    test('base unit, total 120, qty 5 → champ 24 / toggle unit', () => {
+        expect(deriveEditablePriceInput({ total: 120, basis: 'unit', quantity: 5 })).toEqual({
+            amount: 24, basis: 'unit',
+        });
+    });
+    test('base lotTotal, total 120 → champ 120 / toggle lotTotal', () => {
+        expect(deriveEditablePriceInput({ total: 120, basis: 'lotTotal', quantity: 5 })).toEqual({
+            amount: 120, basis: 'lotTotal',
+        });
+    });
+    test('base absente (legacy) mais prix présent → traité lotTotal', () => {
+        expect(deriveEditablePriceInput({ total: 120, basis: null, quantity: 5 })).toEqual({
+            amount: 120, basis: 'lotTotal',
+        });
+    });
+    test('quantity 1 → champ = total (unit == total)', () => {
+        expect(deriveEditablePriceInput({ total: 120, basis: 'unit', quantity: 1 })).toEqual({
+            amount: 120, basis: 'unit',
+        });
+    });
+    test('prix null → null (champ vide)', () => {
+        expect(deriveEditablePriceInput({ total: null, basis: null, quantity: 5 })).toBeNull();
+    });
+    test('prix 0 → conservé, jamais confondu avec null', () => {
+        expect(deriveEditablePriceInput({ total: 0, basis: 'lotTotal', quantity: 5 })).toEqual({
+            amount: 0, basis: 'lotTotal',
+        });
     });
 });
 
