@@ -42,8 +42,11 @@ export function DeckDetail({ route, navigation }: Props) {
 
     const lab = labs.find(l => l.id === labId);
     const deck = decks.find(d => d.id === deckId);
+    const isWishlist = lab?.type === 'wishlist';
     const subDecks = decks.filter(d => d.parentId === deckId);
-    const deckItems = items.filter(i => i.deckId === deckId && i.status === 'active');
+    // Deck Consistency Patch — filtre par lab.type comme LabDetail (wishlist →
+    // status wishlist, sinon → status active). Decks masqués en lab Trash.
+    const deckItems = items.filter(i => i.deckId === deckId && i.status === (isWishlist ? 'wishlist' : 'active'));
 
     const [showPaywall, setShowPaywall] = useState(false);
     const [newItemId, setNewItemId] = useState<string | null>(null);
@@ -93,7 +96,11 @@ export function DeckDetail({ route, navigation }: Props) {
             ? calcMeltValue(calcFineWeightOz(item.weightOz, item.purity), spotPrice) * item.quantity
             : null;
 
-        const meltBadge: MeltBadge = null; // DeckDetail only shows active items
+        // Deck Consistency Patch — le filtre status (ligne 46) suit désormais lab.type,
+        // mais le badge melt/observé (LabDetail) reste hors scope de ce patch (wording/
+        // devise/count/status uniquement) — pas de meltBadge ici pour l'instant, même
+        // pour un deck en lab Wishlist.
+        const meltBadge: MeltBadge = null;
 
         const showMissingPrice = item.purchasePrice === null;
 
@@ -163,13 +170,17 @@ export function DeckDetail({ route, navigation }: Props) {
                             <View style={styles.section}>
                                 <Text style={styles.label}>{t('labs.section.subDecks')}</Text>
                                 {subDecks.map(d => {
-                                    const subItems = items.filter(i => i.deckId === d.id && i.status === 'active');
+                                    // Deck Consistency Patch — même filtre/reduce local que deckItems
+                                    // ci-dessus, pas d'appel service (agrège par lab, pas par deck).
+                                    const subItems = items.filter(i => i.deckId === d.id && i.status === (isWishlist ? 'wishlist' : 'active'));
                                     const totalValue = spotGold !== null && spotSilver !== null
                                         ? subItems.reduce((sum, i) => {
                                             const sp = i.metal === 'gold' ? spotGold : spotSilver;
                                             return sum + calcMeltValue(calcFineWeightOz(i.weightOz, i.purity), sp) * i.quantity;
                                         }, 0)
                                         : null;
+                                    const groupedLotCount = subItems.filter(i => i.quantity > 1).length;
+                                    const unitCount = subItems.reduce((sum, i) => sum + i.quantity, 0);
                                     const subDeckMenuActions: ContextMenuAction[] = [
                                         {
                                             label: t('modifier.title'),
@@ -187,9 +198,13 @@ export function DeckDetail({ route, navigation }: Props) {
                                         <DeckCard
                                             key={d.id}
                                             deck={d}
-                                            itemCount={items.filter(i => i.deckId === d.id && i.status === 'active').length}
+                                            labType={isWishlist ? 'wishlist' : 'standard'}
+                                            groupedLotCount={groupedLotCount}
+                                            unitCount={unitCount}
+                                            wishCount={subItems.length}
                                             subDeckCount={0}
                                             totalValue={totalValue}
+                                            currency={currency}
                                             onPress={() => navigation.navigate('DeckDetail', { deckId: d.id, labId })}
                                             menuActions={subDeckMenuActions}
                                         />

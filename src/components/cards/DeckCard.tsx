@@ -7,17 +7,24 @@ import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, fonts, fontSize, deckCard } from '../../utils/theme';
 import { formatCardValue } from '../../utils/formatters';
+import { formatCountDisplay } from '../../utils/countDisplayFormatter';
+import { getLabCardCountDisplay } from '../../domain/countSemantics';
 import { ShareCanvas } from './ShareCanvas';
 import { ContextMenu } from '../ui/ContextMenu';
 import type { ContextMenuAction } from '../ui/ContextMenu';
 import type { Deck } from '../../types/deck.types';
+import type { LabType } from '../../types/lab.types';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const DECK_COVER = require('../../../assets/themes/Deck-Standard.png') as number;
 
 type DeckCardProps = {
     deck: Deck;
-    itemCount?: number;
+    // Un deck n'apparaît jamais dans un lab Trash (masqué dans LabDetail/DeckDetail).
+    labType: Extract<LabType, 'standard' | 'wishlist'>;
+    groupedLotCount?: number;
+    unitCount?: number;
+    wishCount?: number;
     totalValue?: number | null;
     currency?: string;
     subDeckCount?: number;
@@ -27,7 +34,10 @@ type DeckCardProps = {
 
 function DeckCardComponent({
     deck,
-    itemCount = 0,
+    labType,
+    groupedLotCount = 0,
+    unitCount = 0,
+    wishCount = 0,
     totalValue,
     currency = 'USD',
     subDeckCount = 0,
@@ -45,6 +55,15 @@ function DeckCardComponent({
     const displayValue = totalValue != null ? formatCardValue(totalValue, currency) : '—';
     const coverSource = deck.coverPhotoUrl ? { uri: deck.coverPhotoUrl } : DECK_COVER;
 
+    // Deck Consistency Patch — même dispatch que LabCard (countSemantics), plus de
+    // t('common.lots') en dur. Un deck ne vit que dans un lab standard ou wishlist.
+    const countLabel = formatCountDisplay(
+        labType === 'wishlist'
+            ? getLabCardCountDisplay({ labType: 'wishlist', wishCount })
+            : getLabCardCountDisplay({ labType: 'standard', groupedLotCount, unitCount }),
+        t,
+    );
+
     function triggerLayerSpread() {
         if (reduceMotion) return;
         Animated.sequence([
@@ -58,7 +77,7 @@ function DeckCardComponent({
         onPress,
         onLongPress: menuActions.length > 0 ? () => { setMenuVisible(true); triggerLayerSpread(); } : undefined,
         buildShareText: () =>
-            `${deck.name} — ${t('common.lots', { count: itemCount })}\nTracked with StackLab`,
+            `${deck.name} — ${countLabel}\nTracked with StackLab`,
         glowColor: 'rgba(200,200,230,0.5)',
         reduceMotion,
     });
@@ -115,7 +134,7 @@ function DeckCardComponent({
                     </View>
                     <View style={styles.metaRow}>
                         <Text style={styles.meta}>
-                            {t('common.lots', { count: itemCount })}
+                            {countLabel}
                         </Text>
                         {subDeckCount > 0 && (
                             <View style={styles.subChip}>
@@ -142,7 +161,7 @@ function DeckCardComponent({
                 />
                 <View style={styles.content}>
                     <Text style={styles.name} numberOfLines={1}>{deck.name}</Text>
-                    <Text style={styles.meta}>{t('common.lots', { count: itemCount })}  ·  {displayValue}</Text>
+                    <Text style={styles.meta}>{countLabel}  ·  {displayValue}</Text>
                 </View>
             </View>
         </ShareCanvas>

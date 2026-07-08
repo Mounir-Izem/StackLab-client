@@ -57,7 +57,10 @@ export function NewDeckModal({ labId, visible, onCancel, onCreate }: Props) {
                             onSubmitEditing={handleCreate}
                         />
                         <View style={styles.preview}>
-                            <DeckCard deck={preview} itemCount={0} totalValue={null} subDeckCount={0} />
+                            {/* Deck Consistency Patch — labType="standard" : ce modal n'est
+                                accessible que depuis le bouton "Nouveau deck" de LabDetail, absent
+                                en lab Wishlist (aucun autre call site). */}
+                            <DeckCard deck={preview} labType="standard" totalValue={null} subDeckCount={0} />
                         </View>
                         <View style={styles.actions}>
                             <Pressable style={styles.btnCancel} onPress={handleCancel}>

@@ -176,13 +176,18 @@ export function LabDetail({ route, navigation }: Props) {
                             <View style={styles.section}>
                                 <Text style={styles.label}>{t('labs.section.decks')}</Text>
                                 {rootDecks.map(d => {
-                                    const deckItems = items.filter(i => i.deckId === d.id && i.status === 'active');
+                                    // Deck Consistency Patch — filtre par lab.type (wishlist → status
+                                    // wishlist, sinon → status active), même reduce local que pour
+                                    // totalValue, pas d'appel service (agrège par lab, pas par deck).
+                                    const deckItems = items.filter(i => i.deckId === d.id && i.status === (isWishlist ? 'wishlist' : 'active'));
                                     const totalValue = spotGold !== null && spotSilver !== null
                                         ? deckItems.reduce((sum, i) => {
                                             const sp = i.metal === 'gold' ? spotGold : spotSilver;
                                             return sum + calcMeltValue(calcFineWeightOz(i.weightOz, i.purity), sp) * i.quantity;
                                         }, 0)
                                         : null;
+                                    const groupedLotCount = deckItems.filter(i => i.quantity > 1).length;
+                                    const unitCount = deckItems.reduce((sum, i) => sum + i.quantity, 0);
                                     const deckMenuActions: ContextMenuAction[] = [
                                         {
                                             label: t('modifier.title'),
@@ -200,9 +205,13 @@ export function LabDetail({ route, navigation }: Props) {
                                         <DeckCard
                                             key={d.id}
                                             deck={d}
-                                            itemCount={items.filter(i => i.deckId === d.id && i.status === 'active').length}
+                                            labType={isWishlist ? 'wishlist' : 'standard'}
+                                            groupedLotCount={groupedLotCount}
+                                            unitCount={unitCount}
+                                            wishCount={deckItems.length}
                                             subDeckCount={decks.filter(s => s.parentId === d.id).length}
                                             totalValue={totalValue}
+                                            currency={currency}
                                             onPress={() => navigation.navigate('DeckDetail', { deckId: d.id, labId })}
                                             menuActions={deckMenuActions}
                                         />
