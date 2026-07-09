@@ -8,10 +8,13 @@ import { useTranslation } from 'react-i18next';
 import { useItemStore } from '../../stores/itemStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useSpotStore } from '../../stores/spotStore';
-import { calcFineWeightOz, calcMeltValue, convertSpotPrice } from '../../utils/calculations';
+import { calcFineWeightOz } from '../../utils/calculations';
 import { formatWeight, formatPurity, formatCurrency, formatDate, formatStrikeLabel } from '../../utils/formatters';
 import { metalTokens, colors, fonts, fontSize } from '../../utils/theme';
 import { canPerformAction } from '../../domain/actionSemantics';
+import { convertCurrencyAmount } from '../../domain/valueSemantics';
+import type { CurrencyRates } from '../../domain/valueSemantics';
+import { getItemValueDisplayModel } from '../../domain/itemValueDisplaySemantics';
 import type { Currency, WeightUnit } from '../../types/settings.types';
 
 // Le rôle métier ici est toujours soldRecord : SoldHistoryScreen ne liste
@@ -21,7 +24,7 @@ import type { Currency, WeightUnit } from '../../types/settings.types';
 const SOLD_RECORD_ROLE = 'soldRecord' as const;
 
 export function SoldItemDetailScreen() {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const route = useRoute<any>();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -34,7 +37,7 @@ export function SoldItemDetailScreen() {
     const loadSoldItems = useItemStore(s => s.loadSoldItems);
     const currency = useSettingsStore(s => s.settings?.currency ?? 'USD') as Currency;
     const weightUnit = useSettingsStore(s => s.settings?.weightUnit ?? 'oz') as WeightUnit;
-    const { spot, rates } = useSpotStore();
+    const { rates } = useSpotStore();
 
     const item = soldItems.find(i => i.id === itemId);
 
@@ -57,37 +60,42 @@ export function SoldItemDetailScreen() {
 
     const metal = metalTokens[item.metal];
     const fineOz = calcFineWeightOz(item.weightOz, item.purity);
-    const spotPrice = spot ? (item.metal === 'gold' ? spot.gold : spot.silver) : null;
-    const meltValueUsd = spotPrice !== null ? calcMeltValue(fineOz, spotPrice) : null;
-    const meltValue = meltValueUsd !== null ? convertSpotPrice(meltValueUsd, currency, rates) : null;
 
     const strikeLabel = item.strikeFinish && item.strikeFinish !== 'unknown'
         ? formatStrikeLabel(item.strikeFinish) : null;
     const sub = [item.year?.toString(), strikeLabel].filter(Boolean).join(' · ');
 
-    const purchasePriceDisplay = item.purchasePrice !== null
-        ? formatCurrency(item.purchasePrice, (item.purchaseCurrency ?? currency) as Currency)
+    // Lot G1 — itemValueDisplaySemantics ne convertit aucune devise : purchasePrice/
+    // soldPrice doivent être convertis en devise d'affichage avant d'entrer dans le
+    // modèle (même convention que Wishlist/Active, Lots E1/F1).
+    const purchaseInDisplay = item.purchasePrice != null
+        ? convertCurrencyAmount(item.purchasePrice, item.purchaseCurrency ?? 'USD', currency, rates as CurrencyRates)
         : null;
-    const soldPriceDisplay = item.soldPrice !== null
-        ? formatCurrency(item.soldPrice, (item.soldCurrency ?? currency) as Currency)
+    const soldInDisplay = item.soldPrice != null
+        ? convertCurrencyAmount(item.soldPrice, item.soldCurrency ?? 'USD', currency, rates as CurrencyRates)
         : null;
 
-    const soldUsd = item.soldPrice !== null
-        ? ((!item.soldCurrency || item.soldCurrency === 'USD')
-            ? item.soldPrice
-            : (rates[item.soldCurrency] ? item.soldPrice * rates[item.soldCurrency] : null))
-        : null;
-    const purchaseUsd = item.purchasePrice !== null
-        ? ((!item.purchaseCurrency || item.purchaseCurrency === 'USD')
-            ? item.purchasePrice
-            : (rates[item.purchaseCurrency] ? item.purchasePrice * rates[item.purchaseCurrency] : null))
-        : null;
-    const soldDisplay = soldUsd !== null ? convertSpotPrice(soldUsd, currency, rates) : null;
-    const purchaseDisplay = purchaseUsd !== null ? convertSpotPrice(purchaseUsd, currency, rates) : null;
-    const soldColor = soldDisplay !== null && purchaseDisplay !== null
-        ? (soldDisplay > purchaseDisplay ? colors.green
-            : soldDisplay < purchaseDisplay ? colors.crimson
-            : colors.text)
+    // soldRecord n'a pas de section melt (live/current melt hors sujet pour
+    // interpréter une vente passée — NBS §18, confirmé par PERMISSIONS_BY_ROLE).
+    const soldModel = getItemValueDisplayModel({
+        role: SOLD_RECORD_ROLE,
+        quantity: item.quantity,
+        currency,
+        unitMeltValue: null,
+        purchasePrice: purchaseInDisplay,
+        purchasePriceBasis: item.purchasePriceBasis,
+        observedPrice: null,
+        observedPriceBasis: null,
+        soldPrice: soldInDisplay,
+        soldPriceBasis: item.soldPriceBasis,
+    });
+    const purchaseSection = soldModel.sections.find(s => s.kind === 'purchase') ?? null;
+    const soldSection = soldModel.sections.find(s => s.kind === 'sold') ?? null;
+    const pnlSection = soldModel.sections.find(s => s.kind === 'realizedPnL') ?? null;
+    // signal vient du modèle (favorable | unfavorable | neutral) — jamais recalculé
+    // localement, contrairement à l'ancien soldColor (comparaison ad hoc sold vs achat).
+    const pnlColor = pnlSection?.signal === 'favorable' ? colors.green
+        : pnlSection?.signal === 'unfavorable' ? colors.crimson
         : colors.text;
 
     return (
@@ -144,45 +152,100 @@ export function SoldItemDetailScreen() {
                 </View>
             </View>
 
-            {/* Melt */}
-            <View style={styles.row2}>
-                <View style={styles.stat}>
-                    <Text style={styles.statLabel}>{t('item.meltValue')}</Text>
-                    <Text style={styles.statVal}>
-                        {meltValue !== null ? formatCurrency(meltValue, currency) : '—'}
-                    </Text>
-                </View>
-            </View>
-
-            {/* Purchase */}
-            {purchasePriceDisplay !== null && (
+            {/* Purchase / cost basis — modèle centralisé (Lot G1), unité + total si
+                quantity > 1. Pas de ligne si donnée manquante (pas de faux calcul). */}
+            {purchaseSection?.completeness === 'complete' && (
                 <View style={styles.row2}>
                     <View style={styles.stat}>
-                        <Text style={styles.statLabel}>{t('item.purchasedLabel')}</Text>
-                        <Text style={styles.statVal}>{purchasePriceDisplay}</Text>
+                        <Text style={styles.statLabel}>
+                            {item.quantity > 1 ? `${t('item.purchasedLabel')} · ${t('item.purchasePerUnit')}` : t('item.purchasedLabel')}
+                        </Text>
+                        <Text style={styles.statVal}>{formatCurrency(purchaseSection.unitAmount!, currency)}</Text>
                     </View>
-                    {item.purchaseDate ? (
+                    {item.quantity > 1 ? (
+                        <View style={styles.stat}>
+                            <Text style={styles.statLabel}>{t('item.purchasedLabel')} · {t('item.totalLot')}</Text>
+                            <Text style={styles.statVal}>{formatCurrency(purchaseSection.totalAmount!, currency)}</Text>
+                        </View>
+                    ) : item.purchaseDate ? (
                         <View style={styles.stat}>
                             <Text style={styles.statLabel}>{t('item.dateLabel')}</Text>
-                            <Text style={styles.statVal}>{formatDate(item.purchaseDate)}</Text>
+                            <Text style={styles.statVal}>{formatDate(item.purchaseDate, i18n.language)}</Text>
                         </View>
                     ) : null}
                 </View>
             )}
-
-            {/* Sold */}
-            {soldPriceDisplay !== null && (
+            {item.quantity > 1 && item.purchaseDate && (
                 <View style={styles.row2}>
                     <View style={styles.stat}>
-                        <Text style={styles.statLabel}>{t('item.soldPrice')}</Text>
-                        <Text style={[styles.statVal, { color: soldColor }]}>{soldPriceDisplay}</Text>
+                        <Text style={styles.statLabel}>{t('item.dateLabel')}</Text>
+                        <Text style={styles.statVal}>{formatDate(item.purchaseDate, i18n.language)}</Text>
                     </View>
-                    {item.soldDate ? (
+                </View>
+            )}
+
+            {/* Sold — couleur sourcée du signal realizedPnL du modèle, jamais
+                recalculée localement (remplace l'ancien soldColor ad hoc). */}
+            {soldSection?.completeness === 'complete' && (
+                <View style={styles.row2}>
+                    <View style={styles.stat}>
+                        <Text style={styles.statLabel}>
+                            {item.quantity > 1 ? `${t('item.soldPrice')} · ${t('item.purchasePerUnit')}` : t('item.soldPrice')}
+                        </Text>
+                        <Text style={[styles.statVal, { color: pnlColor }]}>{formatCurrency(soldSection.unitAmount!, currency)}</Text>
+                    </View>
+                    {item.quantity > 1 ? (
+                        <View style={styles.stat}>
+                            <Text style={styles.statLabel}>{t('item.soldPrice')} · {t('item.totalLot')}</Text>
+                            <Text style={[styles.statVal, { color: pnlColor }]}>{formatCurrency(soldSection.totalAmount!, currency)}</Text>
+                        </View>
+                    ) : item.soldDate ? (
                         <View style={styles.stat}>
                             <Text style={styles.statLabel}>{t('item.dateLabel')}</Text>
-                            <Text style={styles.statVal}>{formatDate(item.soldDate)}</Text>
+                            <Text style={styles.statVal}>{formatDate(item.soldDate, i18n.language)}</Text>
                         </View>
                     ) : null}
+                </View>
+            )}
+            {item.quantity > 1 && item.soldDate && (
+                <View style={styles.row2}>
+                    <View style={styles.stat}>
+                        <Text style={styles.statLabel}>{t('item.dateLabel')}</Text>
+                        <Text style={styles.statVal}>{formatDate(item.soldDate, i18n.language)}</Text>
+                    </View>
+                </View>
+            )}
+
+            {/* P&L réalisé — nouveau (Lot G1), pas de recalcul local : rien si
+                incomplet (achat ou vente manquant), jamais de faux P&L. */}
+            {pnlSection?.completeness === 'complete' && (
+                <View style={styles.row2}>
+                    <View style={styles.stat}>
+                        <Text style={styles.statLabel}>
+                            {item.quantity > 1 ? `${t('item.realizedPnl')} · ${t('item.purchasePerUnit')}` : t('item.realizedPnl')}
+                        </Text>
+                        <Text style={[styles.statVal, { color: pnlColor }]}>
+                            {pnlSection.unitAmount! >= 0 ? '+' : '-'}{formatCurrency(Math.abs(pnlSection.unitAmount!), currency)}
+                            {item.quantity <= 1 && pnlSection.percent != null && (
+                                <>
+                                    {' ('}{pnlSection.unitAmount! >= 0 ? '+' : ''}{(pnlSection.percent * 100).toFixed(1)}%{')'}
+                                </>
+                            )}
+                        </Text>
+                    </View>
+                    {item.quantity > 1 && (
+                        <View style={styles.stat}>
+                            <Text style={styles.statLabel}>{t('item.realizedPnl')} · {t('item.totalLot')}</Text>
+                            <Text style={[styles.statVal, { color: pnlColor }]}>
+                                {pnlSection.totalAmount! >= 0 ? '+' : '-'}{formatCurrency(Math.abs(pnlSection.totalAmount!), currency)}
+                                {pnlSection.percent != null && (
+                                    <>
+                                        {' ('}{pnlSection.totalAmount! >= 0 ? '+' : ''}{(pnlSection.percent * 100).toFixed(1)}%{')'}
+                                    </>
+                                )}
+                            </Text>
+                        </View>
+                    )}
                 </View>
             )}
         </ScrollView>

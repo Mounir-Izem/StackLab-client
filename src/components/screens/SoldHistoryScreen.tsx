@@ -11,7 +11,7 @@ import type { Item } from '../../types/item.types';
 import type { Currency } from '../../types/settings.types';
 
 export function SoldHistoryScreen() {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const navigation = useNavigation<any>();
     const { soldItems, isLoading, loadSoldItems } = useItemStore();
@@ -49,7 +49,7 @@ export function SoldHistoryScreen() {
                 <View style={styles.rowBody}>
                     <Text style={styles.rowName} numberOfLines={1}>{item.name}</Text>
                     <Text style={styles.rowSub}>
-                        {item.soldDate ? formatDate(item.soldDate) : '—'}
+                        {item.soldDate ? formatDate(item.soldDate, i18n.language) : '—'}
                         {item.soldPrice !== null
                             ? ` · ${formatCurrency(item.soldPrice, (item.soldCurrency ?? currency) as Currency)}`
                             : ''}

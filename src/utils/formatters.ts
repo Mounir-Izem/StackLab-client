@@ -28,7 +28,9 @@ export function formatPurity(value: number | null): string {
     return '.' + value.toFixed(decimals).slice(2);
 }
 
-export function formatDate(isoDate: string | null): string {
+// locale optionnel (BCP-47, ex. 'fr') — défaut 'en-US' inchangé pour ne pas
+// affecter les appelants existants qui ne le passent pas.
+export function formatDate(isoDate: string | null, locale: string = 'en-US'): string {
     if (!isoDate) return EMPTY;
     const parts = isoDate.split('T')[0].split('-').map(Number);
     const [year, month, day] = parts;
@@ -36,7 +38,7 @@ export function formatDate(isoDate: string | null): string {
     if (!month) return String(year);
     const date = new Date(year, month - 1, day ?? 1);
     if (isNaN(date.getTime())) return EMPTY;
-    return new Intl.DateTimeFormat('en-US', {
+    return new Intl.DateTimeFormat(locale, {
         month: 'short',
         ...(day ? { day: 'numeric' } : {}),
         year: 'numeric',

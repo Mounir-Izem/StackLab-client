@@ -2,6 +2,7 @@ import { Pressable } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '../stores/settingsStore';
 import { colors, fonts } from '../utils/theme';
 import type { MainTabParamList } from './types';
@@ -40,10 +41,14 @@ function SpotStack() {
 
 const DashNav = createNativeStackNavigator();
 function DashStack() {
+    // QA/product correction — "Sold History" était codé en dur (jamais traduit).
+    // dashboard.soldHistory existe déjà dans les deux locales, réutilisée telle
+    // quelle. Les autres titres de cet écran restent inchangés (hors périmètre).
+    const { t } = useTranslation();
     return (
         <DashNav.Navigator screenOptions={{ ...HEADER_OPTIONS, headerRight: () => <GearButton /> }}>
             <DashNav.Screen name="DashHome" component={DashboardHome} options={{ title: 'Dashboard' }} />
-            <DashNav.Screen name="SoldHistory" component={SoldHistoryScreen} options={{ title: 'Sold History' }} />
+            <DashNav.Screen name="SoldHistory" component={SoldHistoryScreen} options={{ title: t('dashboard.soldHistory') }} />
             <DashNav.Screen name="SoldItemDetail" component={SoldItemDetailScreen} options={{ title: 'Détail' }} />
         </DashNav.Navigator>
     );

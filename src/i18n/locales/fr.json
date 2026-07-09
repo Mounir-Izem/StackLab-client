@@ -264,6 +264,7 @@
     "currentValue": "Valeur actuelle",
     "meltValue": "Valeur fonte",
     "pnl": "P&L non réalisé",
+    "realizedPnl": "P&L réalisé",
     "soldPrice": "Vendu pour",
     "soldDate": "Vendu le",
     "actions": {

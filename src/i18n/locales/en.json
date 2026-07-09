@@ -264,6 +264,7 @@
     "currentValue": "Current value",
     "meltValue": "Melt value",
     "pnl": "Unrealized P&L",
+    "realizedPnl": "Realized P&L",
     "soldPrice": "Sold for",
     "soldDate": "Sold on",
     "actions": {
