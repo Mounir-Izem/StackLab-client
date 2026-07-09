@@ -438,6 +438,54 @@ describe('itemService.delete — guards', () => {
     });
 });
 
+// Phase 10G — aucune couverture n'existait pour restoreFromTrash() alors que
+// c'est le chemin réellement exercé par TrashScreenC.tsx (restauration en
+// masse) et ItemDetail.tsx (restauration d'un item trashé consulté seul).
+// L'implémentation ne touche que labId/deckId — ces tests garantissent que
+// quantity/purchasePrice/purchasePriceBasis/status restent bit-à-bit
+// inchangés au retour de la corbeille (pas de drift de cost basis).
+describe('itemService.restoreFromTrash', () => {
+    test('ITEM_NOT_FOUND si item inexistant', async () => {
+        mockRepo.findById.mockResolvedValue(null);
+        await expect(itemService.restoreFromTrash('bad-id', 'lab-2', null)).rejects.toThrow('ITEM_NOT_FOUND');
+    });
+
+    test('ITEM_NOT_IN_TRASH si l\'item n\'est pas dans le lab Trash', async () => {
+        mockRepo.findById.mockResolvedValue(makeItem({ labId: 'lab-uuid-1' }));
+        mockLabRepo.findByType.mockResolvedValue(makeLab({ id: 'trash-lab', type: 'trash' }));
+        await expect(itemService.restoreFromTrash('item-uuid-1', 'lab-2', null)).rejects.toThrow('ITEM_NOT_IN_TRASH');
+        expect(mockRepo.update).not.toHaveBeenCalled();
+    });
+
+    test('restauration → seuls labId/deckId changent, quantity/purchasePrice/basis/status intacts', async () => {
+        mockRepo.findById.mockResolvedValue(makeItem({
+            labId: 'trash-lab', quantity: 5, purchasePrice: 104, purchasePriceBasis: 'unit', status: 'active',
+        }));
+        mockLabRepo.findByType.mockResolvedValue(makeLab({ id: 'trash-lab', type: 'trash' }));
+        mockRepo.update.mockResolvedValue(makeItem({ labId: 'lab-2' }));
+
+        await itemService.restoreFromTrash('item-uuid-1', 'lab-2', 'deck-9');
+
+        expect(mockRepo.update).toHaveBeenCalledWith('item-uuid-1', { labId: 'lab-2', deckId: 'deck-9' });
+    });
+
+    test('restauration d\'un trashedSale (status sold) → status reste sold, réapparaît dans l\'historique des ventes', async () => {
+        mockRepo.findById.mockResolvedValue(makeItem({
+            labId: 'trash-lab', status: 'sold', soldPrice: 60, soldPriceBasis: 'lotTotal',
+        }));
+        mockLabRepo.findByType.mockResolvedValue(makeLab({ id: 'trash-lab', type: 'trash' }));
+        mockRepo.update.mockResolvedValue(makeItem({ labId: 'lab-2', status: 'sold' }));
+
+        await itemService.restoreFromTrash('item-uuid-1', 'lab-2', null);
+
+        // status n'est jamais dans le payload : restoreFromTrash ne le touche
+        // pas, il reste 'sold' tel quel côté DB — pas de réactivation en 'active'.
+        const payload = mockRepo.update.mock.calls[0][1];
+        expect(payload).not.toHaveProperty('status');
+        expect(payload).toEqual({ labId: 'lab-2', deckId: null });
+    });
+});
+
 describe('itemService — edge case quantity = 1', () => {
     test('extract refuse toute extraction (EXTRACT_REQUIRES_PARTIAL_QTY), aucun prorata déclenché', async () => {
         mockRepo.findById.mockResolvedValue(makeItem({ quantity: 1, purchasePrice: 50 }));
