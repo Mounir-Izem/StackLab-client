@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useItemStore } from '../../stores/itemStore';
 import { useSettingsStore } from '../../stores/settingsStore';
-import { resolvePriceEntry } from '../../domain/lotUnitValueSemantics';
+import { resolvePriceEntry, normalizePriceInputToTotal } from '../../domain/lotUnitValueSemantics';
 import { colors, fonts, metalTokens } from '../../utils/theme';
 import type { Item, PriceBasis } from '../../types/item.types';
 import type { Currency } from '../../types/settings.types';
@@ -56,6 +56,22 @@ export function ModifierScreenD({ items, labName, deckName, onBack, onDone }: Pr
         const max = items.find(i => i.id === itemId)?.quantity ?? 0;
         const n = Math.min(Math.max(0, parseInt(raw, 10) || 0), max);
         updateRow(itemId, { qty: n });
+    }
+
+    // Phase 10F — hint de confirmation unité/total, même règle que
+    // PurchasePriceField (create/edit) : rien tant que qty <= 1 ou que la base
+    // n'est pas choisie. Duplique la formule plutôt que PurchasePriceField
+    // lui-même, dont le layout ne correspond pas à cette row (prix + devise +
+    // toggle sur une seule ligne) — restructurer le layout est hors périmètre.
+    function priceEntryHint(priceText: string, basis: PriceBasis | null, quantity: number): string | null {
+        if (quantity <= 1 || basis == null) return null;
+        const parsed = priceText.trim() ? parseFloat(priceText.replace(',', '.')) : null;
+        if (parsed === null || !Number.isFinite(parsed)) return null;
+        const total = normalizePriceInputToTotal({ amount: parsed, basis, quantity });
+        if (total === null) return null;
+        return basis === 'unit'
+            ? t('create.totalForItems', { count: quantity, amount: total.toFixed(2) })
+            : t('create.averagePerItem', { amount: (total / quantity).toFixed(2) });
     }
 
     async function handleConfirm() {
@@ -194,7 +210,7 @@ export function ModifierScreenD({ items, labName, deckName, onBack, onDone }: Pr
                                                 style={[styles.perUnitBtn, row.basis === 'lotTotal' && styles.perUnitBtnActive]}
                                                 onPress={() => updateRow(item.id, { basis: 'lotTotal' })}
                                             >
-                                                <Text style={[styles.perUnitText, row.basis === 'lotTotal' && styles.perUnitTextActive]}>{t('item.perLot')}</Text>
+                                                <Text style={[styles.perUnitText, row.basis === 'lotTotal' && styles.perUnitTextActive]}>{t('item.totalLot')}</Text>
                                             </Pressable>
                                             <Pressable
                                                 style={[styles.perUnitBtn, row.basis === 'unit' && styles.perUnitBtnActive]}
@@ -208,6 +224,10 @@ export function ModifierScreenD({ items, labName, deckName, onBack, onDone }: Pr
                                 {basisErrorRowIds.has(item.id) && (
                                     <Text style={styles.basisPrompt}>{t('item.priceBasisRequired')}</Text>
                                 )}
+                                {!basisErrorRowIds.has(item.id) && (() => {
+                                    const hint = priceEntryHint(row.price, row.basis, row.qty);
+                                    return hint ? <Text style={styles.hint}>{hint}</Text> : null;
+                                })()}
                             </View>
                         </View>
                     );
@@ -295,6 +315,7 @@ const styles = StyleSheet.create({
     perUnitText: { fontFamily: fonts.outfit, fontSize: 12, color: colors.text2 },
     perUnitTextActive: { color: colors.text },
     basisPrompt: { fontFamily: fonts.outfit, fontSize: 12, color: 'rgba(255,200,100,0.85)', marginTop: 4 },
+    hint: { fontFamily: fonts.outfit, fontSize: 12, color: colors.text2, marginTop: 4 },
     summary: { backgroundColor: colors.surface, borderRadius: 12, padding: 14 },
     summaryText: { fontFamily: fonts.outfit, fontSize: 13, color: colors.text2 },
     errorText: { fontFamily: fonts.outfit, fontSize: 12, color: colors.crimson, textAlign: 'center' },

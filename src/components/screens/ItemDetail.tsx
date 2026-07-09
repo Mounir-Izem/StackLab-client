@@ -23,7 +23,7 @@ import { getItemRole } from '../../domain/itemSemantics';
 import { canPerformAction } from '../../domain/actionSemantics';
 import { convertCurrencyAmount } from '../../domain/valueSemantics';
 import type { CurrencyRates } from '../../domain/valueSemantics';
-import { resolvePriceEntry } from '../../domain/lotUnitValueSemantics';
+import { resolvePriceEntry, normalizePriceInputToTotal } from '../../domain/lotUnitValueSemantics';
 import { getItemValueDisplayModel } from '../../domain/itemValueDisplaySemantics';
 import { resolveQuantityDraft } from '../../utils/quantityInput';
 import type { LabsStackScreenProps } from '../../navigation/types';
@@ -231,6 +231,23 @@ export function ItemDetail({ route, navigation }: Props) {
     const activePnLColor = activePnLSection?.signal === 'favorable' ? colors.green
         : activePnLSection?.signal === 'unfavorable' ? colors.crimson
         : colors.text;
+
+    // Phase 10F — hint de confirmation unité/total pour sell/acquire, même règle
+    // que PurchasePriceField (create/edit) : rien tant que quantity <= 1 ou que la
+    // base n'est pas choisie (valeur ambiguë, pas de calcul). Duplique la formule
+    // plutôt que PurchasePriceField lui-même, dont le layout (toggle+input+hint
+    // empilés) ne correspond pas à ces modales (TextInput + devise + toggle sur
+    // une seule ligne) — restructurer le layout est hors périmètre de ce lot.
+    function priceEntryHint(priceText: string, basis: PriceBasis | null, quantity: number): string | null {
+        if (quantity <= 1 || basis == null) return null;
+        const parsed = priceText.trim() ? parseFloat(priceText.replace(',', '.')) : null;
+        if (parsed === null || !Number.isFinite(parsed)) return null;
+        const total = normalizePriceInputToTotal({ amount: parsed, basis, quantity });
+        if (total === null) return null;
+        return basis === 'unit'
+            ? t('create.totalForItems', { count: quantity, amount: total.toFixed(2) })
+            : t('create.averagePerItem', { amount: (total / quantity).toFixed(2) });
+    }
 
     return (
         <View style={styles.screen}>
@@ -640,6 +657,13 @@ export function ItemDetail({ route, navigation }: Props) {
                             {acquireBasisError && (
                                 <Text style={styles.basisPrompt}>{t('item.priceBasisRequired')}</Text>
                             )}
+                            {!acquireBasisError && (() => {
+                                const hint = priceEntryHint(
+                                    acquirePrice, acquireBasis,
+                                    acquireQtyDraft !== null ? resolveQuantityDraft(acquireQtyDraft, item.quantity) : acquireQty,
+                                );
+                                return hint ? <Text style={styles.hint}>{hint}</Text> : null;
+                            })()}
                         </View>
 
                         <Pressable
@@ -727,7 +751,7 @@ export function ItemDetail({ route, navigation }: Props) {
                                             style={[styles.perUnitBtn, sellBasis === 'lotTotal' && styles.perUnitBtnActive]}
                                             onPress={() => { setSellBasis('lotTotal'); setSellBasisError(false); }}
                                         >
-                                            <Text style={[styles.perUnitText, sellBasis === 'lotTotal' && styles.perUnitTextActive]}>{t('item.perLot')}</Text>
+                                            <Text style={[styles.perUnitText, sellBasis === 'lotTotal' && styles.perUnitTextActive]}>{t('item.totalLot')}</Text>
                                         </Pressable>
                                         <Pressable
                                             style={[styles.perUnitBtn, sellBasis === 'unit' && styles.perUnitBtnActive]}
@@ -741,6 +765,13 @@ export function ItemDetail({ route, navigation }: Props) {
                             {sellBasisError && (
                                 <Text style={styles.basisPrompt}>{t('item.priceBasisRequired')}</Text>
                             )}
+                            {!sellBasisError && (() => {
+                                const hint = priceEntryHint(
+                                    sellPrice, sellBasis,
+                                    sellQtyDraft !== null ? resolveQuantityDraft(sellQtyDraft, item.quantity) : sellQty,
+                                );
+                                return hint ? <Text style={styles.hint}>{hint}</Text> : null;
+                            })()}
                         </View>
 
                         <Pressable style={styles.sellConfirmBtn} onPress={async () => {
@@ -1039,6 +1070,7 @@ const styles = StyleSheet.create({
     perUnitText: { fontFamily: fonts.outfit, fontSize: 12, color: colors.text2 },
     perUnitTextActive: { color: colors.text },
     basisPrompt: { fontFamily: fonts.outfit, fontSize: 12, color: 'rgba(255,200,100,0.85)', marginTop: 6 },
+    hint: { fontFamily: fonts.outfit, fontSize: 12, color: colors.text3, marginTop: 6 },
     sellConfirmBtn: { margin: 16, marginTop: 4, backgroundColor: colors.green, borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
     sellConfirmText: { fontFamily: fonts.outfitSemiBold, fontSize: 15, color: '#0A1A0F' },
     labChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

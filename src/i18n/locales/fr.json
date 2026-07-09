@@ -319,7 +319,6 @@
     "movePremiumNote": "Créez un second lab pour déplacer des objets entre labs — Premium",
     "acquirePriceLabel": "Prix d'achat (optionnel)",
     "totalLot": "Total lot",
-    "perLot": "Par lot",
     "rowWhole": "Ligne entière",
     "priceBasisRequired": "Indique si ce prix concerne une unité ou tout le lot afin d'éviter un mauvais calcul.",
     "priceBasisRowRequired": "Indique si ce prix concerne une unité ou toute la ligne afin d'éviter un mauvais calcul.",

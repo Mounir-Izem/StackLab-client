@@ -200,6 +200,96 @@ describe('itemService.sell — calcul prix', () => {
         const created = mockRepo.create.mock.calls[0][0];
         expect(created.soldPrice).toBeNull();
     });
+
+    // Phase 10F — soldPrice = 0 est une vraie valeur (ex. don, perte totale
+    // enregistrée volontairement) : ne doit jamais être traité comme "pas de
+    // prix" (soldPrice null) ni perdre son basis. priceBasisOf() teste `== null`,
+    // pas la falsy-ness — ce test garde cette distinction vraie de bout en bout
+    // via le service, pas seulement au niveau du domain (déjà couvert par
+    // resolvePriceEntry, lotUnitValueSemantics.test.ts).
+    test('soldPrice = 0 (vente partielle) → reste 0, jamais null, basis conservé', async () => {
+        mockRepo.findById.mockResolvedValue(makeItem({ quantity: 7 }));
+        mockRepo.update.mockResolvedValue(makeItem({ quantity: 5 }));
+        mockRepo.create.mockResolvedValue(makeItem());
+
+        await itemService.sell('item-uuid-1', 2, 0, false, 'USD', '2026-04-24');
+
+        const created = mockRepo.create.mock.calls[0][0];
+        expect(created.soldPrice).toBe(0);
+        expect(created.soldPriceBasis).toBe('lotTotal');
+    });
+
+    test('soldPrice = 0 (vente totale) → reste 0, jamais null, basis conservé', async () => {
+        mockRepo.findById.mockResolvedValue(makeItem({ quantity: 3 }));
+        mockRepo.update.mockResolvedValue(makeItem({ quantity: 3, status: 'sold' }));
+
+        await itemService.sell('item-uuid-1', 3, 0, true, 'USD', '2026-04-24');
+
+        const updatePayload = mockRepo.update.mock.calls[0][1];
+        expect(updatePayload.soldPrice).toBe(0);
+        expect(updatePayload.soldPriceBasis).toBe('unit');
+    });
+});
+
+// Phase 10F — sellMany() (vente en masse, ModifierScreenD) n'avait aucune
+// couverture propre : la logique dédouble sell() (même finalSoldPrice /
+// soldPriceBasis / prorata) mais n'était jamais exercée directement. Tests
+// ciblés uniquement sur ce qui diffère d'un simple appel répété à sell() —
+// pas de re-test des guards déjà couverts au-dessus.
+describe('itemService.sellMany — prorata et prix', () => {
+    test('vente partielle en masse proratise le purchasePrice comme sell() (lot 8/104€, vendre 2 → 26€ + 78€)', async () => {
+        mockRepo.findById.mockResolvedValue(makeItem({ quantity: 8, purchasePrice: 104, purchasePriceBasis: 'lotTotal' }));
+        mockRepo.update.mockResolvedValue(makeItem({ quantity: 6 }));
+        mockRepo.create.mockResolvedValue(makeItem({ quantity: 2, status: 'sold' }));
+
+        await itemService.sellMany([
+            { id: 'item-uuid-1', qty: 2, soldPrice: 50, perUnit: false, soldCurrency: 'USD', soldDate: '2026-04-24' },
+        ]);
+
+        const updatePayload = mockRepo.update.mock.calls[0][1];
+        const created = mockRepo.create.mock.calls[0][0];
+        expect(updatePayload.purchasePrice).toBeCloseTo(78, 2);
+        expect(created.purchasePrice).toBeCloseTo(26, 2);
+        expect(created.soldPrice).toBe(50);
+    });
+
+    test('soldPrice = 0 sur une row → reste 0, jamais null', async () => {
+        mockRepo.findById.mockResolvedValue(makeItem({ quantity: 5 }));
+        mockRepo.update.mockResolvedValue(makeItem({ quantity: 3 }));
+        mockRepo.create.mockResolvedValue(makeItem({ quantity: 2, status: 'sold' }));
+
+        await itemService.sellMany([
+            { id: 'item-uuid-1', qty: 2, soldPrice: 0, perUnit: false, soldCurrency: 'USD', soldDate: '2026-04-24' },
+        ]);
+
+        const created = mockRepo.create.mock.calls[0][0];
+        expect(created.soldPrice).toBe(0);
+        expect(created.soldPriceBasis).toBe('lotTotal');
+    });
+
+    test('plusieurs rows dans une même transaction, chacune avec sa propre base et son propre prorata', async () => {
+        mockRepo.findById.mockImplementation((id: string) =>
+            Promise.resolve(id === 'item-a'
+                ? makeItem({ id: 'item-a', quantity: 10, purchasePrice: 200, purchasePriceBasis: 'lotTotal' })
+                : makeItem({ id: 'item-b', quantity: 4, purchasePrice: 40, purchasePriceBasis: 'unit' })));
+        mockRepo.update.mockResolvedValue(makeItem());
+        mockRepo.create.mockResolvedValue(makeItem());
+
+        await itemService.sellMany([
+            { id: 'item-a', qty: 5, soldPrice: 12, perUnit: true, soldCurrency: 'USD', soldDate: '2026-04-24' },
+            { id: 'item-b', qty: 1, soldPrice: 15, perUnit: false, soldCurrency: 'USD', soldDate: '2026-04-24' },
+        ]);
+
+        expect(mockRepo.create).toHaveBeenCalledTimes(2);
+        const soldA = mockRepo.create.mock.calls[0][0];
+        const soldB = mockRepo.create.mock.calls[1][0];
+        // item-a : perUnit=true, prix 12 × qty 5 = 60
+        expect(soldA.soldPrice).toBe(60);
+        expect(soldA.purchasePrice).toBeCloseTo(100, 2); // prorata 5/10 de 200
+        // item-b : perUnit=false, prix brut 15 (lot)
+        expect(soldB.soldPrice).toBe(15);
+        expect(soldB.purchasePrice).toBeCloseTo(10, 2); // prorata 1/4 de 40
+    });
 });
 
 describe('itemService.move — guards', () => {

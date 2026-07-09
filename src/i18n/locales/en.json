@@ -319,7 +319,6 @@
     "movePremiumNote": "Create a second lab to move items between labs — Premium",
     "acquirePriceLabel": "Purchase price (optional)",
     "totalLot": "Total lot",
-    "perLot": "Per lot",
     "rowWhole": "Whole row",
     "priceBasisRequired": "Choose whether this price is for one unit or for the whole lot to avoid an incorrect calculation.",
     "priceBasisRowRequired": "Choose whether this price is for one unit or for the whole row to avoid an incorrect calculation.",
