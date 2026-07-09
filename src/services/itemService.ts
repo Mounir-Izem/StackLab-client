@@ -122,6 +122,24 @@ export const itemService = {
         });
     },
 
+    // Phase 10H — création atomique multi-rows (CreateItemFlow mode "mix").
+    // Réutilise this.create() pour chaque row (aucune duplication de la
+    // normalisation prix/basis) sous une seule transaction : soit toutes les
+    // rows sont créées, soit aucune (le SAVEPOINT interne de
+    // itemRepository.create() s'imbrique sans risque dans cette transaction
+    // englobante — si une row échoue, le ROLLBACK global défait aussi les
+    // rows déjà créées dans la même boucle). Sémantique de create() inchangée.
+    async createMany(rows: ItemCreateInput[]): Promise<Item[]> {
+        if (rows.length === 0) return [];
+        return withTransaction(async () => {
+            const created: Item[] = [];
+            for (const data of rows) {
+                created.push(await this.create(data));
+            }
+            return created;
+        });
+    },
+
     // purchasePrice (et son basis) sont exclus volontairement : ils doivent toujours passer
     // par updatePurchasePrice() pour être normalisés (total vs per-unit) et rester cohérents
     // entre eux, jamais écrits bruts. Garde runtime en plus du type, car un objet "data"
@@ -175,6 +193,12 @@ export const itemService = {
         const item = await itemRepository.findById(id);
         if (!item) throw new Error('ITEM_NOT_FOUND');
         if (item.status !== 'active') throw new Error('ITEM_NOT_SELLABLE');
+        // Phase 10H — garde défensive : un trashedHolding a status 'active' (seul
+        // labId change en Trash), donc le check ci-dessus ne suffit pas à
+        // l'exclure. L'UI masque déjà le bouton Vendre en Trash ; le service
+        // doit rester sûr indépendamment de l'UI qui l'appelle.
+        const trashLab = await labRepository.findByType('trash');
+        if (trashLab && item.labId === trashLab.id) throw new Error('ITEM_IN_TRASH');
         if (qty < 1) throw new Error('INVALID_QTY');
         if (qty > item.quantity) throw new Error('QTY_EXCEEDS_STOCK');
 
@@ -219,11 +243,15 @@ export const itemService = {
     }>): Promise<void> {
         if (sells.length === 0) return;
 
+        // Phase 10H — même garde que sell(), une seule requête pour tout le lot.
+        const trashLab = await labRepository.findByType('trash');
+
         const validated: Array<{ sell: (typeof sells)[0]; item: Item }> = [];
         for (const sell of sells) {
             const item = await itemRepository.findById(sell.id);
             if (!item) throw new Error(`ITEM_NOT_FOUND: ${sell.id}`);
             if (item.status !== 'active') throw new Error(`ITEM_NOT_SELLABLE: ${sell.id}`);
+            if (trashLab && item.labId === trashLab.id) throw new Error(`ITEM_IN_TRASH: ${sell.id}`);
             if (sell.qty < 1) throw new Error(`INVALID_QTY: ${sell.id}`);
             if (sell.qty > item.quantity) throw new Error(`QTY_EXCEEDS_STOCK: ${sell.id}`);
             validated.push({ sell, item });

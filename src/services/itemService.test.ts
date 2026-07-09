@@ -79,10 +79,86 @@ beforeEach(() => {
     jest.clearAllMocks();
 });
 
+// Phase 10H — CreateItemFlow mode "mix" créait ses rows en boucle avec
+// createItem() (un appel repository indépendant par row, aucune transaction
+// englobante) : une row en échec au milieu du lot laissait les rows
+// précédentes déjà persistées en base. createMany() réutilise this.create()
+// (aucune duplication de la normalisation prix/basis) sous une seule
+// withTransaction — sémantique de create() inchangée.
+describe('itemService.createMany', () => {
+    const baseCreateInput = {
+        labId: 'lab-uuid-1',
+        status: 'active' as const,
+        name: 'Maple Leaf',
+        metal: 'silver' as const,
+        shape: 'coin' as const,
+        weightInput: 1,
+        weightUnit: 'oz' as const,
+        purity: 0.9999,
+    };
+
+    test('tableau vide → aucune création, pas d\'appel repository', async () => {
+        const result = await itemService.createMany([]);
+        expect(result).toEqual([]);
+        expect(mockRepo.create).not.toHaveBeenCalled();
+    });
+
+    test('toutes les rows créées avec succès → tableau complet dans l\'ordre', async () => {
+        mockRepo.create
+            .mockResolvedValueOnce(makeItem({ id: 'row-1', quantity: 2 }))
+            .mockResolvedValueOnce(makeItem({ id: 'row-2', quantity: 3 }));
+
+        const result = await itemService.createMany([
+            { ...baseCreateInput, quantity: 2 },
+            { ...baseCreateInput, quantity: 3 },
+        ]);
+
+        expect(mockRepo.create).toHaveBeenCalledTimes(2);
+        expect(result).toHaveLength(2);
+        expect(result[0].id).toBe('row-1');
+        expect(result[1].id).toBe('row-2');
+    });
+
+    // withTransaction est mocké en passthrough dans ce fichier (comme pour
+    // sell/move/extract/delete existants, cf. jest.mock('../db/database')
+    // en tête de fichier) — il n'exécute pas de vrai BEGIN/ROLLBACK SQL ici,
+    // donc ce test ne peut pas prouver qu'une row déjà insérée est
+    // physiquement défaite en base (le rollback SQL réel vit dans les 6
+    // lignes de db/database.ts, hors du périmètre testable par ce mock).
+    // Ce que ce test prouve, et qui est la garantie utile côté appelant
+    // (CreateItemFlow) : si une row échoue en cours de lot, createMany() ne
+    // retourne JAMAIS un tableau partiel — la promesse rejette, le store ne
+    // commite rien dans son state, l'UI n'affiche donc aucune row fantôme.
+    test('une row échoue en cours de lot → rejette, aucun tableau partiel retourné', async () => {
+        mockRepo.create
+            .mockResolvedValueOnce(makeItem({ id: 'row-1' }))
+            .mockRejectedValueOnce(new Error('DB_ERROR'));
+
+        await expect(itemService.createMany([
+            { ...baseCreateInput, quantity: 1 },
+            { ...baseCreateInput, quantity: 1 },
+            { ...baseCreateInput, quantity: 1 },
+        ])).rejects.toThrow('DB_ERROR');
+
+        // La 3e row n'est jamais tentée — la boucle s'arrête net à l'échec.
+        expect(mockRepo.create).toHaveBeenCalledTimes(2);
+    });
+});
+
 describe('itemService.sell — guards', () => {
     test('ITEM_NOT_FOUND si item inexistant', async () => {
         mockRepo.findById.mockResolvedValue(null);
         await expect(itemService.sell('bad-id', 1, null, false, 'USD', '2026-04-24')).rejects.toThrow('ITEM_NOT_FOUND');
+    });
+
+    // Phase 10H — garde défensive côté service : un trashedHolding a status
+    // 'active' (seul labId change en Trash), le guard ITEM_NOT_SELLABLE ne
+    // suffit donc pas à l'exclure. L'UI masque déjà le bouton Vendre en
+    // Trash ; ce test prouve que le service reste sûr indépendamment de l'UI.
+    test('ITEM_IN_TRASH si l\'item est dans le lab Trash (status active, labId = trash)', async () => {
+        mockRepo.findById.mockResolvedValue(makeItem({ status: 'active', labId: 'trash-lab' }));
+        mockLabRepo.findByType.mockResolvedValue(makeLab({ id: 'trash-lab', type: 'trash' }));
+        await expect(itemService.sell('item-uuid-1', 1, null, false, 'USD', '2026-04-24')).rejects.toThrow('ITEM_IN_TRASH');
     });
 
     test('ITEM_NOT_SELLABLE si status !== active', async () => {
@@ -289,6 +365,26 @@ describe('itemService.sellMany — prorata et prix', () => {
         // item-b : perUnit=false, prix brut 15 (lot)
         expect(soldB.soldPrice).toBe(15);
         expect(soldB.purchasePrice).toBeCloseTo(10, 2); // prorata 1/4 de 40
+    });
+});
+
+describe('itemService.sellMany — guards', () => {
+    test('ITEM_NOT_FOUND si un id est inexistant', async () => {
+        mockRepo.findById.mockResolvedValue(null);
+        await expect(itemService.sellMany([
+            { id: 'bad-id', qty: 1, soldPrice: null, perUnit: false, soldCurrency: 'USD', soldDate: '2026-04-24' },
+        ])).rejects.toThrow('ITEM_NOT_FOUND');
+    });
+
+    // Phase 10H — même garde que sell(), une seule requête labRepository pour
+    // tout le lot (pas un findByType par row).
+    test('ITEM_IN_TRASH si une row cible un item dans le lab Trash', async () => {
+        mockRepo.findById.mockResolvedValue(makeItem({ status: 'active', labId: 'trash-lab' }));
+        mockLabRepo.findByType.mockResolvedValue(makeLab({ id: 'trash-lab', type: 'trash' }));
+        await expect(itemService.sellMany([
+            { id: 'item-uuid-1', qty: 1, soldPrice: null, perUnit: false, soldCurrency: 'USD', soldDate: '2026-04-24' },
+        ])).rejects.toThrow('ITEM_IN_TRASH');
+        expect(mockLabRepo.findByType).toHaveBeenCalledTimes(1);
     });
 });
 

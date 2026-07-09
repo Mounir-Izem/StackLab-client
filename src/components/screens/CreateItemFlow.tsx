@@ -75,7 +75,7 @@ type Props = {
 export function CreateItemFlow({ route, navigation }: Props) {
     const { t } = useTranslation();
     const { labId, deckId } = route.params;
-    const { createItem } = useItemStore();
+    const { createItem, createManyItems } = useItemStore();
     const lab = useLabStore(s => s.labs.find(l => l.id === labId));
     const itemStatus: 'wishlist' | 'active' = lab?.type === 'wishlist' ? 'wishlist' : 'active';
 
@@ -181,23 +181,27 @@ export function CreateItemFlow({ route, navigation }: Props) {
                 const newId = useItemStore.getState().items.at(-1)?.id ?? null;
                 if (newId) animationState.lastCreatedItemId = newId;
             } else {
-                let lastId: string | null = null;
+                // Phase 10H — création atomique : toutes les rows dans une seule
+                // transaction (itemService.createMany), plus de boucle createItem()
+                // row par row qui pouvait laisser des rows orphelines déjà créées
+                // si une row échouait en cours de lot (NATIVE_BUSINESS_SEMANTICS.md §26).
                 const allocations = mixResult?.status === 'ok' ? mixResult.allocations : [];
-                for (const row of state.rows) {
+                const rows = state.rows.map(row => {
                     const allocation = allocations.find(a => a.id === row.id);
-                    await createItem({
+                    return {
                         ...base,
                         quantity: row.qty,
                         year: row.year ? parseInt(row.year, 10) : null,
                         strikeFinish: row.strikeFinish,
                         ...mixPriceFieldsFor(allocation?.price ?? null, allocation?.isPerUnit ?? false),
-                    });
-                    if (useItemStore.getState().error) {
-                        setSubmitError(t('create.creationFailedRows'));
-                        return;
-                    }
-                    lastId = useItemStore.getState().items.at(-1)?.id ?? null;
+                    };
+                });
+                await createManyItems(rows);
+                if (useItemStore.getState().error) {
+                    setSubmitError(t('create.creationFailedRows'));
+                    return;
                 }
+                const lastId = useItemStore.getState().items.at(-1)?.id ?? null;
                 if (lastId) animationState.lastCreatedItemId = lastId;
             }
             triggerSuccess();

@@ -14,6 +14,7 @@ interface ItemStore {
     loadItems: (labId: string) => Promise<void>;
     loadSoldItems: () => Promise<void>;
     createItem: (data: ItemCreateInput) => Promise<void>;
+    createManyItems: (rows: ItemCreateInput[]) => Promise<void>;
     updateItem: (id: string, data: Partial<Omit<Item, 'id' | 'familyKey' | 'createdAt' | 'updatedAt' | 'purchasePrice'>>) => Promise<void>;
     updatePurchasePrice: (id: string, purchasePrice: number | null, purchasePriceIsPerUnit: boolean) => Promise<void>;
     updateObservedPrice: (id: string, observedPrice: number | null, observedPriceIsPerUnit: boolean, observedCurrency: Currency | null, observedPriceDate: string | null) => Promise<void>;
@@ -60,6 +61,16 @@ export const useItemStore = create<ItemStore>((set, get) => ({
         try {
             const item = await itemService.create(data);
             set(state => ({ items: [...state.items, item] }));
+        } catch {
+            set({ error: 'CREATE_ERROR' });
+        }
+    },
+
+    createManyItems: async (rows) => {
+        set({ error: null });
+        try {
+            const items = await itemService.createMany(rows);
+            set(state => ({ items: [...state.items, ...items] }));
         } catch {
             set({ error: 'CREATE_ERROR' });
         }
