@@ -898,6 +898,32 @@ describe('itemService — price basis (Lot B)', () => {
         expect(created.observedPriceBasis).toBeNull();
     });
 
+    // Phase 10I — photoUrl ne doit jamais être copié : deux lignes partageant
+    // le même fichier casseraient l'autre dès qu'on change la photo de l'une
+    // (ItemDetail.handlePickPhoto supprime l'ancien fichier avant d'écrire le
+    // nouveau). Tous les autres champs métier restent copiés à l'identique.
+    test('duplicate met photoUrl à null, conserve le reste (métal, poids, pureté, quantity, devise)', async () => {
+        mockRepo.findById.mockResolvedValue(makeItem({
+            photoUrl: '/path/to/photo.jpg',
+            metal: 'gold', weightOz: 2.5, purity: 0.999, quantity: 4,
+            purchasePrice: 400, purchasePriceBasis: 'lotTotal', purchaseCurrency: 'EUR',
+        }));
+        mockRepo.create.mockResolvedValue(makeItem());
+
+        await itemService.duplicate('item-uuid-1');
+
+        const created = mockRepo.create.mock.calls[0][0];
+        expect(created.photoUrl).toBeNull();
+        expect(created.metal).toBe('gold');
+        expect(created.weightOz).toBe(2.5);
+        expect(created.purity).toBe(0.999);
+        expect(created.quantity).toBe(4);
+        expect(created.purchasePrice).toBe(400);
+        expect(created.purchasePriceBasis).toBe('lotTotal');
+        expect(created.purchaseCurrency).toBe('EUR');
+        expect(created.id).not.toBe('item-uuid-1');
+    });
+
     test('update() rejette purchasePriceBasis comme purchasePrice (USE_UPDATE_PURCHASE_PRICE)', async () => {
         const data = { purchasePriceBasis: 'unit' } as unknown as Parameters<typeof itemService.update>[1];
         await expect(itemService.update('item-uuid-1', data)).rejects.toThrow('USE_UPDATE_PURCHASE_PRICE');

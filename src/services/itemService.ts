@@ -329,11 +329,16 @@ export const itemService = {
         });
     },
 
+    // Phase 10I — photoUrl jamais copié : deux lignes partageant le même
+    // fichier casseraient l'autre dès qu'on change la photo de l'une
+    // (handlePickPhoto supprime l'ancien fichier avant d'écrire le nouveau).
+    // Tous les autres champs (prix, basis, quantity, devises, dates...)
+    // restent copiés à l'identique — c'est le sens même d'un clone.
     async duplicate(id: string): Promise<Item> {
         const item = await itemRepository.findById(id);
         if (!item) throw new Error('ITEM_NOT_FOUND');
         const { createdAt: _c, updatedAt: _u, ...base } = item;
-        return itemRepository.create({ ...base, id: generateUUID() });
+        return itemRepository.create({ ...base, id: generateUUID(), photoUrl: null });
     },
 
     async delete(id: string, qty?: number): Promise<void> {

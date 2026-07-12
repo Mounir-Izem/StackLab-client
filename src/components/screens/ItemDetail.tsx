@@ -26,6 +26,7 @@ import type { CurrencyRates } from '../../domain/valueSemantics';
 import { resolvePriceEntry, normalizePriceInputToTotal } from '../../domain/lotUnitValueSemantics';
 import { getItemValueDisplayModel } from '../../domain/itemValueDisplaySemantics';
 import { resolveQuantityDraft } from '../../utils/quantityInput';
+import { animationState } from '../../utils/animationState';
 import type { LabsStackScreenProps } from '../../navigation/types';
 import type { Currency } from '../../types/settings.types';
 import type { PriceBasis } from '../../types/item.types';
@@ -38,7 +39,7 @@ export function ItemDetail({ route, navigation }: Props) {
 
     const { labs } = useLabStore();
     const { decks, loadDecks } = useDeckStore();
-    const { items, loadItems, updateItem, deleteItem, restoreFromTrash, sellItem, acquireItem } = useItemStore();
+    const { items, loadItems, updateItem, deleteItem, restoreFromTrash, sellItem, acquireItem, duplicateItem } = useItemStore();
     const currency = useSettingsStore(s => s.settings?.currency ?? 'USD');
     const weightUnit = useSettingsStore(s => s.settings?.weightUnit ?? 'oz');
     const { spot, rates } = useSpotStore();
@@ -124,6 +125,18 @@ export function ItemDetail({ route, navigation }: Props) {
         } catch {
             // silent fail — permission refusée ou erreur fichier
         }
+    }
+
+    // Phase 10I — clone pur (prix/quantity/devises copiés tels quels, photoUrl
+    // jamais copié côté service). lastCreatedItemId réutilise l'animation
+    // d'entrée déjà consommée par LabDetail/DeckDetail pour tout item créé,
+    // aucun changement nécessaire de leur côté.
+    async function handleDuplicate() {
+        if (!item) return;
+        await duplicateItem(item.id);
+        const newId = useItemStore.getState().items.at(-1)?.id ?? null;
+        if (newId) animationState.lastCreatedItemId = newId;
+        navigation.goBack();
     }
 
     if (!item) return (
@@ -565,8 +578,11 @@ export function ItemDetail({ route, navigation }: Props) {
                     <>
                         <ActionBtn icon="create-outline" label={t('item.actions.edit')} onPress={() => navigation.navigate('EditItem', { itemId: item.id })} />
                         <ActionBtn icon="cash-outline" label={t('item.actions.sell')} onPress={() => { setSellQty(item.quantity); setSellPrice(''); setSellBasis(null); setSellBasisError(false); setSellCurrency(currency as Currency); setShowSellModal(true); }} />
-                        <ActionBtn icon="copy-outline" label={t('item.actions.duplicate')} disabled />
-                        <ActionBtn icon="git-branch-outline" label={t('item.actions.extract')} disabled />
+                        <ActionBtn icon="copy-outline" label={t('item.actions.duplicate')} onPress={handleDuplicate} />
+                        {/* Extraire (split) masqué — Phase 10I : UX de saisie non conçue
+                            (quantité à extraire, destination, cas quantity=1...). Service
+                            itemService.extract() déjà testé, prêt à être branché le jour
+                            où l'UX sera arbitrée. */}
                         <ActionBtn icon="arrow-forward-outline" label={t('item.actions.move')} onPress={() => setShowMoveModal(true)} />
                         <ActionBtn icon="trash-outline" label={t('item.actions.delete')} danger onPress={() => setShowDeleteConfirm(true)} />
                     </>
