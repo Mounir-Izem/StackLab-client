@@ -307,7 +307,10 @@ export function EditItemFlow({ route, navigation }: Props) {
     }
 
     const isWishlist = item.status === 'wishlist';
-    const canSave = !!state.name.trim() && !!state.metal;
+    // Phase 10K — même garde que CreateItemStep3 (canNext = weightNum > 0) :
+    // canSave n'incluait pas le poids, un champ vidé en édition sauvegardait
+    // silencieusement weightOz: 0 (valeur melt à 0 sans aucune erreur affichée).
+    const canSave = !!state.name.trim() && !!state.metal && (parseFloat(state.weightInput) || 0) > 0;
 
     return (
         <View style={styles.screen}>

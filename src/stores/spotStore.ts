@@ -21,7 +21,15 @@ async function doFetch(
     get: () => SpotStore,
 ): Promise<void> {
     const netState = await NetInfo.fetch();
-    if (!netState.isConnected) return;
+    // Phase 10K — offline sans cache (ex. premier lancement) laissait spot/error/
+    // isLoading tous à leur valeur initiale : SpotHome n'affichait ni spinner, ni
+    // message, ni prix — un vide sous les sélecteurs devise/unité. error réutilise
+    // le code existant 'UNAVAILABLE' (seul SpotHome le consomme, cf. audit) pour
+    // déclencher son état "indisponible" déjà construit, sans nouvelle UI.
+    if (!netState.isConnected) {
+        set({ isLoading: false, error: 'UNAVAILABLE' });
+        return;
+    }
 
     set({ isLoading: true, error: null });
     const result = await fetchSpotPrices();

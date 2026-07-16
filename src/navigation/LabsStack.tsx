@@ -1,6 +1,7 @@
 import { Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '../stores/settingsStore';
 import { colors, fonts } from '../utils/theme';
 import type { LabsStackParamList } from './types';
@@ -33,12 +34,16 @@ function GearButton() {
 }
 
 export function LabsStack() {
+    const { t } = useTranslation();
     return (
         <Stack.Navigator screenOptions={HEADER_OPTIONS}>
             <Stack.Screen
                 name="LabsHome"
                 component={LabsHome}
-                options={{ title: 'Labs', headerRight: () => <GearButton /> }}
+                // Phase 10K — seul titre statique réellement visible de cette stack :
+                // LabDetail/DeckDetail/ItemDetail écrasent le leur dynamiquement
+                // (setOptions synchrone avant peinture, jamais visible en pratique).
+                options={{ title: t('labs.title'), headerRight: () => <GearButton /> }}
             />
             <Stack.Screen name="LabDetail" component={LabDetail} options={{ title: 'Lab' }} />
             <Stack.Screen name="DeckDetail" component={DeckDetail} options={{ title: 'Deck' }} />

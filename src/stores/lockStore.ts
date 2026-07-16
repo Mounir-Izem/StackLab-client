@@ -19,7 +19,6 @@ interface LockStore {
     unlockWithBiometric: () => Promise<boolean>;
     verifyCurrentPin: (pin: string) => Promise<boolean>;
     setupPin: (pin: string) => Promise<void>;
-    changePin: (pin: string) => Promise<void>;
     disableLock: () => Promise<void>;
 }
 
@@ -101,10 +100,6 @@ export const useLockStore = create<LockStore>((set) => ({
             // backupStore will surface BACKUP_REENCRYPT_FAILED if it fails.
             void useBackupStore.getState().reEncryptBackup(oldPin, pin);
         }
-    },
-
-    changePin: async (pin) => {
-        await lockService.setPin(pin);
     },
 
     disableLock: async () => {

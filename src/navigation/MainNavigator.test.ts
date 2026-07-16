@@ -18,3 +18,30 @@ describe('dashboard.soldHistory', () => {
         expect(en.dashboard.soldHistory).toBe('Sold history');
     });
 });
+
+// Phase 10K — mêmes titres statiques ("Labs"/"Spot"/"Dashboard"/"Détail")
+// jamais traduits, dans LabsStack.tsx (tab LabsHome) et MainNavigator.tsx
+// (tabs + headers Spot/Dashboard/SoldItemDetail). Même limite de test que
+// ci-dessus : pas de rendu de Navigator possible dans cet environnement,
+// vérification par résolution i18n directe.
+describe('titres de navigation Phase 10K', () => {
+    test('labs.title résout dans les deux locales', () => {
+        expect(fr.labs.title).toBe('Mes Labs');
+        expect(en.labs.title).toBe('My Labs');
+    });
+
+    test('spot.title résout dans les deux locales', () => {
+        expect(fr.spot.title).toBe('Prix Spot');
+        expect(en.spot.title).toBe('Spot Prices');
+    });
+
+    test('dashboard.title résout dans les deux locales', () => {
+        expect(fr.dashboard.title).toBe('Tableau de bord');
+        expect(en.dashboard.title).toBe('Dashboard');
+    });
+
+    test('common.detail résout dans les deux locales', () => {
+        expect(fr.common.detail).toBe('Détail');
+        expect(en.common.detail).toBe('Detail');
+    });
+});

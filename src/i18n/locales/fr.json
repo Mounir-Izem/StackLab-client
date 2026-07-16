@@ -1,5 +1,6 @@
 {
   "common": {
+    "detail": "Détail",
     "cancel": "Annuler",
     "save": "Enregistrer",
     "delete": "Supprimer",

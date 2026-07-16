@@ -32,9 +32,10 @@ export const HEADER_OPTIONS = {
 
 const SpotNav = createNativeStackNavigator();
 function SpotStack() {
+    const { t } = useTranslation();
     return (
         <SpotNav.Navigator screenOptions={{ ...HEADER_OPTIONS, headerRight: () => <GearButton /> }}>
-            <SpotNav.Screen name="SpotHome" component={SpotHome} options={{ title: 'Spot' }} />
+            <SpotNav.Screen name="SpotHome" component={SpotHome} options={{ title: t('spot.title') }} />
         </SpotNav.Navigator>
     );
 }
@@ -43,18 +44,20 @@ const DashNav = createNativeStackNavigator();
 function DashStack() {
     // QA/product correction — "Sold History" était codé en dur (jamais traduit).
     // dashboard.soldHistory existe déjà dans les deux locales, réutilisée telle
-    // quelle. Les autres titres de cet écran restent inchangés (hors périmètre).
+    // quelle. Phase 10K — "Dashboard"/"Détail" étaient aussi codés en dur,
+    // corrigés dans la même veine (dashboard.title/common.detail existants).
     const { t } = useTranslation();
     return (
         <DashNav.Navigator screenOptions={{ ...HEADER_OPTIONS, headerRight: () => <GearButton /> }}>
-            <DashNav.Screen name="DashHome" component={DashboardHome} options={{ title: 'Dashboard' }} />
+            <DashNav.Screen name="DashHome" component={DashboardHome} options={{ title: t('dashboard.title') }} />
             <DashNav.Screen name="SoldHistory" component={SoldHistoryScreen} options={{ title: t('dashboard.soldHistory') }} />
-            <DashNav.Screen name="SoldItemDetail" component={SoldItemDetailScreen} options={{ title: 'Détail' }} />
+            <DashNav.Screen name="SoldItemDetail" component={SoldItemDetailScreen} options={{ title: t('common.detail') }} />
         </DashNav.Navigator>
     );
 }
 
 export function MainNavigator() {
+    const { t } = useTranslation();
     return (
         <Tab.Navigator
             screenOptions={({ route }) => ({
@@ -75,9 +78,9 @@ export function MainNavigator() {
                 },
             })}
         >
-            <Tab.Screen name="LabsTab" component={LabsStack} options={{ title: 'Labs' }} />
-            <Tab.Screen name="SpotTab" component={SpotStack} options={{ title: 'Spot' }} />
-            <Tab.Screen name="DashboardTab" component={DashStack} options={{ title: 'Dashboard' }} />
+            <Tab.Screen name="LabsTab" component={LabsStack} options={{ title: t('labs.title') }} />
+            <Tab.Screen name="SpotTab" component={SpotStack} options={{ title: t('spot.title') }} />
+            <Tab.Screen name="DashboardTab" component={DashStack} options={{ title: t('dashboard.title') }} />
         </Tab.Navigator>
     );
 }

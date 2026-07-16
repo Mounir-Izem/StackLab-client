@@ -188,6 +188,13 @@ export const useBackupStore = create<BackupStore>((set, get) => ({
                 error: wrongPin
                     ? 'IMPORT_WRONG_PIN'
                     : versionMismatch ? 'IMPORT_VERSION_MISMATCH' : 'IMPORT_INVALID_FILE',
+                // Phase 10K — erreur fatale (fichier corrompu / version incompatible) :
+                // retenter avec le même PIN ne peut jamais réparer un fichier invalide,
+                // contrairement à IMPORT_WRONG_PIN où on garde pendingEncryptedImport
+                // pour permettre une nouvelle saisie. On vide l'import en attente pour
+                // fermer PinInputModal — error reste posé, la bannière déjà câblée
+                // (SettingsModal) l'affiche au lieu de laisser un spinner bloqué.
+                ...(wrongPin ? {} : { pendingEncryptedImport: null, pendingImportMode: null }),
             });
             return false;
         }
