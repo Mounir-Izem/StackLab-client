@@ -44,6 +44,9 @@ export function ItemDetail({ route, navigation }: Props) {
     const weightUnit = useSettingsStore(s => s.settings?.weightUnit ?? 'oz');
     const { spot, rates } = useSpotStore();
     const [showPhotoOptions, setShowPhotoOptions] = useState(false);
+    // Phase 10L — distingue permission refusée (message dédié) d'une erreur
+    // fichier générique (copie/écriture). null = pas d'erreur à afficher.
+    const [photoError, setPhotoError] = useState<'permission' | 'generic' | null>(null);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [showDeleteForeverConfirm, setShowDeleteForeverConfirm] = useState(false);
     const [showRestorePicker, setShowRestorePicker] = useState(false);
@@ -107,6 +110,20 @@ export function ItemDetail({ route, navigation }: Props) {
         if (!item) return;
         setShowPhotoOptions(false);
         try {
+            // Phase 10L — launchCameraAsync/launchImageLibraryAsync renvoient
+            // { canceled: true } aussi bien pour un refus de permission que pour
+            // une annulation utilisateur (pas de distinction fiable possible sur
+            // le résultat du picker). Seule façon fiable de distinguer les deux :
+            // vérifier/demander la permission explicitement avant de lancer le
+            // picker — si refusée, message dédié ; sinon le picker s'ouvre et
+            // un canceled ultérieur reste un vrai "annulé", pas une erreur.
+            const permission = source === 'camera'
+                ? await ImagePicker.requestCameraPermissionsAsync()
+                : await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (!permission.granted) {
+                setPhotoError('permission');
+                return;
+            }
             const result = source === 'camera'
                 ? await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [1, 1], quality: 0.85 })
                 : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.85 });
@@ -123,7 +140,9 @@ export function ItemDetail({ route, navigation }: Props) {
             await updateItem(item.id, { photoUrl: destFile.uri });
 
         } catch {
-            // silent fail — permission refusée ou erreur fichier
+            // Erreur fichier (copie/écriture) — la permission a déjà été
+            // vérifiée ci-dessus, donc une erreur ici n'est jamais un refus.
+            setPhotoError('generic');
         }
     }
 
@@ -935,6 +954,23 @@ export function ItemDetail({ route, navigation }: Props) {
                         <Pressable style={styles.optionBtn} onPress={() => handlePickPhoto('library')}>
                             <Ionicons name="image-outline" size={20} color={colors.text} />
                             <Text style={styles.optionBtnText}>{t('item.chooseFromLibrary')}</Text>
+                        </Pressable>
+                    </View>
+                </Pressable>
+            </Modal>
+
+            {/* Photo error modal — Phase 10L, permission refusée vs erreur fichier */}
+            <Modal visible={photoError !== null} transparent animationType="fade" onRequestClose={() => setPhotoError(null)}>
+                <Pressable style={styles.overlay} onPress={() => setPhotoError(null)}>
+                    <View style={styles.optionSheet}>
+                        <Text style={styles.optionTitle}>
+                            {photoError === 'permission' ? t('item.photoPermissionDeniedTitle') : t('common.error')}
+                        </Text>
+                        <Text style={styles.optionSubtitle}>
+                            {photoError === 'permission' ? t('item.photoPermissionDeniedMessage') : t('item.photoGenericError')}
+                        </Text>
+                        <Pressable style={styles.optionBtn} onPress={() => setPhotoError(null)}>
+                            <Text style={styles.optionBtnText}>{t('common.gotIt')}</Text>
                         </Pressable>
                     </View>
                 </Pressable>
