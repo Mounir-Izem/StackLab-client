@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-    Modal, View, Text, Pressable, TextInput, Switch, Linking,
+    Modal, View, Text, Pressable, TextInput, Switch,
     StyleSheet, ScrollView, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,6 +18,9 @@ import { PinSetupModal } from './PinSetupModal';
 import { PinVerifyModal } from './PinVerifyModal';
 import { PinInputModal } from './PinInputModal';
 import type { Currency, WeightUnit, AppLanguage } from '../../types/settings.types';
+import appConfig from '../../../app.json';
+
+const APP_VERSION = appConfig.expo.version;
 
 const CURRENCIES: Currency[] = ['USD', 'EUR', 'GBP', 'CAD', 'AUD'];
 const WEIGHT_UNITS: WeightUnit[] = ['oz', 'g', 'kg'];
@@ -35,7 +38,7 @@ function InfoButton({ onPress }: { onPress: () => void }) {
 
 export function SettingsModal() {
     const { t } = useTranslation();
-    const { settings, showSettings, closeSettings, updateSettings } = useSettingsStore();
+    const { settings, showSettings, closeSettings, updateSettings, error: settingsError } = useSettingsStore();
     const {
         isExporting, exportData, isImporting, importData, isReplacing, replaceData,
         isDeletingData, deleteAllData, deleteBackupFile, error: backupError,
@@ -54,6 +57,7 @@ export function SettingsModal() {
     const [showPinVerify, setShowPinVerify] = useState(false);
     const [pinVerifyPurpose, setPinVerifyPurpose] = useState<'change' | 'disable'>('change');
     const disableLock = useLockStore(s => s.disableLock);
+    const requiresAppLock = !settings?.appLockEnabled;
 
     async function handleReplace() {
         setShowReplaceConfirm(false);
@@ -152,7 +156,6 @@ export function SettingsModal() {
 
     async function handleAutoBackupToggle(value: boolean) {
         await updateSettings({ autoBackupEnabled: value });
-        if (value) Linking.openSettings();
     }
 
     function langLabel(lang: AppLanguage): string {
@@ -198,6 +201,12 @@ export function SettingsModal() {
                     </View>
                 ) : (
                     <ScrollView showsVerticalScrollIndicator={false}>
+                        {settingsError && (
+                            <View style={styles.errorBanner}>
+                                <Text style={styles.errorText}>{t('settings.errors.updateFailed')}</Text>
+                            </View>
+                        )}
+
                         {/* Currency */}
                         <Text style={styles.sectionLabel}>{t('settings.currency')}</Text>
                         <View style={styles.chipRow}>
@@ -259,6 +268,7 @@ export function SettingsModal() {
                                 trackColor={{ true: colors.violet, false: colors.surface2 }}
                             />
                         </View>
+                        <Text style={styles.trustNote}>{t('settings.appLockTrustNote')}</Text>
                         {settings.appLockEnabled && (
                             <>
                                 <Pressable style={styles.row} onPress={handleChangePinPress}>
@@ -306,11 +316,15 @@ export function SettingsModal() {
                                 <Text style={styles.rowLabel}>{t('settings.autoBackup')}</Text>
                             </View>
                             <Switch
-                                value={settings.autoBackupEnabled}
+                                value={settings.autoBackupEnabled && settings.appLockEnabled}
                                 onValueChange={handleAutoBackupToggle}
+                                disabled={requiresAppLock}
                                 trackColor={{ true: colors.violet, false: colors.surface2 }}
                             />
                         </View>
+                        {requiresAppLock && (
+                            <Text style={styles.hintText}>{t('settings.requiresAppLock')}</Text>
+                        )}
                         {!settings.autoBackupEnabled && (
                             <View style={styles.row}>
                                 <View style={styles.rowLeft}>
@@ -325,8 +339,8 @@ export function SettingsModal() {
                             </View>
                         )}
                         <Pressable
-                            style={styles.row}
-                            disabled={isExporting}
+                            style={[styles.row, requiresAppLock && styles.disabled]}
+                            disabled={isExporting || requiresAppLock}
                             onPress={() => setShowExportConfirm(true)}
                         >
                             <View style={styles.rowLeft}>
@@ -335,6 +349,9 @@ export function SettingsModal() {
                             </View>
                             {isExporting && <ActivityIndicator size="small" color={colors.text2} />}
                         </Pressable>
+                        {requiresAppLock && (
+                            <Text style={styles.hintText}>{t('settings.requiresAppLock')}</Text>
+                        )}
                         <Pressable
                             style={styles.row}
                             disabled={isImporting}
@@ -347,8 +364,8 @@ export function SettingsModal() {
                             {isImporting && <ActivityIndicator size="small" color={colors.text2} />}
                         </Pressable>
                         <Pressable
-                            style={styles.row}
-                            disabled={isReplacing}
+                            style={[styles.row, requiresAppLock && styles.disabled]}
+                            disabled={isReplacing || requiresAppLock}
                             onPress={() => setShowReplaceConfirm(true)}
                         >
                             <View style={styles.rowLeft}>
@@ -358,6 +375,9 @@ export function SettingsModal() {
                             </View>
                             {isReplacing && <ActivityIndicator size="small" color={colors.text2} />}
                         </Pressable>
+                        {requiresAppLock && (
+                            <Text style={styles.hintText}>{t('settings.requiresAppLock')}</Text>
+                        )}
                         <Pressable
                             style={styles.row}
                             disabled={isDeletingData}
@@ -396,7 +416,7 @@ export function SettingsModal() {
                         </View>
 
                         {/* Version */}
-                        <Text style={styles.version}>{t('settings.version')}</Text>
+                        <Text style={styles.version}>{t('settings.version', { version: APP_VERSION })}</Text>
 
                         {__DEV__ && (
                             <>
@@ -668,6 +688,8 @@ const styles = StyleSheet.create({
     rowLabel: { fontFamily: fonts.outfit, fontSize: 14, color: colors.text },
     rowValue: { fontFamily: fonts.outfit, fontSize: 13, color: colors.text2 },
     rowDesc: { fontFamily: fonts.outfit, fontSize: 11, color: colors.text2, marginTop: 2 },
+    hintText: { fontFamily: fonts.outfit, fontSize: 11, color: colors.text2, paddingBottom: 10 },
+    trustNote: { fontFamily: fonts.outfit, fontSize: 11, color: colors.text2, lineHeight: 16, paddingVertical: 10 },
     version: {
         fontFamily: fonts.outfit, fontSize: 12, color: colors.text2,
         textAlign: 'center', marginTop: 28, marginBottom: 8,

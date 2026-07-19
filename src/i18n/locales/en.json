@@ -71,7 +71,12 @@
       "never": "Never"
     },
     "hideValues": "Hide values",
-    "version": "StackLab — Beta",
+    "version": "StackLab {{version}} — Beta",
+    "requiresAppLock": "Enable App Lock to back up your data.",
+    "appLockTrustNote": "App Lock protects opening StackLab. Exported backups are encrypted. For full protection, keep your phone secure too.",
+    "errors": {
+      "updateFailed": "Couldn't save your changes. Please try again."
+    },
     "export": {
       "title": "Export your data?",
       "message": "Your data is encrypted with your App Lock PIN before export. Only you can open it.",

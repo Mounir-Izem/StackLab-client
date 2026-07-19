@@ -71,7 +71,12 @@
       "never": "Jamais"
     },
     "hideValues": "Masquer les valeurs",
-    "version": "StackLab — Bêta",
+    "version": "StackLab {{version}} — Bêta",
+    "requiresAppLock": "Activez App Lock pour sauvegarder vos données.",
+    "appLockTrustNote": "App Lock protège l'ouverture de StackLab. Les sauvegardes exportées sont chiffrées. Pour une protection complète, gardez aussi votre téléphone sécurisé.",
+    "errors": {
+      "updateFailed": "Impossible d'enregistrer les modifications. Réessayez."
+    },
     "export": {
       "title": "Exporter les données ?",
       "message": "Vos données sont chiffrées avec votre PIN avant l'export. Seul vous pouvez les ouvrir.",
