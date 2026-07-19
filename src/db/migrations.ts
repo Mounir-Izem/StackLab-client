@@ -1,7 +1,7 @@
 import * as SQLite from 'expo-sqlite';
 import { generateUUID } from '../utils/uuid';
 
-export const CURRENT_SCHEMA_VERSION = 9;
+export const CURRENT_SCHEMA_VERSION = 10;
 
 const MIGRATIONS: Record<number, (db: SQLite.SQLiteDatabase) => Promise<void>> = {
     1: migrateV0toV1,
@@ -13,6 +13,7 @@ const MIGRATIONS: Record<number, (db: SQLite.SQLiteDatabase) => Promise<void>> =
     7: migrateV6toV7,
     8: migrateV7toV8,
     9: migrateV8toV9,
+    10: migrateV9toV10,
 };
 
 export async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
@@ -388,4 +389,13 @@ async function migrateV8toV9(db: SQLite.SQLiteDatabase): Promise<void> {
         UPDATE items SET observed_price_basis = 'lotTotal' WHERE observed_price IS NOT NULL;
         UPDATE items SET sold_price_basis = 'lotTotal' WHERE sold_price IS NOT NULL;
     `);
+}
+
+async function migrateV9toV10(db: SQLite.SQLiteDatabase): Promise<void> {
+    // NULL = jamais visité — le badge non-lu du Centre bêta (Phase 10D) compare
+    // ce champ à betaCenterContent.CONTENT_VERSION plutôt qu'à un booléen simple,
+    // pour que chaque nouvelle annonce/version de contenu redéclenche le badge.
+    await db.execAsync(
+        'ALTER TABLE settings ADD COLUMN beta_center_last_seen_version TEXT'
+    );
 }

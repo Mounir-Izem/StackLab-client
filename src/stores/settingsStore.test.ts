@@ -13,6 +13,7 @@ jest.mock('../services/settingsService', () => ({
 
 import { useSettingsStore } from './settingsStore';
 import { settingsService } from '../services/settingsService';
+import { BETA_CENTER_CONTENT_VERSION } from '../data/betaCenterContent';
 import type { Settings } from '../types/settings.types';
 
 const mockGet = settingsService.get as jest.Mock;
@@ -36,12 +37,15 @@ const baseSettings: Settings = {
     onboardingCompleted: true,
     onboardingStep: 0,
     language: 'system',
+    betaCenterLastSeenVersion: null,
     updatedAt: '2026-01-01T00:00:00.000Z',
 };
 
 beforeEach(() => {
     jest.clearAllMocks();
-    useSettingsStore.setState({ settings: null, isLoading: false, error: null, showSettings: false });
+    useSettingsStore.setState({
+        settings: null, isLoading: false, error: null, showSettings: false, showBetaCenter: false,
+    });
 });
 
 describe('settingsStore.updateSettings — gestion d\'erreur', () => {
@@ -90,5 +94,28 @@ describe('settingsStore.loadSettings — gestion d\'erreur', () => {
         const state = useSettingsStore.getState();
         expect(state.error).toBeNull();
         expect(state.settings).toEqual(baseSettings);
+    });
+});
+
+describe('settingsStore.markBetaCenterSeen — Phase 10D', () => {
+    test('jamais vu (null) → persiste la version courante du contenu', async () => {
+        useSettingsStore.setState({ settings: baseSettings });
+        const updated = { ...baseSettings, betaCenterLastSeenVersion: BETA_CENTER_CONTENT_VERSION };
+        mockUpdate.mockResolvedValue(updated);
+
+        await useSettingsStore.getState().markBetaCenterSeen();
+
+        expect(mockUpdate).toHaveBeenCalledWith({ betaCenterLastSeenVersion: BETA_CENTER_CONTENT_VERSION });
+        expect(useSettingsStore.getState().settings).toEqual(updated);
+    });
+
+    test('déjà vu (version courante) → ne réécrit rien', async () => {
+        useSettingsStore.setState({
+            settings: { ...baseSettings, betaCenterLastSeenVersion: BETA_CENTER_CONTENT_VERSION },
+        });
+
+        await useSettingsStore.getState().markBetaCenterSeen();
+
+        expect(mockUpdate).not.toHaveBeenCalled();
     });
 });

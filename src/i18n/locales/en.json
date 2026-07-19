@@ -52,7 +52,8 @@
     },
     "section": {
       "security": "Security",
-      "data": "Data"
+      "data": "Data",
+      "beta": "Beta"
     },
     "appLock": "App Lock",
     "changePin": "Change PIN",
@@ -71,6 +72,7 @@
       "never": "Never"
     },
     "hideValues": "Hide values",
+    "betaCenter": "Beta center",
     "version": "StackLab {{version}} — Beta",
     "requiresAppLock": "Enable App Lock to back up your data.",
     "appLockTrustNote": "App Lock protects opening StackLab. Exported backups are encrypted. For full protection, keep your phone secure too.",
@@ -116,6 +118,22 @@
       "deleteData": "Permanently erases everything in this app — labs, decks, items, and value history. This does NOT delete copies you've already saved elsewhere: manual exports you've shared, or backups already stored in iCloud/Google Drive.",
       "deleteBackup": "Removes the automatic backup file stored on this device. This does NOT delete older copies iCloud or Google Drive may have already saved on their own — manage those from your phone's own settings.",
       "autoWipe": "If someone enters the wrong PIN 10 times in a row, everything on this device is permanently deleted — labs, decks, items, snapshots — with no automatic backup beforehand. Off by default; only enable this if you understand and want that risk."
+    }
+  },
+  "betaCenter": {
+    "title": "Beta center",
+    "whatsNew": "What's new",
+    "entries": {
+      "welcome": {
+        "title": "Welcome to the StackLab beta",
+        "body": "Thanks for testing StackLab! This internal beta lets you track your precious metals collection. Join the Discord for any question or bug to report."
+      }
+    },
+    "discord": {
+      "sectionLabel": "Community",
+      "title": "Join the StackLab Discord",
+      "subtitle": "Report a bug, ask a question, chat with other testers.",
+      "button": "Open Discord"
     }
   },
   "dashboard": {

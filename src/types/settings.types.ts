@@ -21,5 +21,6 @@ export type Settings = {
     onboardingCompleted: boolean;
     onboardingStep: 0 | 1;
     language: AppLanguage;
+    betaCenterLastSeenVersion: string | null;
     updatedAt: string;
 };

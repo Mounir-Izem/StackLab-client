@@ -17,6 +17,8 @@ import { applyLanguage } from '../../i18n';
 import { PinSetupModal } from './PinSetupModal';
 import { PinVerifyModal } from './PinVerifyModal';
 import { PinInputModal } from './PinInputModal';
+import { hasUnseenBetaCenterContent } from '../../domain/betaCenterSemantics';
+import { BETA_CENTER_CONTENT_VERSION } from '../../data/betaCenterContent';
 import type { Currency, WeightUnit, AppLanguage } from '../../types/settings.types';
 import appConfig from '../../../app.json';
 
@@ -38,7 +40,7 @@ function InfoButton({ onPress }: { onPress: () => void }) {
 
 export function SettingsModal() {
     const { t } = useTranslation();
-    const { settings, showSettings, closeSettings, updateSettings, error: settingsError } = useSettingsStore();
+    const { settings, showSettings, closeSettings, updateSettings, openBetaCenter, error: settingsError } = useSettingsStore();
     const {
         isExporting, exportData, isImporting, importData, isReplacing, replaceData,
         isDeletingData, deleteAllData, deleteBackupFile, error: backupError,
@@ -58,6 +60,15 @@ export function SettingsModal() {
     const [pinVerifyPurpose, setPinVerifyPurpose] = useState<'change' | 'disable'>('change');
     const disableLock = useLockStore(s => s.disableLock);
     const requiresAppLock = !settings?.appLockEnabled;
+    const hasUnseenBetaCenter = hasUnseenBetaCenterContent(
+        settings?.betaCenterLastSeenVersion ?? null,
+        BETA_CENTER_CONTENT_VERSION
+    );
+
+    function handleOpenBetaCenter() {
+        closeSettings();
+        openBetaCenter();
+    }
 
     async function handleReplace() {
         setShowReplaceConfirm(false);
@@ -415,6 +426,16 @@ export function SettingsModal() {
                             </Text>
                         </View>
 
+                        {/* Beta */}
+                        <Text style={styles.sectionLabel}>{t('settings.section.beta')}</Text>
+                        <Pressable style={styles.row} onPress={handleOpenBetaCenter}>
+                            <View style={styles.rowLeft}>
+                                <Ionicons name="megaphone-outline" size={18} color={colors.text2} />
+                                <Text style={styles.rowLabel}>{t('settings.betaCenter')}</Text>
+                            </View>
+                            {hasUnseenBetaCenter && <View style={styles.betaBadge} />}
+                        </Pressable>
+
                         {/* Version */}
                         <Text style={styles.version}>{t('settings.version', { version: APP_VERSION })}</Text>
 
@@ -689,6 +710,7 @@ const styles = StyleSheet.create({
     rowValue: { fontFamily: fonts.outfit, fontSize: 13, color: colors.text2 },
     rowDesc: { fontFamily: fonts.outfit, fontSize: 11, color: colors.text2, marginTop: 2 },
     hintText: { fontFamily: fonts.outfit, fontSize: 11, color: colors.text2, paddingBottom: 10 },
+    betaBadge: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.violet },
     trustNote: { fontFamily: fonts.outfit, fontSize: 11, color: colors.text2, lineHeight: 16, paddingVertical: 10 },
     version: {
         fontFamily: fonts.outfit, fontSize: 12, color: colors.text2,

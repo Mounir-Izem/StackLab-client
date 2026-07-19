@@ -19,6 +19,7 @@ type RawSettings = {
     app_lock_prompt_shown: number;
     screen_protection_enabled: number;
     language: string | null;
+    beta_center_last_seen_version: string | null;
     updated_at: string;
 };
 
@@ -41,6 +42,7 @@ function mapRowToSettings(row: RawSettings): Settings {
         appLockPromptShown: row.app_lock_prompt_shown === 1,
         screenProtectionEnabled: row.screen_protection_enabled === 1,
         language: (row.language === 'en' || row.language === 'fr' ? row.language : 'system') as AppLanguage,
+        betaCenterLastSeenVersion: row.beta_center_last_seen_version,
         updatedAt: row.updated_at,
     };
 }
@@ -81,6 +83,7 @@ export const settingsRepository = {
         if (data.appLockPromptShown !== undefined) { fields.push('app_lock_prompt_shown = ?'); values.push(data.appLockPromptShown ? 1 : 0); }
         if (data.screenProtectionEnabled !== undefined) { fields.push('screen_protection_enabled = ?'); values.push(data.screenProtectionEnabled ? 1 : 0); }
         if (data.language !== undefined) { fields.push('language = ?'); values.push(data.language); }
+        if (data.betaCenterLastSeenVersion !== undefined) { fields.push('beta_center_last_seen_version = ?'); values.push(data.betaCenterLastSeenVersion); }
 
         fields.push('updated_at = ?');
         values.push(now);

@@ -98,6 +98,10 @@ const SettingsExportSchema = z.object({
     onboardingCompleted: z.boolean(),
     onboardingStep: z.union([z.literal(0), z.literal(1)]),
     language: z.enum(['system', 'en', 'fr']).default('system'),
+    // Absent des backups antérieurs au schéma V10 : optionnel avec default null,
+    // même précédent que les basis fields V9 — jamais appliqué à l'import (voir
+    // backupService.importMerge/importReplace, settings n'est jamais restauré).
+    betaCenterLastSeenVersion: z.string().nullable().default(null),
     updatedAt: z.string().min(1),
 });
 

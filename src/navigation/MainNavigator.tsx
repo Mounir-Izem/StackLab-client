@@ -1,24 +1,15 @@
-import { Pressable } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useSettingsStore } from '../stores/settingsStore';
 import { colors, fonts } from '../utils/theme';
 import type { MainTabParamList } from './types';
 import { LabsStack } from './LabsStack';
+import { GearButton } from './GearButton';
 import { SpotHome } from '../components/screens/SpotHome';
 import { DashboardHome } from '../components/screens/DashboardHome';
 import { SoldHistoryScreen } from '../components/screens/SoldHistoryScreen';
 import { SoldItemDetailScreen } from '../components/screens/SoldItemDetailScreen';
-
-function GearButton() {
-    return (
-        <Pressable onPress={() => useSettingsStore.getState().openSettings()} hitSlop={8} style={{ marginRight: 4 }}>
-            <Ionicons name="settings-outline" size={20} color={colors.text2} />
-        </Pressable>
-    );
-}
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 

@@ -5,6 +5,7 @@ import { MainNavigator } from './MainNavigator';
 import { OnboardingStack } from './OnboardingStack';
 import { SettingsModal } from '../components/modals/SettingsModal';
 import { AppLockPromptModal } from '../components/modals/AppLockPromptModal';
+import { BetaCenterModal } from '../components/modals/BetaCenterModal';
 import { navigationRef } from './navigationRef';
 
 export function RootNavigator() {
@@ -19,6 +20,7 @@ export function RootNavigator() {
                     <MainNavigator />
                     <SettingsModal />
                     <AppLockPromptModal />
+                    <BetaCenterModal />
                 </>
             ) : (
                 <OnboardingStack />

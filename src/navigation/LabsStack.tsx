@@ -1,8 +1,5 @@
-import { Pressable } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
-import { useSettingsStore } from '../stores/settingsStore';
 import { colors, fonts } from '../utils/theme';
 import type { LabsStackParamList } from './types';
 import { LabsHome } from '../components/screens/LabsHome';
@@ -13,6 +10,7 @@ import { CreateItemFlow } from '../components/screens/CreateItemFlow';
 import { EditItemFlow } from '../components/screens/EditItemFlow';
 import { ModifierFlow } from '../components/screens/ModifierFlow';
 import { TrashModifierFlow } from '../components/screens/TrashModifierFlow';
+import { GearButton } from './GearButton';
 
 
 const Stack = createNativeStackNavigator<LabsStackParamList>();
@@ -24,14 +22,6 @@ const HEADER_OPTIONS = {
     headerTitleAlign: 'center' as const,
     headerShadowVisible: false,
 } as const;
-
-function GearButton() {
-    return (
-        <Pressable onPress={() => useSettingsStore.getState().openSettings()} hitSlop={8} style={{ marginRight: 4 }}>
-            <Ionicons name="settings-outline" size={20} color={colors.text2} />
-        </Pressable>
-    );
-}
 
 export function LabsStack() {
     const { t } = useTranslation();

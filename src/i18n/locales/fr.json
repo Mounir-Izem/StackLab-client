@@ -52,7 +52,8 @@
     },
     "section": {
       "security": "Sécurité",
-      "data": "Données"
+      "data": "Données",
+      "beta": "Bêta"
     },
     "appLock": "Verrouillage",
     "changePin": "Changer le PIN",
@@ -71,6 +72,7 @@
       "never": "Jamais"
     },
     "hideValues": "Masquer les valeurs",
+    "betaCenter": "Centre bêta",
     "version": "StackLab {{version}} — Bêta",
     "requiresAppLock": "Activez App Lock pour sauvegarder vos données.",
     "appLockTrustNote": "App Lock protège l'ouverture de StackLab. Les sauvegardes exportées sont chiffrées. Pour une protection complète, gardez aussi votre téléphone sécurisé.",
@@ -116,6 +118,22 @@
       "deleteData": "Efface définitivement tout dans cette app — labs, decks, objets et historique de valeur. Cela ne supprime PAS les copies déjà sauvegardées ailleurs : exports manuels partagés, ou sauvegardes déjà stockées dans iCloud/Google Drive.",
       "deleteBackup": "Supprime le fichier de sauvegarde automatique stocké sur cet appareil. Cela ne supprime PAS les copies plus anciennes qu'iCloud ou Google Drive ont pu sauvegarder — gérez-les depuis les réglages de votre téléphone.",
       "autoWipe": "Si quelqu'un entre le mauvais PIN 10 fois de suite, tout sur cet appareil est définitivement supprimé — labs, decks, objets, instantanés — sans sauvegarde automatique préalable. Désactivé par défaut ; activez uniquement si vous comprenez et acceptez ce risque."
+    }
+  },
+  "betaCenter": {
+    "title": "Centre bêta",
+    "whatsNew": "Nouveautés",
+    "entries": {
+      "welcome": {
+        "title": "Bienvenue dans la bêta StackLab",
+        "body": "Merci de tester StackLab ! Cette version bêta interne vous permet de suivre votre collection de métaux précieux. Rejoignez le Discord pour toute question ou tout bug à signaler."
+      }
+    },
+    "discord": {
+      "sectionLabel": "Communauté",
+      "title": "Rejoindre le Discord StackLab",
+      "subtitle": "Signalez un bug, posez une question, échangez avec les autres testeurs.",
+      "button": "Ouvrir Discord"
     }
   },
   "dashboard": {

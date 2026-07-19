@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { settingsService } from '../services/settingsService';
+import { BETA_CENTER_CONTENT_VERSION } from '../data/betaCenterContent';
 import type { Settings } from '../types/settings.types';
 
 interface SettingsStore {
@@ -7,21 +8,28 @@ interface SettingsStore {
     isLoading: boolean;
     error: string | null;
     showSettings: boolean;
+    showBetaCenter: boolean;
 
     loadSettings: () => Promise<void>;
     updateSettings: (data: Partial<Omit<Settings, 'updatedAt'>>) => Promise<void>;
     openSettings: () => void;
     closeSettings: () => void;
+    openBetaCenter: () => void;
+    closeBetaCenter: () => void;
+    markBetaCenterSeen: () => Promise<void>;
 }
 
-export const useSettingsStore = create<SettingsStore>((set) => ({
+export const useSettingsStore = create<SettingsStore>((set, get) => ({
     settings: null,
     isLoading: false,
     error: null,
     showSettings: false,
+    showBetaCenter: false,
 
     openSettings: () => set({ showSettings: true }),
     closeSettings: () => set({ showSettings: false }),
+    openBetaCenter: () => set({ showBetaCenter: true }),
+    closeBetaCenter: () => set({ showBetaCenter: false }),
 
     loadSettings: async () => {
         set({ isLoading: true, error: null });
@@ -41,5 +49,10 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
         } catch {
             set({ error: 'UPDATE_ERROR' });
         }
+    },
+
+    markBetaCenterSeen: async () => {
+        if (get().settings?.betaCenterLastSeenVersion === BETA_CENTER_CONTENT_VERSION) return;
+        await get().updateSettings({ betaCenterLastSeenVersion: BETA_CENTER_CONTENT_VERSION });
     },
 }));
