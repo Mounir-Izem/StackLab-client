@@ -12,7 +12,6 @@ import { lockService } from '../../services/lockService';
 import { resetToLabsHome } from '../../navigation/navigationRef';
 import { colors, fonts } from '../../utils/theme';
 import { formatDate } from '../../utils/formatters';
-import { shareAutoBackupForDebug } from '../../utils/backup';
 import { applyLanguage } from '../../i18n';
 import { PinSetupModal } from './PinSetupModal';
 import { PinVerifyModal } from './PinVerifyModal';
@@ -53,7 +52,6 @@ export function SettingsModal() {
     const [deleteDataConfirmText, setDeleteDataConfirmText] = useState('');
     const [showDeleteBackupConfirm, setShowDeleteBackupConfirm] = useState(false);
     const [infoModal, setInfoModal] = useState<InfoKey | null>(null);
-    const [debugMsg, setDebugMsg] = useState<string | null>(null);
     const [showPinSetup, setShowPinSetup] = useState(false);
     const [showAutoWipeConfirm, setShowAutoWipeConfirm] = useState(false);
     const [showPinVerify, setShowPinVerify] = useState(false);
@@ -452,17 +450,6 @@ export function SettingsModal() {
                                     <Ionicons name="refresh-outline" size={16} color={colors.orange} />
                                     <Text style={styles.devBtnText}>Reset onboarding</Text>
                                 </Pressable>
-                                <Pressable
-                                    style={styles.devBtn}
-                                    onPress={async () => {
-                                        const found = await shareAutoBackupForDebug();
-                                        setDebugMsg(found ? null : 'No auto-backup written yet.');
-                                    }}
-                                >
-                                    <Ionicons name="eye-outline" size={16} color={colors.orange} />
-                                    <Text style={styles.devBtnText}>View auto-backup file</Text>
-                                </Pressable>
-                                {debugMsg && <Text style={styles.devMsg}>{debugMsg}</Text>}
                             </>
                         )}
                     </ScrollView>
@@ -722,7 +709,6 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)',
     },
     devBtnText: { fontFamily: fonts.outfit, fontSize: 14, color: colors.orange },
-    devMsg: { fontFamily: fonts.outfit, fontSize: 12, color: colors.text2, paddingVertical: 8 },
     errorBanner: { backgroundColor: 'rgba(180,30,30,0.15)', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: 'rgba(180,30,30,0.30)', marginTop: 10 },
     errorText: { fontFamily: fonts.outfit, fontSize: 13, color: colors.crimson },
     overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end', padding: 16, paddingBottom: 40 },

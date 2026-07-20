@@ -44,13 +44,6 @@ export async function readAutoBackup(): Promise<string | null> {
     return file.text();
 }
 
-export async function shareAutoBackupForDebug(): Promise<boolean> {
-    const file = new FileSystem.File(FileSystem.Paths.document, AUTO_BACKUP_FILENAME);
-    if (!file.exists) return false;
-    await Share.share({ url: file.uri });
-    return true;
-}
-
 export async function deleteAutoBackup(): Promise<boolean> {
     const file = new FileSystem.File(FileSystem.Paths.document, AUTO_BACKUP_FILENAME);
     if (!file.exists) return false;
