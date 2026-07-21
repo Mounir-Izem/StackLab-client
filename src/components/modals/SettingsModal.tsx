@@ -443,7 +443,10 @@ export function SettingsModal() {
                                 <Pressable
                                     style={styles.devBtn}
                                     onPress={async () => {
-                                        await updateSettings({ onboardingCompleted: false, onboardingStep: 0 });
+                                        // seenCoachMarks inclus : "Reset onboarding" doit redonner la
+                                        // première expérience complète (Lot B), pas juste rejouer les
+                                        // 3 écrans OnboardingStack sans les coach marks qui suivent.
+                                        await updateSettings({ onboardingCompleted: false, onboardingStep: 0, seenCoachMarks: [] });
                                         closeSettings();
                                     }}
                                 >

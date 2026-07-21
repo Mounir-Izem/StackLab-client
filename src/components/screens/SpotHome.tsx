@@ -8,6 +8,10 @@ import { useTranslation } from 'react-i18next';
 import { useSpotStore } from '../../stores/spotStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { convertSpotPrice } from '../../utils/calculations';
+import { useMeasuredTarget } from '../../hooks/useMeasuredTarget';
+import { useCoachMark } from '../../hooks/useCoachMark';
+import { COACH_MARK_IDS } from '../../domain/coachMarkSemantics';
+import { CoachMarkOverlay } from '../common/CoachMarkOverlay';
 import { colors, fonts } from '../../utils/theme';
 import type { Currency } from '../../types/settings.types';
 
@@ -47,6 +51,9 @@ export function SpotHome() {
     const [currency, setCurrency] = useState<Currency>(defaultCurrency);
     const [unit, setUnit] = useState<DisplayUnit>('oz');
 
+    const priceTarget = useMeasuredTarget();
+    const priceMark = useCoachMark(COACH_MARK_IDS.spotPrice);
+
     const isUnavailable = !isLoading && error !== null && spot === null;
     const isStale = error !== null && spot !== null;
 
@@ -57,6 +64,7 @@ export function SpotHome() {
     }
 
     return (
+        <>
         <ScrollView
             style={styles.screen}
             contentContainerStyle={styles.content}
@@ -126,7 +134,7 @@ export function SpotHome() {
                         </View>
                     )}
 
-                    <View style={styles.priceCard}>
+                    <View style={styles.priceCard} ref={priceTarget.ref} onLayout={priceTarget.measure}>
                         <View style={styles.metalRow}>
                             <Text style={styles.metalLabel}>{t('spot.gold')}</Text>
                             <Text style={styles.metalSub}>XAU</Text>
@@ -161,6 +169,13 @@ export function SpotHome() {
                 </>
             )}
         </ScrollView>
+        <CoachMarkOverlay
+            visible={!priceMark.hasSeen}
+            targetRect={priceTarget.rect}
+            text={t('coachMark.spotPrice')}
+            onDismiss={priceMark.markSeen}
+        />
+        </>
     );
 }
 

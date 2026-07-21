@@ -20,6 +20,7 @@ type RawSettings = {
     screen_protection_enabled: number;
     language: string | null;
     beta_center_last_seen_version: string | null;
+    seen_coach_marks: string;
     updated_at: string;
 };
 
@@ -43,8 +44,18 @@ function mapRowToSettings(row: RawSettings): Settings {
         screenProtectionEnabled: row.screen_protection_enabled === 1,
         language: (row.language === 'en' || row.language === 'fr' ? row.language : 'system') as AppLanguage,
         betaCenterLastSeenVersion: row.beta_center_last_seen_version,
+        seenCoachMarks: parseSeenCoachMarks(row.seen_coach_marks),
         updatedAt: row.updated_at,
     };
+}
+
+function parseSeenCoachMarks(raw: string): string[] {
+    try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : [];
+    } catch {
+        return [];
+    }
 }
 
 export const settingsRepository = {
@@ -84,6 +95,7 @@ export const settingsRepository = {
         if (data.screenProtectionEnabled !== undefined) { fields.push('screen_protection_enabled = ?'); values.push(data.screenProtectionEnabled ? 1 : 0); }
         if (data.language !== undefined) { fields.push('language = ?'); values.push(data.language); }
         if (data.betaCenterLastSeenVersion !== undefined) { fields.push('beta_center_last_seen_version = ?'); values.push(data.betaCenterLastSeenVersion); }
+        if (data.seenCoachMarks !== undefined) { fields.push('seen_coach_marks = ?'); values.push(JSON.stringify(data.seenCoachMarks)); }
 
         fields.push('updated_at = ?');
         values.push(now);

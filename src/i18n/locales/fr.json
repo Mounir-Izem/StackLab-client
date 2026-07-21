@@ -136,6 +136,14 @@
       "button": "Ouvrir Discord"
     }
   },
+  "coachMark": {
+    "tapHint": "Touchez n'importe où pour continuer",
+    "wishlist": "Votre wishlist — les pièces que vous visez, pas encore les vôtres.",
+    "trash": "Rien n'est vraiment perdu — tout ici peut être restauré.",
+    "dashboardValue": "Votre valeur totale, basée sur le prix spot en direct.",
+    "spotPrice": "Prix de l'or et de l'argent en direct, mis à jour automatiquement.",
+    "settingsGear": "Réglages, sauvegardes et votre Centre bêta sont ici."
+  },
   "dashboard": {
     "title": "Tableau de bord",
     "totalValue": "Valeur totale",

@@ -136,6 +136,14 @@
       "button": "Open Discord"
     }
   },
+  "coachMark": {
+    "tapHint": "Tap anywhere to continue",
+    "wishlist": "Your wishlist — pieces you're eyeing, not yet yours.",
+    "trash": "Nothing is truly gone — everything here can be restored.",
+    "dashboardValue": "Your total value, based on live spot prices.",
+    "spotPrice": "Live gold and silver prices, updated automatically.",
+    "settingsGear": "Settings, backups, and your Beta Center live here."
+  },
   "dashboard": {
     "title": "Dashboard",
     "totalValue": "Total value",

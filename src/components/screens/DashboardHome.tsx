@@ -16,6 +16,10 @@ import { getActiveHoldingCountDisplay, getWishlistCountDisplay, getSoldHistoryCo
 import { snapshotService } from '../../services/snapshotService';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { useCounterAnimationWithCurrency } from '../../hooks/useCounterAnimation';
+import { useMeasuredTarget } from '../../hooks/useMeasuredTarget';
+import { useCoachMark } from '../../hooks/useCoachMark';
+import { COACH_MARK_IDS } from '../../domain/coachMarkSemantics';
+import { CoachMarkOverlay } from '../common/CoachMarkOverlay';
 import { colors, fonts } from '../../utils/theme';
 import type { Animated } from 'react-native';
 import type { Currency, WeightUnit } from '../../types/settings.types';
@@ -68,6 +72,8 @@ export function DashboardHome() {
     const { labs, labOzTotals, labActiveSummaries, wishlistSummary, soldSummary, labInvestedTotals, loadLabs, isLoading: labsLoading } = useLabStore();
     const { spot, rates, isLoading: spotLoading, refresh } = useSpotStore();
     const reduceMotion = useReducedMotion();
+    const valueCardTarget = useMeasuredTarget();
+    const valueCardMark = useCoachMark(COACH_MARK_IDS.dashboardValue);
 
     function handleRefresh() {
         loadLabs();
@@ -159,6 +165,7 @@ export function DashboardHome() {
     }
 
     return (
+        <>
         <ScrollView
             style={styles.screen}
             contentContainerStyle={styles.content}
@@ -169,7 +176,7 @@ export function DashboardHome() {
         >
 
             {/* Total value */}
-            <View style={styles.valueCard}>
+            <View style={styles.valueCard} ref={valueCardTarget.ref} onLayout={valueCardTarget.measure}>
                 <Text style={styles.valueLabel}>{t('dashboard.totalValue')}</Text>
                 {spotLoading && !spot ? (
                     <ActivityIndicator color={colors.violet} style={{ marginVertical: 8 }} />
@@ -305,6 +312,13 @@ export function DashboardHome() {
                 <Text style={styles.refreshText}>{t('dashboard.refreshSpot')}</Text>
             </Pressable>
         </ScrollView>
+        <CoachMarkOverlay
+            visible={!valueCardMark.hasSeen}
+            targetRect={valueCardTarget.rect}
+            text={t('coachMark.dashboardValue')}
+            onDismiss={valueCardMark.markSeen}
+        />
+        </>
     );
 }
 

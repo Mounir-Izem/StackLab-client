@@ -1,7 +1,7 @@
 import * as SQLite from 'expo-sqlite';
 import { generateUUID } from '../utils/uuid';
 
-export const CURRENT_SCHEMA_VERSION = 10;
+export const CURRENT_SCHEMA_VERSION = 11;
 
 const MIGRATIONS: Record<number, (db: SQLite.SQLiteDatabase) => Promise<void>> = {
     1: migrateV0toV1,
@@ -14,6 +14,7 @@ const MIGRATIONS: Record<number, (db: SQLite.SQLiteDatabase) => Promise<void>> =
     8: migrateV7toV8,
     9: migrateV8toV9,
     10: migrateV9toV10,
+    11: migrateV10toV11,
 };
 
 export async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
@@ -397,5 +398,13 @@ async function migrateV9toV10(db: SQLite.SQLiteDatabase): Promise<void> {
     // pour que chaque nouvelle annonce/version de contenu redéclenche le badge.
     await db.execAsync(
         'ALTER TABLE settings ADD COLUMN beta_center_last_seen_version TEXT'
+    );
+}
+
+async function migrateV10toV11(db: SQLite.SQLiteDatabase): Promise<void> {
+    // Liste d'IDs de coach marks vus (Onboarding V2 Lot B), sérialisée en JSON —
+    // premier champ Settings à porter un tableau plutôt qu'un scalaire.
+    await db.execAsync(
+        "ALTER TABLE settings ADD COLUMN seen_coach_marks TEXT NOT NULL DEFAULT '[]'"
     );
 }

@@ -102,6 +102,9 @@ const SettingsExportSchema = z.object({
     // même précédent que les basis fields V9 — jamais appliqué à l'import (voir
     // backupService.importMerge/importReplace, settings n'est jamais restauré).
     betaCenterLastSeenVersion: z.string().nullable().default(null),
+    // Absent des backups antérieurs au schéma V11 : optionnel avec default [],
+    // même précédent — jamais appliqué à l'import (settings n'est jamais restauré).
+    seenCoachMarks: z.array(z.string()).default([]),
     updatedAt: z.string().min(1),
 });
 

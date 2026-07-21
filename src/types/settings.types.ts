@@ -22,5 +22,6 @@ export type Settings = {
     onboardingStep: 0 | 1;
     language: AppLanguage;
     betaCenterLastSeenVersion: string | null;
+    seenCoachMarks: string[];
     updatedAt: string;
 };

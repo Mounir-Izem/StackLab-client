@@ -8,6 +8,10 @@ import { useSettingsStore } from '../../stores/settingsStore';
 import { useSpotStore } from '../../stores/spotStore';
 import { convertSpotPrice } from '../../utils/calculations';
 import { LabCard } from '../cards/LabCard';
+import { CoachMarkOverlay } from '../common/CoachMarkOverlay';
+import { useMeasuredTarget } from '../../hooks/useMeasuredTarget';
+import { useCoachMark } from '../../hooks/useCoachMark';
+import { COACH_MARK_IDS } from '../../domain/coachMarkSemantics';
 import { colors, fonts } from '../../utils/theme';
 import type { LabsStackScreenProps } from '../../navigation/types';
 import type { Lab } from '../../types/lab.types';
@@ -25,6 +29,11 @@ export function LabsHome({ navigation }: Props) {
     const spotSilver = spot ? convertSpotPrice(spot.silver, currency, rates) : null;
 
     const [reminderDismissed, setReminderDismissed] = useState(false);
+
+    const wishlistTarget = useMeasuredTarget();
+    const trashTarget = useMeasuredTarget();
+    const wishlistMark = useCoachMark(COACH_MARK_IDS.wishlist);
+    const trashMark = useCoachMark(COACH_MARK_IDS.trash);
 
     const activeCards = Object.values(labActiveSummaries).reduce((sum, v) => sum + v.cards, 0);
     const totalItems = activeCards + wishlistSummary.cards + soldSummary.cards;
@@ -68,7 +77,7 @@ export function LabsHome({ navigation }: Props) {
             : item.type === 'trash' ? trashSummary.units
             : activeSummary?.units ?? 0;
 
-        return (
+        const card = (
             <LabCard
                 lab={item}
                 cards={cardsForDisplay}
@@ -80,7 +89,18 @@ export function LabsHome({ navigation }: Props) {
                 onPress={() => navigation.navigate('LabDetail', { labId: item.id })}
             />
         );
-    }, [labActiveSummaries, wishlistSummary, trashSummary, labOzTotals, spotGold, spotSilver, currency, navigation]);
+
+        if (item.type === 'wishlist') {
+            return <View ref={wishlistTarget.ref} onLayout={wishlistTarget.measure}>{card}</View>;
+        }
+        if (item.type === 'trash') {
+            return <View ref={trashTarget.ref} onLayout={trashTarget.measure}>{card}</View>;
+        }
+        return card;
+    }, [
+        labActiveSummaries, wishlistSummary, trashSummary, labOzTotals, spotGold, spotSilver, currency, navigation,
+        wishlistTarget.ref, wishlistTarget.measure, trashTarget.ref, trashTarget.measure,
+    ]);
 
     if (isLoading && labs.length === 0) {
         return (
@@ -126,6 +146,18 @@ export function LabsHome({ navigation }: Props) {
                 onRefresh={loadLabs}
                 ListHeaderComponent={reminderBanner ?? backupBanner}
                 ItemSeparatorComponent={() => <View style={styles.separator} />}
+            />
+            <CoachMarkOverlay
+                visible={!wishlistMark.hasSeen}
+                targetRect={wishlistTarget.rect}
+                text={t('coachMark.wishlist')}
+                onDismiss={wishlistMark.markSeen}
+            />
+            <CoachMarkOverlay
+                visible={wishlistMark.hasSeen && !trashMark.hasSeen}
+                targetRect={trashTarget.rect}
+                text={t('coachMark.trash')}
+                onDismiss={trashMark.markSeen}
             />
         </View>
     );
